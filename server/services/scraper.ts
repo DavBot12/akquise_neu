@@ -28,7 +28,16 @@ export class ScraperService {
     options.onProgress('[INFO] Scraper wird gestartet...');
 
     try {
-      this.browser = await chromium.launch({ headless: true });
+      // Check if browser dependencies are available
+      try {
+        this.browser = await chromium.launch({ headless: true });
+      } catch (browserError) {
+        const errorMessage = browserError instanceof Error ? browserError.message : String(browserError);
+        if (errorMessage.includes('Host system is missing dependencies')) {
+          throw new Error('Browser dependencies are not installed. Please install them using the System Dependencies panel in Replit, or contact support if you need help setting up the scraper.');
+        }
+        throw browserError;
+      }
       
       for (const category of options.categories) {
         if (!this.WILLHABEN_URLS[category as keyof typeof this.WILLHABEN_URLS]) {
