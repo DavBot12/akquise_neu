@@ -1,0 +1,126 @@
+# Real Estate Acquisition Tool
+
+## Overview
+This is a full-stack real estate acquisition tool built with Node.js, React, and TypeScript. The application is designed to scrape real estate listings from Willhaben.at, evaluate their pricing, and manage contacts for property acquisition activities. It features a web-based dashboard for viewing listings, managing contacts, and monitoring scraping operations.
+
+## User Preferences
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite for fast development and bundling
+- **UI Library**: Radix UI components with shadcn/ui design system
+- **Styling**: Tailwind CSS with custom CSS variables for theming
+- **State Management**: React Query (TanStack Query) for server state
+- **Routing**: Wouter for lightweight client-side routing
+- **Form Handling**: React Hook Form with Zod validation
+
+### Backend Architecture
+- **Runtime**: Node.js with Express.js server
+- **Language**: TypeScript with ES modules
+- **Database**: PostgreSQL with Drizzle ORM
+- **Database Provider**: Neon serverless PostgreSQL
+- **Real-time Communication**: WebSocket server for live updates
+- **Web Scraping**: Playwright for automated browser interactions
+
+### Project Structure
+The application follows a monorepo structure with clear separation:
+- `client/` - React frontend application
+- `server/` - Express.js backend API
+- `shared/` - Shared TypeScript schemas and types
+- Database schemas defined in `shared/schema.ts`
+
+## Key Components
+
+### Web Scraper Service
+- **Purpose**: Automated scraping of real estate listings from Willhaben.at
+- **Technology**: Playwright for reliable browser automation
+- **Target Sites**: 
+  - Eigentumswohnungen (apartments) in Wien and Niederösterreich
+  - Grundstücke (land plots) in Wien and Niederösterreich
+- **Features**: 
+  - Filters for private listings only (excludes real estate agents)
+  - Multi-page scraping with automatic pagination
+  - Real-time progress updates via WebSocket
+  - Duplicate detection using URL uniqueness
+
+### Price Evaluation System
+- **Purpose**: Automated pricing analysis for scraped listings
+- **Logic**: Compares listing prices against regional averages
+- **Categories**: 
+  - "unter_schnitt" (below average)
+  - "im_schnitt" (average)
+  - "ueber_schnitt" (above average)
+- **Update Frequency**: Regional averages recalculated hourly
+
+### Contact Management
+- **Purpose**: Track contacts for property acquisition
+- **Features**: CRUD operations for contact information
+- **Data**: Name, company, phone, email, notes
+- **Integration**: Can be assigned to specific listings
+
+### Dashboard Interface
+- **Tabs**: Dashboard overview, Scraper console, Contacts management
+- **Filtering**: By region, price evaluation, acquisition status
+- **Real-time Updates**: WebSocket integration for live scraping progress
+- **Responsive Design**: Mobile-friendly interface using Radix UI
+
+## Data Flow
+
+1. **Scraping Process**:
+   - User initiates scraping via dashboard
+   - Scraper service launches Playwright browser
+   - Listings scraped and validated for private sellers
+   - Data saved to PostgreSQL with price evaluation
+   - Real-time updates sent via WebSocket
+
+2. **Price Evaluation**:
+   - New listings automatically evaluated against regional averages
+   - Price ratios calculated (listing price / regional average)
+   - Classifications assigned based on ratio thresholds
+
+3. **User Interaction**:
+   - Dashboard displays filtered listings
+   - Users can mark listings as "akquise_erledigt" (acquisition completed)
+   - Contact management for tracking communications
+   - Real-time scraping console for monitoring operations
+
+## External Dependencies
+
+### Core Technologies
+- **Database**: Neon PostgreSQL (serverless)
+- **ORM**: Drizzle with PostgreSQL adapter
+- **Scraping**: Playwright with Chromium
+- **UI Components**: Radix UI primitives
+- **Styling**: Tailwind CSS
+- **Forms**: React Hook Form + Zod validation
+- **State Management**: TanStack React Query
+
+### Build and Development
+- **Package Manager**: npm
+- **Build Tools**: Vite (frontend), esbuild (backend)
+- **TypeScript**: Full TypeScript support across stack
+- **Development**: Hot reload via Vite, tsx for server development
+
+## Deployment Strategy
+
+### Environment Configuration
+- **Database**: Requires `DATABASE_URL` environment variable
+- **Development**: Uses tsx for server hot reload
+- **Production**: Builds to `dist/` directory with separate frontend/backend bundles
+
+### Build Process
+1. Frontend built with Vite to `dist/public`
+2. Backend bundled with esbuild to `dist/index.js`
+3. Shared schemas available to both frontend and backend
+4. Database migrations managed via Drizzle Kit
+
+### Database Management
+- **Migrations**: Stored in `./migrations` directory
+- **Schema**: Centralized in `shared/schema.ts`
+- **Push Strategy**: `npm run db:push` for schema updates
+- **Connection**: Connection pooling via Neon serverless adapter
+
+The application is designed to be deployed on platforms supporting Node.js with PostgreSQL, with particular optimization for Replit's environment including WebSocket support and file system permissions.
