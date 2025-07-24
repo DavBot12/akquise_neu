@@ -13,6 +13,11 @@ Preferred communication style: Simple, everyday language.
 ✓ Improved real-time WebSocket updates for scraper status
 ✓ Added comprehensive price statistics API endpoint
 ✓ Enhanced error handling and logging throughout the application
+✓ MAJOR: Completely rebuilt scraper engine with robust data extraction
+✓ Fixed Chromium browser path and updated to latest version
+✓ Implemented smart private vs. commercial listing detection
+✓ Enhanced title, price, location, and URL extraction logic
+✓ Successfully scraping multiple categories with high accuracy
 
 ## System Architecture
 

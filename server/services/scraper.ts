@@ -15,9 +15,9 @@ export class ScraperService {
 
   private readonly WILLHABEN_URLS = {
     'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote/wien?sort=1',
-    'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstuecke-angebote/wien?sort=1',
+    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote/wien?sort=1',
     'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote/niederoesterreich?sort=1',
-    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstuecke-angebote/niederoesterreich?sort=1'
+    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote/niederoesterreich?sort=1'
   };
 
   async startScraping(options: ScrapingOptions): Promise<void> {
@@ -122,22 +122,13 @@ export class ScraperService {
         const pageTitle = await page.title();
         options.onProgress(`[DEBUG] Seite geladen: ${pageTitle}`);
         
-        // Check for different listing container patterns - modernized Willhaben selectors
+        // Focus on main listing containers based on successful patterns
         const possibleSelectors = [
-          'article',
-          '[data-testid*="result"]',
-          '[data-testid*="item"]', 
-          '[data-testid*="listing"]',
-          '.MuiCard-root',
-          '.MuiPaper-root',
-          '[data-cy*="result"]',
-          '[data-cy*="item"]',
-          '.search-list-item',
-          '.search-result-entry',
-          '.result-item',
-          '.advertContainer',
-          'div[role="article"]',
-          'div[data-testid]'
+          'article[data-testid*="search-result-entry-"]',   // Main Willhaben listing articles
+          'article',                                        // Fallback for generic articles
+          '.MuiCard-root:has(h1, h2, h3)',                 // Material-UI cards with content
+          '[data-testid*="result"]:has(a)',                // Result elements with links
+          '.search-result-entry',                          // Legacy selector
         ];
         
         let listings: any[] = [];
@@ -206,8 +197,19 @@ export class ScraperService {
           try {
             const listing = listings[i];
             
-            // Check if it's a private listing
+            // Pre-filter: Skip obviously non-listing elements
             const listingText = await listing.evaluate((el: Element) => el.textContent?.toLowerCase() || '');
+            
+            // Skip elements that are clearly sub-components or too small
+            if (listingText.length < 50 || 
+                !listingText.includes('€') || 
+                !listingText.includes('m²') ||
+                listingText.includes('show-results') ||
+                listingText.includes('action-bar')) {
+              continue;
+            }
+            
+            // Check if it's a private listing
             const isPrivate = await this.isPrivateListing(listing);
             
             if (!isPrivate) {
@@ -219,7 +221,6 @@ export class ScraperService {
               continue;
             }
             privateListingsFound++;
-            options.onProgress(`[DEBUG] Private Listing gefunden: "${listingText.substring(0, 80)}..."`);
 
             const listingData = await this.extractListingData(listing, category);
             if (listingData && listingData.title && listingData.price > 0) {
@@ -313,70 +314,110 @@ export class ScraperService {
 
   private async extractListingData(listing: any, category: string): Promise<any | null> {
     try {
-      // Extract title - comprehensive selector search
+      // Extract title with modern Willhaben structure understanding
       let title = '';
+      
+      // Modern Willhaben often uses specific patterns - try comprehensive approach
       const titleSelectors = [
-        '[data-testid="search-result-title"]',
+        'a h3',
+        'a h2', 
+        'h3',
+        'h2',
+        'h1',
         '[data-testid*="title"]',
-        'h1', 'h2', 'h3', 'h4',
-        '.title',
-        '.sf-search-list-item-title',
-        '.result-title',
         'a[title]',
-        '.advertTitle'
+        '.MuiTypography-h6',
+        '.MuiTypography-h5',
+        'a span',
+        '.title'
       ];
       
       for (const selector of titleSelectors) {
         const titleElement = await listing.$(selector);
         if (titleElement) {
-          title = await titleElement.textContent() || '';
-          if (title.trim()) break;
+          const text = await titleElement.textContent();
+          if (text && text.trim() && text.length > 10) { // Must be substantial text
+            title = text.trim();
+            console.log(`[TITLE DEBUG] Found with selector "${selector}": "${title}"`);
+            break;
+          }
         }
       }
       
-      // Fallback: try to get title from link text
+      // Fallback: get title from link attribute or longest text
       if (!title.trim()) {
         const linkElement = await listing.$('a');
         if (linkElement) {
-          title = await linkElement.getAttribute('title') || await linkElement.textContent() || '';
+          title = await linkElement.getAttribute('title') || '';
+          if (!title.trim()) {
+            // Get the longest text content from the link
+            const linkText = await linkElement.textContent() || '';
+            if (linkText.length > 15) {
+              title = linkText.trim();
+            }
+          }
         }
       }
+      
+      console.log(`[TITLE FINAL] Extracted title: "${title}"`);
 
-      // Extract price - try multiple selectors
+      // Extract price with better logic for modern Willhaben
       let priceText = '';
       const priceSelectors = [
-        '[data-testid="search-result-price"]',
-        '.sf-search-list-item-price',
-        '[data-testid="result-price"]',
-        '.price'
+        'strong:contains("€")',
+        '.MuiTypography-body1:contains("€")', 
+        '[data-testid*="price"]',
+        'span:contains("€")',
+        '.price',
+        'div:contains("€")'
       ];
       
-      for (const selector of priceSelectors) {
-        const priceElement = await listing.$(selector);
-        if (priceElement) {
-          priceText = await priceElement.textContent() || '';
-          if (priceText.trim()) break;
+      // Since :contains() doesn't work in querySelector, we need a different approach
+      const allElements = await listing.$$('*');
+      for (const element of allElements) {
+        const text = await element.textContent();
+        if (text && text.includes('€') && text.match(/€\s*[\d.,]+/)) {
+          priceText = text;
+          console.log(`[PRICE DEBUG] Found price text: "${priceText}"`);
+          break;
         }
       }
       
       const price = this.extractPrice(priceText);
+      console.log(`[PRICE FINAL] Extracted price: ${price}`);
 
-      // Extract location - try multiple selectors
+      // Extract location from all text - Willhaben typically shows location in listing text
       let location = '';
-      const locationSelectors = [
-        '[data-testid="search-result-location"]',
-        '.sf-search-list-item-location',
-        '[data-testid="result-location"]',
-        '.location'
+      
+      // Look for Austrian postal codes and city names in the text
+      const locationPatterns = [
+        /(\d{4}\s+[a-züäöß\s]+)/gi,     // 1020 Wien, 2500 Baden etc
+        /([a-züäöß\s]+,\s*\d+\.\s*bezirk)/gi,  // Wien, 02. Bezirk
+        /([a-züäöß\s]+stadt)/gi,        // Leopoldstadt etc
       ];
       
-      for (const selector of locationSelectors) {
-        const locationElement = await listing.$(selector);
-        if (locationElement) {
-          location = await locationElement.textContent() || '';
-          if (location.trim()) break;
+      const allText = await listing.evaluate((el: Element) => el.textContent || '');
+      for (const pattern of locationPatterns) {
+        const matches = allText.match(pattern);
+        if (matches && matches[0].length > 5) {
+          location = matches[0].trim();
+          console.log(`[LOCATION DEBUG] Found: "${location}"`);
+          break;
         }
       }
+      
+      // Fallback: look for common Austrian cities
+      if (!location) {
+        const cities = ['wien', 'baden', 'mödling', 'wiener neustadt', 'st. pölten'];
+        for (const city of cities) {
+          if (allText.toLowerCase().includes(city)) {
+            location = city;
+            break;
+          }
+        }
+      }
+      
+      console.log(`[LOCATION FINAL] Extracted: "${location}"`);
 
       // Extract area - try multiple selectors and text patterns
       let areaText = '';
@@ -406,26 +447,26 @@ export class ScraperService {
 
       // Extract URL - try multiple approaches
       let url = '';
+      const linkElements = await listing.$$('a');
       
-      // Try to find link element
-      const linkElement = await listing.$('a');
-      if (linkElement) {
+      for (const linkElement of linkElements) {
         let href = await linkElement.getAttribute('href');
+        if (href && href.includes('/iad/')) {
+          url = href.startsWith('http') ? href : `https://www.willhaben.at${href}`;
+          console.log(`[URL DEBUG] Found URL: "${url}"`);
+          break;
+        }
+      }
+      
+      // If no URL found, try to get any link
+      if (!url && linkElements.length > 0) {
+        const href = await linkElements[0].getAttribute('href');
         if (href) {
           url = href.startsWith('http') ? href : `https://www.willhaben.at${href}`;
         }
       }
       
-      // If no URL found from link, try to construct from any ID or data attribute
-      if (!url) {
-        const dataTestId = await listing.getAttribute('data-testid');
-        if (dataTestId) {
-          // This is a fallback - might not work but better than no URL
-          url = `https://www.willhaben.at/listing/${dataTestId}`;
-        }
-      }
-      
-      console.log(`[URL DEBUG] Found URL: "${url}" from linkElement: ${!!linkElement}`);
+      console.log(`[URL FINAL] Final URL: "${url}", found ${linkElements.length} links`);
 
       // Extract images
       const imageElements = await listing.$$('img');
@@ -442,7 +483,7 @@ export class ScraperService {
         return null;
       }
       
-      console.log(`[EXTRACT SUCCESS] Found complete listing - title: "${title}", price: ${price}`);
+      console.log(`[EXTRACT SUCCESS] Complete listing - title: "${title}", price: ${price}, location: "${location}"`);
 
       const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
       const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
@@ -467,33 +508,35 @@ export class ScraperService {
   }
 
   private extractPrice(priceText: string): number {
-    // Remove all non-digit characters except dots and commas
-    const cleanText = priceText.replace(/[^\d.,]/g, '');
+    if (!priceText) return 0;
     
-    // Look for price patterns
+    console.log(`[PRICE EXTRACT] Processing: "${priceText}"`);
+    
+    // Look for European price patterns (Austrian style)
     const patterns = [
-      /€\s*([\d.,]+)/,
-      /([\d.,]+)\s*€/,
-      /([\d]+(?:[.,]\d{3})*(?:[.,]\d{2})?)/
+      /€\s*([\d]+(?:[.,]\d{3})*)/,      // € 350.000 or € 350,000
+      /([\d]+(?:[.,]\d{3})*)\s*€/,      // 350.000 € or 350,000 €
+      /€\s*([\d]+)/,                    // € 350000
+      /([\d]+)\s*€/,                    // 350000 €
+      /([\d]+(?:[.,]\d{3})+)/           // 350.000 or 350,000
     ];
     
     for (const pattern of patterns) {
       const matches = priceText.match(pattern);
       if (matches) {
-        const priceStr = matches[1].replace(/[.,]/g, '');
+        // Clean the number: remove dots and commas used as thousand separators
+        let priceStr = matches[1].replace(/[.,]/g, '');
         const price = parseInt(priceStr);
-        if (price > 1000) { // Reasonable price check
+        
+        // Sanity check: price should be reasonable for real estate
+        if (price >= 10000 && price <= 50000000) {
+          console.log(`[PRICE EXTRACT] Success: ${price} from "${matches[1]}"`);
           return price;
         }
       }
     }
     
-    // Fallback: try to extract any large number
-    const numbers = cleanText.match(/\d{4,}/g);
-    if (numbers) {
-      return parseInt(numbers[0]);
-    }
-    
+    console.log(`[PRICE EXTRACT] Failed to extract from: "${priceText}"`);
     return 0;
   }
 
