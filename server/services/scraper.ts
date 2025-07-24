@@ -34,7 +34,9 @@ export class ScraperService {
       } catch (browserError) {
         const errorMessage = browserError instanceof Error ? browserError.message : String(browserError);
         if (errorMessage.includes('Host system is missing dependencies')) {
-          throw new Error('Browser dependencies are not installed. Please install them using the System Dependencies panel in Replit, or contact support if you need help setting up the scraper.');
+          options.onProgress('[ERROR] Browser dependencies are not installed. Please install them using the System Dependencies panel in Replit.');
+          options.onProgress('[INFO] Scraping cannot proceed without browser dependencies.');
+          return;
         }
         throw browserError;
       }
