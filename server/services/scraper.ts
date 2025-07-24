@@ -14,10 +14,10 @@ export class ScraperService {
   private isRunning = false;
 
   private readonly WILLHABEN_URLS = {
-    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote/wien',
-    'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstuecke-angebote/wien',
-    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote/niederoesterreich',
-    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstuecke-angebote/niederoesterreich'
+    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote/wien?sort=1',
+    'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstuecke-angebote/wien?sort=1',
+    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote/niederoesterreich?sort=1',
+    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstuecke-angebote/niederoesterreich?sort=1'
   };
 
   async startScraping(options: ScrapingOptions): Promise<void> {
@@ -122,18 +122,22 @@ export class ScraperService {
         const pageTitle = await page.title();
         options.onProgress(`[DEBUG] Seite geladen: ${pageTitle}`);
         
-        // Check for different listing container patterns
+        // Check for different listing container patterns - modernized Willhaben selectors
         const possibleSelectors = [
-          '[data-testid="search-result-item"]',
-          '.sf-search-list-item', 
-          '[data-testid="result-item"]',
-          '.search-result-entry',
-          '.search-list-item',
+          'article',
           '[data-testid*="result"]',
-          '[data-cy="search-result-item"]',
+          '[data-testid*="item"]', 
+          '[data-testid*="listing"]',
+          '.MuiCard-root',
+          '.MuiPaper-root',
+          '[data-cy*="result"]',
+          '[data-cy*="item"]',
+          '.search-list-item',
+          '.search-result-entry',
           '.result-item',
-          'article[data-testid]',
-          '.advertContainer'
+          '.advertContainer',
+          'div[role="article"]',
+          'div[data-testid]'
         ];
         
         let listings: any[] = [];
@@ -156,11 +160,36 @@ export class ScraperService {
             const allElements = body.querySelectorAll('*');
             const testIds = Array.from(allElements)
               .map(el => el.getAttribute('data-testid'))
-              .filter(id => id && id.includes('result'))
+              .filter(id => id)
+              .slice(0, 20);
+            
+            // Also check for common class patterns
+            const commonClasses = Array.from(allElements)
+              .map(el => el.className)
+              .filter(className => className && typeof className === 'string')
+              .filter(className => className.includes('result') || className.includes('item') || className.includes('card'))
               .slice(0, 10);
-            return { testIds, bodyExists: !!body };
+              
+            // Check if page loaded correctly
+            const hasContent = body.textContent && body.textContent.length > 100;
+            
+            return { 
+              testIds, 
+              commonClasses,
+              bodyExists: !!body,
+              hasContent,
+              pageText: body.textContent?.substring(0, 300) || 'Kein Text'
+            };
           });
-          options.onProgress(`[DEBUG] Seiten-Struktur: ${JSON.stringify(bodyContent)}`);
+          options.onProgress(`[DEBUG] Detaillierte Seiten-Analyse: ${JSON.stringify(bodyContent, null, 2)}`);
+          
+          // Try to take a screenshot for debugging
+          try {
+            await page.screenshot({ path: '/tmp/debug-willhaben.png', fullPage: false });
+            options.onProgress(`[DEBUG] Screenshot gespeichert: /tmp/debug-willhaben.png`);
+          } catch (e) {
+            options.onProgress(`[DEBUG] Screenshot fehlgeschlagen`);
+          }
         }
         
         if (listings.length === 0) {
@@ -178,18 +207,29 @@ export class ScraperService {
             const listing = listings[i];
             
             // Check if it's a private listing
+            const listingText = await listing.evaluate((el: Element) => el.textContent?.toLowerCase() || '');
             const isPrivate = await this.isPrivateListing(listing);
+            
             if (!isPrivate) {
+              // Debug why it was excluded - show which commercial indicator was found
+              const commercialFound = ['realitäten gmbh', 'kaltenegger', 'makler', 'immobilien gmbh', 'remax'].find(term => 
+                listingText.includes(term)
+              );
+              options.onProgress(`[DEBUG] Ausgeschlossen (${commercialFound || 'kommerziell'}): "${listingText.substring(0, 80)}..."`);
               continue;
             }
             privateListingsFound++;
+            options.onProgress(`[DEBUG] Private Listing gefunden: "${listingText.substring(0, 80)}..."`);
 
             const listingData = await this.extractListingData(listing, category);
-            if (listingData) {
+            if (listingData && listingData.title && listingData.price > 0) {
               options.onProgress(`[SUCCESS] Speichere Listing: "${listingData.title}" - €${listingData.price}`);
               await options.onListingFound(listingData);
             } else {
-              options.onProgress(`[WARNING] Konnte Listing ${i + 1} nicht extrahieren`);
+              const debugInfo = listingData ? 
+                `title:'${listingData.title}' price:${listingData.price}` : 
+                'null data';
+              options.onProgress(`[WARNING] Konnte Listing ${i + 1} nicht extrahieren (${debugInfo})`);
             }
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -214,39 +254,60 @@ export class ScraperService {
       // Get all text content from the listing
       const allText = await listing.evaluate((el: Element) => el.textContent?.toLowerCase() || '');
       
-      // Look for various private indicators
+      // Strong commercial indicators that definitely exclude listings
+      const commercialExclusions = [
+        'immobilienmakler',
+        'makler gmbh',
+        'immobilien gmbh',
+        'immobilienagentur',
+        'immobilienservice',
+        'maklerhaus',
+        'remax',
+        'century 21',
+        'realitäten gmbh',
+        'realitäten',
+        'kaltenegger',
+        'otto immobilien',
+        'engel & völkers',
+        'buwog',
+        'are'
+      ];
+      
+      // Check for strong commercial exclusions first
+      const hasStrongCommercial = commercialExclusions.some(indicator => 
+        allText.includes(indicator)
+      );
+      
+      if (hasStrongCommercial) {
+        return false;
+      }
+      
+      // If no strong commercial indicators, assume it could be private
+      // Many private listings don't explicitly say "privat"
+      
+      // Look for explicit private indicators (bonus points)
       const privateIndicators = [
         'privat',
         'private',
         'privatverkauf',
         'von privat',
         'private anzeige',
-        'privatperson'
-      ];
-      
-      // Also check for absence of commercial indicators
-      const commercialIndicators = [
-        'makler',
-        'immobilien',
-        'agentur',
-        'gmbh',
-        'immobilienservice',
-        'immobilienmakler'
+        'privatperson',
+        'eigentümer'
       ];
       
       const hasPrivateIndicator = privateIndicators.some(indicator => 
         allText.includes(indicator)
       );
       
-      const hasCommercialIndicator = commercialIndicators.some(indicator => 
-        allText.includes(indicator)
-      );
+      // Return true if no strong commercial exclusions
+      // Private indicator gives bonus but is not required
+      return !hasStrongCommercial;
       
-      // Return true if has private indicator and no strong commercial indicators
-      return hasPrivateIndicator && !hasCommercialIndicator;
     } catch (error) {
       console.error('Error checking private listing:', error);
-      return false;
+      // Default to true to avoid missing potential private listings
+      return true;
     }
   }
 
@@ -343,10 +404,28 @@ export class ScraperService {
       
       const area = this.extractArea(areaText);
 
-      // Extract URL
+      // Extract URL - try multiple approaches
+      let url = '';
+      
+      // Try to find link element
       const linkElement = await listing.$('a');
-      const relativeUrl = linkElement ? await linkElement.getAttribute('href') : '';
-      const url = relativeUrl ? `https://www.willhaben.at${relativeUrl}` : '';
+      if (linkElement) {
+        let href = await linkElement.getAttribute('href');
+        if (href) {
+          url = href.startsWith('http') ? href : `https://www.willhaben.at${href}`;
+        }
+      }
+      
+      // If no URL found from link, try to construct from any ID or data attribute
+      if (!url) {
+        const dataTestId = await listing.getAttribute('data-testid');
+        if (dataTestId) {
+          // This is a fallback - might not work but better than no URL
+          url = `https://www.willhaben.at/listing/${dataTestId}`;
+        }
+      }
+      
+      console.log(`[URL DEBUG] Found URL: "${url}" from linkElement: ${!!linkElement}`);
 
       // Extract images
       const imageElements = await listing.$$('img');
@@ -359,8 +438,11 @@ export class ScraperService {
       const description = await this.extractDescription(listing);
 
       if (!title || !price || !url) {
+        console.log(`[EXTRACT DEBUG] Missing data - title: "${title}", price: ${price}, url: "${url}"`);
         return null;
       }
+      
+      console.log(`[EXTRACT SUCCESS] Found complete listing - title: "${title}", price: ${price}`);
 
       const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
       const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
