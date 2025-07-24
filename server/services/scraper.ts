@@ -105,18 +105,29 @@ export class ScraperService {
     const page = await this.browser!.newPage();
     
     try {
-      let currentPage = 1;
-      let hasMorePages = true;
-      
-      while (hasMorePages && currentPage <= options.maxPages) {
-        const url = `${baseUrl}?page=${currentPage}`;
-        options.onProgress(`[INFO] Lade Seite ${currentPage}: ${url}`);
+      // Process multiple pages for this category
+      for (let currentPage = 1; currentPage <= options.maxPages; currentPage++) {
+        const url = currentPage === 1 ? baseUrl : `${baseUrl}&page=${currentPage}`;
+        options.onProgress(`[INFO] Seite ${currentPage}/${options.maxPages} für ${category}: ${url}`);
         
-        await page.goto(url, { waitUntil: 'networkidle' });
+        await page.goto(url, { 
+          waitUntil: 'domcontentloaded',
+          timeout: 30000 
+        });
         await page.waitForTimeout(options.delay);
 
-        // Wait for page to load and debug the page structure
-        await page.waitForTimeout(3000);
+        // Wait for page to load properly
+        await page.waitForTimeout(2000);
+        
+        // Check if this page has content
+        const pageHasContent = await page.evaluate(() => {
+          return document.body.innerText.includes('€') && document.body.innerText.includes('m²');
+        });
+        
+        if (!pageHasContent) {
+          options.onProgress(`[WARN] Seite ${currentPage} hat keine Immobilien-Inhalte - möglicherweise Ende erreicht`);
+          break;
+        }
         
         // Debug: Check page content and structure
         const pageTitle = await page.title();
@@ -239,11 +250,9 @@ export class ScraperService {
         }
 
         options.onProgress(`[INFO] ${privateListingsFound} private Listings auf Seite ${currentPage} gefunden`);
-        currentPage++;
         
-        // Check if there's a next page
-        const nextPageButton = await page.$('[data-testid="pagination-next"]');
-        hasMorePages = nextPageButton !== null && await nextPageButton.isEnabled();
+        // For simplicity, we'll continue through all requested pages
+        // Real pagination checking would be more complex on Willhaben
       }
     } finally {
       await page.close();

@@ -32,9 +32,20 @@ export default function Dashboard() {
     },
   });
 
-  // Fetch listings
+  // Fetch listings with proper query parameters
   const { data: listings = [], isLoading: listingsLoading } = useQuery<Listing[]>({
-    queryKey: ["/api/listings", { region: regionFilter, price_evaluation: priceFilter, akquise_erledigt: false }],
+    queryKey: ["/api/listings", regionFilter, priceFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
+      if (priceFilter !== "Alle Preise") params.append("price_evaluation", priceFilter);
+      params.append("akquise_erledigt", "false");
+      
+      const url = `/api/listings${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch listings');
+      return response.json();
+    },
   });
 
   // Fetch stats
@@ -197,8 +208,17 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
+              ) : listings.length === 0 ? (
+                <div className="text-center py-12">
+                  <Building className="mx-auto h-12 w-12 mb-4 text-gray-400" />
+                  <p className="text-gray-500">Keine Listings gefunden</p>
+                  <p className="text-sm text-gray-400 mt-2">Starten Sie den Scraper um neue Listings zu finden</p>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="col-span-full mb-4">
+                    <p className="text-sm text-gray-600">{listings.length} Listing{listings.length !== 1 ? 's' : ''} gefunden</p>
+                  </div>
                   {listings.map((listing) => (
                     <ListingCard
                       key={listing.id}
@@ -207,11 +227,6 @@ export default function Dashboard() {
                       isMarkingCompleted={markCompletedMutation.isPending}
                     />
                   ))}
-                  {listings.length === 0 && !listingsLoading && (
-                    <div className="col-span-full text-center py-12">
-                      <p className="text-gray-500">Keine Listings gefunden</p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
