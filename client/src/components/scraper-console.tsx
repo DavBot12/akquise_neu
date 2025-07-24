@@ -129,14 +129,17 @@ export default function ScraperConsole() {
             <h2 className="text-2xl font-bold text-gray-800">Scraper Console</h2>
             <p className="text-gray-600 mt-1">Willhaben.at Scraping verwalten</p>
           </div>
-          <Button 
-            onClick={() => startScrapingMutation.mutate()}
-            disabled={startScrapingMutation.isPending || scraperStatus === "Läuft"}
-            className="bg-success hover:bg-green-600"
-          >
-            <Play className="mr-2 h-4 w-4" />
-            Jetzt scrapen
-          </Button>
+          <div className="flex space-x-3">
+            <Button 
+              onClick={() => startScrapingMutation.mutate()}
+              disabled={startScrapingMutation.isPending || scraperStatus === "Läuft"}
+              className="bg-success hover:bg-green-600 text-white font-semibold px-6 py-2"
+              size="lg"
+            >
+              <Play className="mr-2 h-5 w-5" />
+              Jetzt scrapen
+            </Button>
+          </div>
         </div>
       </div>
 
