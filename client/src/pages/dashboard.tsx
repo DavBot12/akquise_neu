@@ -3,12 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, ChartLine, Worm, NotebookTabs } from "lucide-react";
+import { Building, ChartLine, Worm, NotebookTabs, TrendingUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ListingCard from "@/components/listing-card";
 import ContactCard from "@/components/contact-card";
 import ContactModal from "@/components/contact-modal";
 import ScraperConsole from "@/components/scraper-console";
+import PriceMirror from "../components/price-mirror";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
 
@@ -116,6 +117,14 @@ export default function Dashboard() {
             >
               <NotebookTabs className="mr-3 h-4 w-4" />
               Kontakte
+            </Button>
+            <Button
+              variant={activeTab === "price-mirror" ? "default" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setActiveTab("price-mirror")}
+            >
+              <TrendingUp className="mr-3 h-4 w-4" />
+              Preisspiegel
             </Button>
           </div>
         </nav>
@@ -249,6 +258,22 @@ export default function Dashboard() {
                   <span className="font-medium">Neuen Kontakt hinzufügen</span>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Price Mirror Tab */}
+          <TabsContent value="price-mirror" className="h-full m-0">
+            <div className="p-6 border-b border-gray-200 bg-white">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">📊 Immobilienpreis Spiegel</h2>
+                  <p className="text-gray-600 mt-1">Durchschnittspreise nach Bezirken und Regionen</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 h-full overflow-y-auto">
+              <PriceMirror />
             </div>
           </TabsContent>
         </Tabs>

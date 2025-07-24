@@ -6,6 +6,14 @@ This is a full-stack real estate acquisition tool built with Node.js, React, and
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (2025-01-24)
+✓ Successfully migrated project from Replit Agent to Replit environment
+✓ Enhanced Scraper Console with detailed statistics and progress tracking
+✓ Added new "Immobilienpreis Spiegel" tab for regional price analysis
+✓ Improved real-time WebSocket updates for scraper status
+✓ Added comprehensive price statistics API endpoint
+✓ Enhanced error handling and logging throughout the application
+
 ## System Architecture
 
 ### Frontend Architecture

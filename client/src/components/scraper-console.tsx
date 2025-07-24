@@ -31,6 +31,10 @@ export default function ScraperConsole() {
     updatedListings: 0,
     errors: 0,
     progress: 0,
+    startTime: null as Date | null,
+    pagesProcessed: 0,
+    totalPages: 0,
+    currentCategory: "",
   });
 
   const logContainerRef = useRef<HTMLDivElement>(null);
@@ -42,6 +46,37 @@ export default function ScraperConsole() {
       if (data.type === "log") {
         setLogs(prev => [...prev, data.message]);
         scrollToBottom();
+        
+        // Update statistics based on log messages
+        if (data.message.includes('[SUCCESS] Speichere Listing:')) {
+          setScraperStats(prev => ({ ...prev, newListings: prev.newListings + 1 }));
+        } else if (data.message.includes('[ERROR]') || data.message.includes('[WARNING]')) {
+          setScraperStats(prev => ({ ...prev, errors: prev.errors + 1 }));
+        } else if (data.message.includes('Lade Seite')) {
+          const pageMatch = data.message.match(/Lade Seite (\d+)/);
+          if (pageMatch) {
+            setScraperStats(prev => ({ ...prev, pagesProcessed: parseInt(pageMatch[1]) }));
+          }
+        } else if (data.message.includes('Starte Scraping für')) {
+          const categoryMatch = data.message.match(/Starte Scraping für (.+)/);
+          if (categoryMatch) {
+            setScraperStats(prev => ({ 
+              ...prev, 
+              currentCategory: categoryMatch[1],
+              startTime: prev.startTime || new Date()
+            }));
+          }
+        }
+      } else if (data.type === "scraperStatus") {
+        setScraperStatus(data.status);
+        if (data.status === "Bereit") {
+          setScraperStats(prev => ({ 
+            ...prev, 
+            progress: 0, 
+            currentCategory: "",
+            startTime: null 
+          }));
+        }
       }
     },
   });
@@ -66,7 +101,15 @@ export default function ScraperConsole() {
     },
     onSuccess: () => {
       setScraperStatus("Läuft");
-      setScraperStats(prev => ({ ...prev, progress: 0 }));
+      setScraperStats(prev => ({ 
+        ...prev, 
+        progress: 0,
+        newListings: 0,
+        errors: 0,
+        pagesProcessed: 0,
+        startTime: new Date(),
+        currentCategory: ""
+      }));
       toast({
         title: "Scraping gestartet",
         description: "Der Scraper wurde erfolgreich gestartet.",
@@ -230,28 +273,39 @@ export default function ScraperConsole() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Neue Listings:</span>
-                  <span className="font-medium">{scraperStats.newListings}</span>
+                  <span className="font-medium text-green-600">{scraperStats.newListings}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Aktualisiert:</span>
-                  <span className="font-medium">{scraperStats.updatedListings}</span>
+                  <span className="text-gray-600">Seiten verarbeitet:</span>
+                  <span className="font-medium">{scraperStats.pagesProcessed}/{maxPages}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Fehler:</span>
-                  <span className="font-medium text-error">{scraperStats.errors}</span>
+                  <span className="font-medium text-red-600">{scraperStats.errors}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Letzter Lauf:</span>
-                  <span className="font-medium">{formatTime(new Date())}</span>
+                  <span className="text-gray-600">Aktuelle Kategorie:</span>
+                  <span className="font-medium text-xs">{scraperStats.currentCategory || "Keine"}</span>
                 </div>
+                {scraperStats.startTime && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Laufzeit:</span>
+                    <span className="font-medium">
+                      {Math.floor((new Date().getTime() - scraperStats.startTime.getTime()) / 1000)}s
+                    </span>
+                  </div>
+                )}
               </div>
               
               <div className="pt-3 border-t border-gray-200">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Fortschritt</span>
-                  <span>{scraperStats.progress}%</span>
+                  <span>{Math.round((scraperStats.pagesProcessed / (maxPages * selectedCategories.length)) * 100) || 0}%</span>
                 </div>
-                <Progress value={scraperStats.progress} className="h-2" />
+                <Progress 
+                  value={Math.round((scraperStats.pagesProcessed / (maxPages * selectedCategories.length)) * 100) || 0} 
+                  className="h-2" 
+                />
               </div>
             </CardContent>
           </Card>

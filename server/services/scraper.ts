@@ -6,6 +6,7 @@ export interface ScrapingOptions {
   delay: number;
   onProgress: (message: string) => void;
   onListingFound: (listing: any) => Promise<void>;
+  onComplete?: () => void;
 }
 
 export class ScraperService {
@@ -62,6 +63,9 @@ export class ScraperService {
       }
 
       options.onProgress('[SUCCESS] Scraping erfolgreich abgeschlossen');
+      if (options.onComplete) {
+        options.onComplete();
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       options.onProgress(`[ERROR] Scraping Fehler: ${errorMessage}`);
@@ -72,6 +76,9 @@ export class ScraperService {
         this.browser = null;
       }
       this.isRunning = false;
+      if (options.onComplete) {
+        options.onComplete();
+      }
     }
   }
 

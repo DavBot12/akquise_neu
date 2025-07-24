@@ -132,11 +132,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Price statistics route
+  app.get("/api/price-stats", async (req, res) => {
+    try {
+      const { region, category } = req.query;
+      const filters: any = {};
+      
+      if (region && region !== "all") filters.region = region;
+      if (category && category !== "all") filters.category = category;
+      
+      const priceStats = await storage.getPriceStatistics(filters);
+      res.json(priceStats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch price statistics" });
+    }
+  });
+
   // Scraper routes
   app.post("/api/scraper/start", async (req, res) => {
     try {
       const { categories = [], maxPages = 10, delay = 1000 } = req.body;
       
+      // Broadcast scraping started
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: 'scraperStatus', status: 'Läuft' }));
+        }
+      });
+
       // Start scraping in background
       scraperService.startScraping({
         categories,
@@ -173,6 +196,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (error) {
             console.error('Error saving listing:', error);
           }
+        },
+        onComplete: () => {
+          // Broadcast scraping completed
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'scraperStatus', status: 'Bereit' }));
+            }
+          });
         }
       });
 

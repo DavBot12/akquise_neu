@@ -36,6 +36,7 @@ export interface IStorage {
     lastScrape: string | null;
   }>;
   getRegionalAverages(): Promise<{ [key: string]: number }>;
+  getPriceStatistics(filters?: { region?: string; category?: string }): Promise<any[]>;
 
   // Contact methods
   getContacts(): Promise<Contact[]>;
@@ -161,6 +162,50 @@ export class DatabaseStorage implements IStorage {
       acc[item.region] = Number(item.avg_price);
       return acc;
     }, {} as { [key: string]: number });
+  }
+
+  async getPriceStatistics(filters?: { region?: string; category?: string }): Promise<any[]> {
+    let query = db
+      .select({
+        region: listings.region,
+        category: listings.category,
+        avgPrice: sql<number>`avg(${listings.price})`,
+        avgPricePerM2: sql<number>`avg(${listings.eur_per_m2})`,
+        totalListings: sql<number>`count(*)`,
+        privateListings: sql<number>`count(*)`, // All listings in our DB are private
+        commercialListings: sql<number>`0`, // We only scrape private listings
+        minPrice: sql<number>`min(${listings.price})`,
+        maxPrice: sql<number>`max(${listings.price})`,
+      })
+      .from(listings);
+
+    const conditions = [];
+    if (filters?.region) {
+      conditions.push(eq(listings.region, filters.region));
+    }
+    if (filters?.category) {
+      conditions.push(eq(listings.category, filters.category));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const result = await query.groupBy(listings.region, listings.category);
+
+    return result.map(row => ({
+      region: row.region,
+      category: row.category,
+      avgPrice: Number(row.avgPrice) || 0,
+      avgPricePerM2: Number(row.avgPricePerM2) || 0,
+      totalListings: Number(row.totalListings) || 0,
+      privateListings: Number(row.privateListings) || 0,
+      commercialListings: Number(row.commercialListings) || 0,
+      priceRange: {
+        min: Number(row.minPrice) || 0,
+        max: Number(row.maxPrice) || 0,
+      },
+    }));
   }
 
   // Contact methods
