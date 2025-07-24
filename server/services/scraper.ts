@@ -33,7 +33,7 @@ export class ScraperService {
       try {
         this.browser = await chromium.launch({ 
           headless: true,
-          executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+          executablePath: '/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium',
           args: [
             '--no-sandbox',
             '--disable-dev-shm-usage',
@@ -45,12 +45,30 @@ export class ScraperService {
         });
       } catch (browserError) {
         const errorMessage = browserError instanceof Error ? browserError.message : String(browserError);
+        options.onProgress(`[ERROR] Browser-Start Fehler: ${errorMessage}`);
         if (errorMessage.includes('Host system is missing dependencies')) {
           options.onProgress('[ERROR] Browser dependencies are not installed. Please install them using the System Dependencies panel in Replit.');
           options.onProgress('[INFO] Scraping cannot proceed without browser dependencies.');
           return;
         }
-        throw browserError;
+        // Try without executablePath if the specific path fails
+        try {
+          options.onProgress('[INFO] Versuche Browser ohne spezifischen Pfad...');
+          this.browser = await chromium.launch({ 
+            headless: true,
+            args: [
+              '--no-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--disable-background-timer-throttling',
+              '--disable-backgrounding-occluded-windows',
+              '--disable-renderer-backgrounding'
+            ]
+          });
+          options.onProgress('[SUCCESS] Browser erfolgreich gestartet');
+        } catch (fallbackError) {
+          throw browserError;
+        }
       }
       
       for (const category of options.categories) {
