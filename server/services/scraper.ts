@@ -1,4 +1,4 @@
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, Page } from 'playwright-core';
 
 export interface ScrapingOptions {
   categories: string[];
@@ -30,7 +30,18 @@ export class ScraperService {
     try {
       // Check if browser dependencies are available
       try {
-        this.browser = await chromium.launch({ headless: true });
+        this.browser = await chromium.launch({ 
+          headless: true,
+          executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+          args: [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding'
+          ]
+        });
       } catch (browserError) {
         const errorMessage = browserError instanceof Error ? browserError.message : String(browserError);
         if (errorMessage.includes('Host system is missing dependencies')) {
