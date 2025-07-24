@@ -132,7 +132,7 @@ export default function ContactModal({ isOpen, onClose, contact }: ContactModalP
                 <FormItem>
                   <FormLabel>Unternehmen</FormLabel>
                   <FormControl>
-                    <Input placeholder="Mustermann Development GmbH" {...field} />
+                    <Input placeholder="Mustermann Development GmbH" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -146,7 +146,7 @@ export default function ContactModal({ isOpen, onClose, contact }: ContactModalP
                 <FormItem>
                   <FormLabel>E-Mail</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="max@mustermann.at" {...field} />
+                    <Input type="email" placeholder="max@mustermann.at" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -160,7 +160,7 @@ export default function ContactModal({ isOpen, onClose, contact }: ContactModalP
                 <FormItem>
                   <FormLabel>Telefon</FormLabel>
                   <FormControl>
-                    <Input type="tel" placeholder="+43-1-234-5678" {...field} />
+                    <Input type="tel" placeholder="+43-1-234-5678" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -178,6 +178,7 @@ export default function ContactModal({ isOpen, onClose, contact }: ContactModalP
                       rows={3} 
                       placeholder="Zusätzliche Informationen..." 
                       {...field} 
+                      value={field.value || ""}
                     />
                   </FormControl>
                   <FormMessage />

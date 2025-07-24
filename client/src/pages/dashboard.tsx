@@ -10,13 +10,14 @@ import ContactCard from "@/components/contact-card";
 import ContactModal from "@/components/contact-modal";
 import ScraperConsole from "@/components/scraper-console";
 import { useWebSocket } from "@/hooks/use-websocket";
+import type { Listing, Contact } from "@shared/schema";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [regionFilter, setRegionFilter] = useState("Alle Regionen");
   const [priceFilter, setPriceFilter] = useState("Alle Preise");
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState(null);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -31,17 +32,21 @@ export default function Dashboard() {
   });
 
   // Fetch listings
-  const { data: listings = [], isLoading: listingsLoading } = useQuery({
+  const { data: listings = [], isLoading: listingsLoading } = useQuery<Listing[]>({
     queryKey: ["/api/listings", { region: regionFilter, price_evaluation: priceFilter, akquise_erledigt: false }],
   });
 
   // Fetch stats
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<{
+    activeListings: number;
+    completedListings: number;
+    lastScrape: string | null;
+  }>({
     queryKey: ["/api/listings/stats"],
   });
 
   // Fetch contacts
-  const { data: contacts = [] } = useQuery({
+  const { data: contacts = [] } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
   });
 
@@ -129,7 +134,7 @@ export default function Dashboard() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Letzter Scrape:</span>
-              <span className="font-medium text-xs">{formatLastScrape(stats?.lastScrape)}</span>
+              <span className="font-medium text-xs">{formatLastScrape(stats?.lastScrape || null)}</span>
             </div>
           </div>
         </div>
@@ -185,7 +190,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {listings.map((listing: any) => (
+                  {listings.map((listing) => (
                     <ListingCard
                       key={listing.id}
                       listing={listing}
@@ -224,7 +229,7 @@ export default function Dashboard() {
 
             <div className="p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {contacts.map((contact: any) => (
+                {contacts.map((contact) => (
                   <ContactCard
                     key={contact.id}
                     contact={contact}

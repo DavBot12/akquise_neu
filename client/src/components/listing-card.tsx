@@ -3,20 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, ExternalLink, Check, Clock } from "lucide-react";
 
+import type { Listing } from "@shared/schema";
+
 interface ListingCardProps {
-  listing: {
-    id: number;
-    title: string;
-    price: number;
-    location: string;
-    area: number;
-    eur_per_m2: number;
-    description: string;
-    images: string[];
-    url: string;
-    scraped_at: string;
-    price_evaluation: "unter_schnitt" | "im_schnitt" | "ueber_schnitt";
-  };
+  listing: Listing;
   onMarkCompleted: (id: number) => void;
   isMarkingCompleted: boolean;
 }
@@ -30,8 +20,8 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
     }).format(price);
   };
 
-  const formatScrapedAt = (date: string) => {
-    const scraped = new Date(date);
+  const formatScrapedAt = (date: Date) => {
+    const scraped = date instanceof Date ? date : new Date(date);
     const now = new Date();
     const diffMs = now.getTime() - scraped.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -86,7 +76,7 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           className="w-full h-48 object-cover"
         />
         <div className="absolute top-3 left-3">
-          {getPriceEvaluationBadge(listing.price_evaluation)}
+          {getPriceEvaluationBadge(listing.price_evaluation || "im_schnitt")}
         </div>
         {listing.images && listing.images.length > 1 && (
           <div className="absolute top-3 right-3">
@@ -107,9 +97,9 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
             {formatPrice(listing.price)}
           </div>
           <div className="text-right">
-            <div className="text-sm text-gray-600">{listing.area} m²</div>
+            <div className="text-sm text-gray-600">{listing.area ? `${listing.area} m²` : "N/A"}</div>
             <div className="text-lg font-semibold text-gray-800">
-              {formatPrice(listing.eur_per_m2)}/m²
+              {listing.eur_per_m2 ? `${formatPrice(Number(listing.eur_per_m2))}/m²` : "N/A"}
             </div>
           </div>
         </div>

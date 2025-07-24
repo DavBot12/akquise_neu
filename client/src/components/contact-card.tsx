@@ -6,16 +6,11 @@ import { Mail, Phone, Edit, Trash2, StickyNote } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+import type { Contact } from "@shared/schema";
+
 interface ContactCardProps {
-  contact: {
-    id: number;
-    name: string;
-    company?: string;
-    email?: string;
-    phone?: string;
-    notes?: string;
-  };
-  onEdit: (contact: any) => void;
+  contact: Contact;
+  onEdit: (contact: Contact) => void;
 }
 
 export default function ContactCard({ contact, onEdit }: ContactCardProps) {

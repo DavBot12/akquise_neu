@@ -41,7 +41,8 @@ export class ScraperService {
 
       options.onProgress('[SUCCESS] Scraping erfolgreich abgeschlossen');
     } catch (error) {
-      options.onProgress(`[ERROR] Scraping Fehler: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      options.onProgress(`[ERROR] Scraping Fehler: ${errorMessage}`);
       throw error;
     } finally {
       if (this.browser) {
@@ -94,7 +95,8 @@ export class ScraperService {
               await options.onListingFound(listingData);
             }
           } catch (error) {
-            options.onProgress(`[WARNING] Fehler bei Listing ${i + 1}: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            options.onProgress(`[WARNING] Fehler bei Listing ${i + 1}: ${errorMessage}`);
           }
         }
 
@@ -152,7 +154,7 @@ export class ScraperService {
       // Extract images
       const imageElements = await listing.$$('img');
       const images = await Promise.all(
-        imageElements.map(img => img.getAttribute('src'))
+        imageElements.map((img: any) => img.getAttribute('src'))
       );
       const validImages = images.filter(Boolean) as string[];
 

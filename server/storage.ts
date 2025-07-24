@@ -92,11 +92,11 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+        query = query.where(and(...conditions)) as any;
       }
     }
     
-    return query.orderBy(desc(listings.scraped_at));
+    return await query.orderBy(desc(listings.scraped_at));
   }
 
   async getListingById(id: number): Promise<Listing | undefined> {
@@ -105,9 +105,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createListing(listing: InsertListing): Promise<Listing> {
+    const insertData = {
+      ...listing,
+      images: listing.images || []
+    };
+    
     const [newListing] = await db
       .insert(listings)
-      .values(listing)
+      .values(insertData)
       .returning();
     return newListing;
   }
@@ -165,7 +170,8 @@ export class DatabaseStorage implements IStorage {
 
   // Contact methods
   async getContacts(): Promise<Contact[]> {
-    return db.select().from(contacts).orderBy(contacts.name);
+    const result = await db.select().from(contacts).orderBy(contacts.name);
+    return result;
   }
 
   async getContactById(id: number): Promise<Contact | undefined> {
@@ -204,19 +210,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getContactsForListing(listingId: number): Promise<Contact[]> {
-    return db
-      .select(contacts)
+    const result = await db
+      .select()
       .from(contacts)
       .innerJoin(listing_contacts, eq(contacts.id, listing_contacts.contact_id))
       .where(eq(listing_contacts.listing_id, listingId));
+    
+    return result.map(row => row.contacts);
   }
 
   async getListingsForContact(contactId: number): Promise<Listing[]> {
-    return db
-      .select(listings)
+    const result = await db
+      .select()
       .from(listings)
       .innerJoin(listing_contacts, eq(listings.id, listing_contacts.listing_id))
       .where(eq(listing_contacts.contact_id, contactId));
+    
+    return result.map(row => row.listings);
   }
 
   async unassignContactFromListing(listingId: number, contactId: number): Promise<void> {
