@@ -176,7 +176,7 @@ export default function ScraperConsole() {
             <Button 
               onClick={() => startScrapingMutation.mutate()}
               disabled={startScrapingMutation.isPending || scraperStatus === "Läuft"}
-              className="bg-success hover:bg-green-600 text-white font-semibold px-6 py-2"
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 transition-all duration-200 opacity-100"
               size="lg"
             >
               <Play className="mr-2 h-5 w-5" />
