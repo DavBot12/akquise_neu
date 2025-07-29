@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertListingSchema, insertContactSchema, insertListingContactSchema } from "@shared/schema";
 import { ScraperService } from "./services/scraper";
+import { scraperV2Service } from "./services/scraper-v2";
 import { PriceEvaluator } from "./services/priceEvaluator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -160,8 +161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      // Start scraping in background
-      scraperService.startScraping({
+      // Start scraping in background (neuer V2 Scraper)
+      scraperV2Service.startScraping({
         categories,
         maxPages,
         delay,
@@ -196,18 +197,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (error) {
             console.error('Error saving listing:', error);
           }
-        },
-        onComplete: () => {
-          // Broadcast scraping completed
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({ type: 'scraperStatus', status: 'Bereit' }));
-            }
-          });
         }
       });
 
-      res.json({ success: true, message: "Scraping started" });
+      res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
     } catch (error) {
       res.status(500).json({ message: "Failed to start scraping" });
     }
