@@ -135,8 +135,8 @@ export class ScraperService {
             if (!isPrivate) {
               commercialCount++;
               // Zeige ersten Teil des Textes für Debug
-              const debugText = listingText.substring(0, 150).replace(/\s+/g, ' ');
-              options.onProgress(`[DEBUG] Kommerziell (${i+1}): "${debugText}..."`);
+              const debugText = listingText.substring(0, 120).replace(/\s+/g, ' ');
+              options.onProgress(`[DEBUG] Nicht-privat (${i+1}): "${debugText}..."`);
               continue;
             }
             
@@ -173,24 +173,30 @@ export class ScraperService {
     try {
       const allText = await listing.evaluate((el: Element) => el.textContent?.toLowerCase() || '');
       
-      // Sehr restriktive Liste - nur die bekanntesten Makler-Ketten ausschließen
-      const trulyCommercialExclusions = [
-        'remax',
-        'century 21', 
-        'engel & völkers',
-        'kaltenegger immobilien',
-        'otto immobilien'
+      // Suche explizit nach privaten Verkäufer-Begriffen
+      const privateIndicators = [
+        'privat',
+        'private',
+        'privatverkauf',
+        'von privat',
+        'private anzeige',
+        'privatperson',
+        'privater verkauf',
+        'kein makler',
+        'ohne makler',
+        'direkt vom eigentümer',
+        'eigentümer',
+        'privatanbieter'
       ];
       
-      // Prüfe auf echte Makler-Begriffe (nicht einzelne Wörter wie "gmbh")
-      const isTrulyCommercial = trulyCommercialExclusions.some(indicator => 
+      // Nur als privat einstufen wenn explizit erwähnt
+      const foundIndicator = privateIndicators.find(indicator => 
         allText.includes(indicator)
       );
       
-      // Liberal: Nur ausschließen wenn es wirklich ein bekannter Makler ist
-      return !isTrulyCommercial;
+      return !!foundIndicator;
     } catch (error) {
-      return true; // Im Zweifel immer als privat behandeln
+      return false; // Im Zweifel als nicht-privat behandeln (sicherer)
     }
   }
 
