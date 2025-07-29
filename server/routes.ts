@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { insertListingSchema, insertContactSchema, insertListingContactSchema } from "@shared/schema";
 import { ScraperService } from "./services/scraper";
 import { scraperV2Service } from "./services/scraper-v2";
+import { scraperHttpService } from "./services/scraper-http";
 import { PriceEvaluator } from "./services/priceEvaluator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -161,8 +162,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      // Start scraping in background (neuer V2 Scraper)
-      scraperV2Service.startScraping({
+      // Try Playwright scraper first, fallback to HTTP scraper
+      const scraperOptions = {
         categories,
         maxPages,
         delay,
@@ -198,7 +199,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error('Error saving listing:', error);
           }
         }
-      });
+      };
+
+      // Try Playwright first, fallback to HTTP scraper
+      try {
+        await scraperV2Service.startScraping(scraperOptions);
+      } catch (playwrightError) {
+        scraperOptions.onProgress('[FALLBACK] Playwright fehlgeschlagen, nutze HTTP-Scraper...');
+        console.log('Playwright failed, falling back to HTTP scraper:', playwrightError);
+        await scraperHttpService.startScraping(scraperOptions);
+      }
 
       res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
     } catch (error) {

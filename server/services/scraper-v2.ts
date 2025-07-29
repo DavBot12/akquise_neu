@@ -35,17 +35,28 @@ export class ScraperV2Service {
     options.onProgress('[INFO] Neuer Scraper V2 gestartet...');
 
     try {
-      // Browser mit optimierten Einstellungen starten
+      // Browser mit erweiterten Einstellungen für Replit-Umgebung starten
       this.browser = await chromium.launch({
         headless: true,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
-        ]
+          '--disable-renderer-backgrounding',
+          '--disable-features=VizDisplayCompositor',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-web-security',
+          '--disable-features=TranslateUI',
+          '--disable-ipc-flooding-protection',
+          '--use-gl=swiftshader',
+          '--enable-unsafe-swiftshader'
+        ],
+        chromiumSandbox: false
       });
 
       options.onProgress('[SUCCESS] Browser V2 erfolgreich gestartet');
