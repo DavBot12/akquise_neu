@@ -50,13 +50,14 @@ export class ScraperHttpService {
     options.onProgress(`[START] Kategorie ${category} wird gescrapt...`);
 
     let totalFound = 0;
+    let detailUrls: string[] = [];
     
+    // Schritt 1: Alle Detail-URLs sammeln
     for (let pageNum = 1; pageNum <= options.maxPages; pageNum++) {
       const url = this.buildUrl(category, pageNum);
       options.onProgress(`[LOAD] Seite ${pageNum}: ${url}`);
 
       try {
-        // HTTP Request mit realistischen Headers
         const response = await axios.get(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -72,55 +73,23 @@ export class ScraperHttpService {
 
         const $ = cheerio.load(response.data);
         
-        // Listings finden mit verschiedenen Selektoren
-        const listingSelectors = [
-          '[data-testid*="search-result-entry"]',
-          'article[data-testid]',
-          '.search-results-row',
-          '[data-qa="search-result-item"]',
-          'article',
-          '.aditem',
-          '.result-item'
-        ];
-
-        let listings: cheerio.Cheerio<any> | null = null;
-        let usedSelector = '';
-
-        for (const selector of listingSelectors) {
-          const found = $(selector);
-          if (found.length > 0) {
-            listings = found;
-            usedSelector = selector;
-            options.onProgress(`[FOUND] ${found.length} Listings mit Selektor: ${selector}`);
-            break;
-          }
-        }
-
-        if (!listings || listings.length === 0) {
-          options.onProgress(`[WARN] Seite ${pageNum}: Keine Listings gefunden`);
-          continue;
-        }
-
-        // Jedes Listing verarbeiten
-        let pageListings = 0;
-        listings.each((i, element) => {
-          try {
-            const listingData = this.extractListing($(element), category);
-            if (listingData) {
-              options.onProgress(`[SUCCESS] Listing: "${listingData.title}" - €${listingData.price.toLocaleString()}`);
-              // Asynchrone Verarbeitung
-              options.onListingFound(listingData).catch(err => 
-                options.onProgress(`[ERROR] Fehler beim Speichern: ${err.message}`)
-              );
-              pageListings++;
-              totalFound++;
+        // Detail-URLs finden (wie in Ihrem Python-Code)
+        const links = $('a[href*="/iad/immobilien/d/"]');
+        const pageUrls: string[] = [];
+        
+        links.each((i, link) => {
+          const href = $(link).attr('href');
+          if (href) {
+            const cleanUrl = href.split('?')[0]; // Parameter entfernen
+            const fullUrl = href.startsWith('http') ? cleanUrl : `https://www.willhaben.at${cleanUrl}`;
+            if (!pageUrls.includes(fullUrl)) {
+              pageUrls.push(fullUrl);
             }
-          } catch (error) {
-            options.onProgress(`[ERROR] Listing ${i+1} fehlgeschlagen: ${error}`);
           }
         });
 
-        options.onProgress(`[PAGE] Seite ${pageNum}: ${pageListings} erfolgreiche Listings`);
+        detailUrls.push(...pageUrls);
+        options.onProgress(`[FOUND] Seite ${pageNum}: ${pageUrls.length} Detail-URLs gefunden`);
         
         // Pause zwischen Seiten
         if (pageNum < options.maxPages) {
@@ -132,7 +101,34 @@ export class ScraperHttpService {
       }
     }
 
-    options.onProgress(`[COMPLETE] Kategorie ${category}: ${totalFound} Listings insgesamt`);
+    // Duplikate entfernen
+    detailUrls = [...new Set(detailUrls)];
+    options.onProgress(`[INFO] Insgesamt ${detailUrls.length} einzigartige Detail-URLs gefunden`);
+
+    // Schritt 2: Jede Detail-Seite einzeln prüfen (wie in Ihrem Python-Code)
+    for (let i = 0; i < detailUrls.length; i++) {
+      const detailUrl = detailUrls[i];
+      options.onProgress(`[CHECK] (${i+1}/${detailUrls.length}) Prüfe: ${detailUrl}`);
+      
+      try {
+        const listingData = await this.scrapeDetailPage(detailUrl, category);
+        if (listingData) {
+          options.onProgress(`[SUCCESS] Private Anzeige: "${listingData.title}" - €${listingData.price.toLocaleString()}`);
+          await options.onListingFound(listingData);
+          totalFound++;
+        } else {
+          options.onProgress(`[SKIP] Gewerblich oder Fehler: ${detailUrl}`);
+        }
+        
+        // Pause zwischen Detail-Anfragen
+        await new Promise(resolve => setTimeout(resolve, Math.max(options.delay / 2, 500)));
+        
+      } catch (error) {
+        options.onProgress(`[ERROR] Detail-Seite fehlgeschlagen: ${error}`);
+      }
+    }
+
+    options.onProgress(`[COMPLETE] Kategorie ${category}: ${totalFound} private Listings gefunden`);
   }
 
   private extractListing($listing: cheerio.Cheerio<any>, category: string): ListingData | null {
