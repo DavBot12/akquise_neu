@@ -6,11 +6,13 @@ import { insertListingSchema, insertContactSchema, insertListingContactSchema } 
 import { ScraperService } from "./services/scraper";
 import { scraperV2Service } from "./services/scraper-v2";
 import { scraperHttpService } from "./services/scraper-http";
+import { ScraperTestService } from "./services/scraper-test";
 import { PriceEvaluator } from "./services/priceEvaluator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const scraperService = new ScraperService();
   const priceEvaluator = new PriceEvaluator();
+  const scraperTestService = new ScraperTestService();
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
@@ -255,6 +257,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Send initial connection confirmation
     ws.send(JSON.stringify({ type: 'connected', message: 'WebSocket connected' }));
+  });
+
+  // DOPPELMARKLER ULTRA-TEST Route
+  app.post("/api/scraper/doppelmarkler-test", async (req, res) => {
+    try {
+      const { category = "eigentumswohnung-wien", maxPages = 5, delay = 800 } = req.body;
+      
+      console.log(`🎯 DOPPELMARKLER-TEST GESTARTET: ${category}`);
+      
+      // Start broadcast
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: 'scraperStatus', status: 'DOPPELMARKLER-TEST LÄUFT' }));
+        }
+      });
+
+      // Execute ultra-fast Doppelmarkler scan
+      await scraperTestService.testUltraFastDoppelmarklerScan({
+        category,
+        maxPages,
+        delay,
+        onProgress: (message: string) => {
+          console.log(`[DOPPELMARKLER-TEST] ${message}`);
+          
+          // Broadcast to WebSocket clients
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ 
+                type: 'log', 
+                message: `[DOPPELMARKLER] ${message}`, 
+                timestamp: new Date().toISOString() 
+              }));
+            }
+          });
+        }
+      });
+
+      // End broadcast
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: 'scraperStatus', status: 'DOPPELMARKLER-TEST COMPLETE' }));
+        }
+      });
+
+      res.json({ success: true, message: "DOPPELMARKLER-Test abgeschlossen" });
+      
+    } catch (error) {
+      console.error("DOPPELMARKLER-TEST ERROR:", error);
+      res.status(500).json({ message: "DOPPELMARKLER-Test fehlgeschlagen" });
+    }
   });
 
   return httpServer;
