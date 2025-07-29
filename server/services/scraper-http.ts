@@ -173,15 +173,41 @@ export class ScraperHttpService {
       ];
 
       // Erst kommerzielle Ausschlüsse prüfen
-      const isCommercial = commercialKeywords.some(keyword => bodyText.includes(keyword));
-      if (isCommercial) {
+      const foundCommercial = commercialKeywords.find(keyword => bodyText.includes(keyword));
+      if (foundCommercial) {
+        console.log(`[DEBUG] Kommerziell ausgeschlossen wegen: "${foundCommercial}" in ${url}`);
         return null; // Gewerblich ausschließen
       }
 
-      // Private Stichwörter suchen
-      const hasPrivateKeyword = privateKeywords.some(keyword => bodyText.includes(keyword));
-      if (!hasPrivateKeyword) {
-        return null; // Nicht eindeutig privat
+      // Private Stichwörter suchen ODER keine kommerziellen Zeichen (liberaler Ansatz)
+      const foundPrivateKeyword = privateKeywords.find(keyword => bodyText.includes(keyword));
+      if (foundPrivateKeyword) {
+        console.log(`[DEBUG] Privat akzeptiert wegen: "${foundPrivateKeyword}" in ${url}`);
+      }
+      
+      // Wenn keine privaten Keywords, aber auch keine kommerziellen - dann trotzdem akzeptieren
+      if (!foundPrivateKeyword) {
+        // Zusätzliche kommerzielle Indikatoren prüfen
+        const additionalCommercial = [
+          'provision',
+          'makler',
+          'immobilienagentur',
+          'gewerblich',
+          'unternehmen',
+          'gmbh',
+          'ag ',
+          'kg ',
+          'immobilien service'
+        ];
+        
+        const foundAdditionalCommercial = additionalCommercial.find(keyword => bodyText.includes(keyword));
+        if (foundAdditionalCommercial) {
+          console.log(`[DEBUG] Zusätzlich kommerziell ausgeschlossen wegen: "${foundAdditionalCommercial}" in ${url}`);
+          return null; // Verdächtig kommerziell
+        }
+        
+        // Sonst akzeptieren (liberaler Ansatz für private ohne explizite Keywords)
+        console.log(`[DEBUG] Neutral akzeptiert (keine privaten/kommerziellen Keywords): ${url}`);
       }
 
       // Titel extrahieren

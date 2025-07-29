@@ -26,6 +26,11 @@ Preferred communication style: Simple, everyday language.
 ✓ CRITICAL FIX: Removed artificial 15-listing limit - now processes ALL listings per page
 ✓ STRATEGY CHANGE: Switched to explicit "PRIVAT" keyword detection for more precise filtering
 ✓ Enhanced debug output to show exact processing statistics per page
+✓ MAJOR FIX: Implemented HTTP-based scraper as reliable fallback for Playwright issues
+✓ STRATEGY IMPROVED: Detail-page scraping approach like Python version for better private detection
+✓ Enhanced private/commercial filtering with debug output for troubleshooting
+✓ Liberalized filter to accept neutral listings (not explicitly private but also not commercial)
+✓ Added comprehensive duplicate detection via URL uniqueness
 
 ## System Architecture
 
