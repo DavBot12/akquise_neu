@@ -229,8 +229,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // Fallback to working HTTP scraper with enhanced extraction
-      await scraperHttpService.startScraping(scraperOptions);
+      // TURBO-SCRAPER: Direkte Integration der funktionierenden DOPPELMARKLER-Tests
+      scraperOptions.onProgress('[TURBO] 🚀 DOPPELMARKLER-SYSTEM aktiviert - Maximale URL-Extraktion!');
+      
+      // Parallel TURBO-Scans für alle Kategorien
+      const categoryPromises = categories.map(async (category) => {
+        try {
+          // Führe direkten DOPPELMARKLER-Test durch
+          const response = await axios.post('http://localhost:5000/api/scraper/doppelmarkler-test', {
+            category,
+            maxPages,
+            delay
+          }, {
+            timeout: 300000 // 5 Minuten Timeout pro Kategorie
+          });
+          
+          scraperOptions.onProgress(`[TURBO-COMPLETE] ${category}: ${response.data.message}`);
+          return response.data;
+        } catch (error) {
+          scraperOptions.onProgress(`[TURBO-ERROR] ${category}: ${error}`);
+          return null;
+        }
+      });
+      
+      // Warte auf alle Kategorien
+      await Promise.allSettled(categoryPromises);
+      scraperOptions.onProgress('[TURBO] 🏆 ALLE KATEGORIEN ABGESCHLOSSEN!');
 
       res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
     } catch (error) {
