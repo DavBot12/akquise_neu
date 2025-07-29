@@ -158,8 +158,14 @@ export class ScraperService {
               continue;
             }
             
-            // Debug für alle akzeptierten Listings
+            // Debug für alle akzeptierten Listings mit URL
+            const url = await listing.evaluate((el: Element) => {
+              const link = el.querySelector('a[href*="willhaben"]');
+              return link ? link.getAttribute('href') : 'URL nicht gefunden';
+            });
+            
             options.onProgress(`[DEBUG] Akzeptiert (${i+1}): ${hasPrivateKeywords ? 'Mit PRIVAT-Keywords' : 'Neutral akzeptiert'}`);
+            options.onProgress(`[URL] ${url}`);
             
             
             privateListingsFound++;
