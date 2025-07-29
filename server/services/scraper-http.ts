@@ -131,6 +131,191 @@ export class ScraperHttpService {
     options.onProgress(`[COMPLETE] Kategorie ${category}: ${totalFound} private Listings gefunden`);
   }
 
+  private async scrapeDetailPage(url: string, category: string): Promise<ListingData | null> {
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'de,en-US;q=0.7,en;q=0.3'
+        },
+        timeout: 15000
+      });
+
+      const $ = cheerio.load(response.data);
+      const bodyText = $('body').text().toLowerCase();
+
+      // Private Stichworte suchen (wie früher besprochen)
+      const privateKeywords = [
+        'privat',
+        'privatverkauf', 
+        'private anzeige',
+        'privatperson',
+        'von privat',
+        'kein makler',
+        'ohne makler',
+        'eigentümer',
+        'privateigentümer'
+      ];
+
+      // Kommerzielle Ausschlüsse
+      const commercialKeywords = [
+        'immobilienmakler',
+        'makler gmbh', 
+        'immobilien gmbh',
+        'remax',
+        'century 21',
+        'engel & völkers',
+        'realitäten gmbh',
+        'kaltenegger',
+        'otto immobilien',
+        'buwog'
+      ];
+
+      // Erst kommerzielle Ausschlüsse prüfen
+      const isCommercial = commercialKeywords.some(keyword => bodyText.includes(keyword));
+      if (isCommercial) {
+        return null; // Gewerblich ausschließen
+      }
+
+      // Private Stichwörter suchen
+      const hasPrivateKeyword = privateKeywords.some(keyword => bodyText.includes(keyword));
+      if (!hasPrivateKeyword) {
+        return null; // Nicht eindeutig privat
+      }
+
+      // Titel extrahieren
+      const title = this.extractDetailTitle($);
+      if (!title || title.length < 10) return null;
+
+      // Preis extrahieren  
+      const price = this.extractDetailPrice($);
+      if (price === 0) return null;
+
+      // Fläche extrahieren
+      const area = this.extractDetailArea($);
+
+      // Standort extrahieren
+      const location = this.extractDetailLocation($);
+
+      // Bilder extrahieren
+      const images = this.extractDetailImages($);
+
+      // Beschreibung extrahieren
+      const description = this.extractDetailDescription($);
+
+      // Metadaten
+      const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
+      const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
+      const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
+
+      return {
+        title,
+        price,
+        area,
+        location,
+        url,
+        images,
+        description,
+        category: listingCategory,
+        region,
+        eur_per_m2
+      };
+
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private extractDetailTitle($: cheerio.CheerioAPI): string {
+    const selectors = ['h1', 'h2', '[data-testid*="title"]', '.title'];
+    
+    for (const selector of selectors) {
+      const element = $(selector).first();
+      if (element.length > 0) {
+        const text = element.text().trim();
+        if (text && text.length > 5) {
+          return text;
+        }
+      }
+    }
+    return '';
+  }
+
+  private extractDetailPrice($: cheerio.CheerioAPI): number {
+    const bodyText = $('body').text();
+    
+    const pricePatterns = [
+      /€\s*([\d.,]+)/g,
+      /([\d.,]+)\s*€/g,
+      /EUR\s*([\d.,]+)/g,
+      /([\d.,]+)\s*EUR/g
+    ];
+
+    for (const pattern of pricePatterns) {
+      const matches = bodyText.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          const number = match.replace(/[€EUR\s]/g, '').replace(/\./g, '').replace(/,/g, '.');
+          const price = parseFloat(number);
+          if (price > 50000 && price < 10000000) {
+            return Math.round(price);
+          }
+        }
+      }
+    }
+    return 0;
+  }
+
+  private extractDetailArea($: cheerio.CheerioAPI): number {
+    const bodyText = $('body').text();
+    const areaMatches = bodyText.match(/(\d{2,4})\s*m²/g);
+    
+    if (areaMatches) {
+      for (const match of areaMatches) {
+        const number = match.replace(/[^\d]/g, '');
+        const area = parseInt(number);
+        if (area > 20 && area < 10000) { // Realistischer Bereich
+          return area;
+        }
+      }
+    }
+    return 0;
+  }
+
+  private extractDetailLocation($: cheerio.CheerioAPI): string {
+    const bodyText = $('body').text();
+    const locationMatch = bodyText.match(/(\d{4}\s+[A-ZÜÄÖSS][a-züäöß\s-]+)/);
+    if (locationMatch) {
+      return locationMatch[1].trim();
+    }
+    return '';
+  }
+
+  private extractDetailImages($: cheerio.CheerioAPI): string[] {
+    const images: string[] = [];
+    
+    $('img').each((i, img) => {
+      if (i >= 3) return false;
+      
+      const $img = $(img);
+      const src = $img.attr('src') || $img.attr('data-src');
+      if (src && src.startsWith('http') && !src.includes('logo')) {
+        images.push(src);
+      }
+    });
+    
+    return images;
+  }
+
+  private extractDetailDescription($: cheerio.CheerioAPI): string {
+    const descriptions = $('.description, .ad-description, [data-testid*="description"]');
+    if (descriptions.length > 0) {
+      return descriptions.first().text().trim().substring(0, 200);
+    }
+    return '';
+  }
+
   private extractListing($listing: cheerio.Cheerio<any>, category: string): ListingData | null {
     // Titel extrahieren
     const title = this.extractTitle($listing);
