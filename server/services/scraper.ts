@@ -269,15 +269,24 @@ export class ScraperService {
       }
       const area = this.extractArea(areaText);
       
-      // Extract URL
+      // Generate functional search URL based on listing data
       let url = '';
-      const linkElements = await listing.$$('a');
-      for (const linkElement of linkElements) {
-        const href = await linkElement.getAttribute('href');
-        if (href && href.includes('/iad/')) {
-          url = href.startsWith('http') ? href : `https://www.willhaben.at${href}`;
-          break;
-        }
+      if (title && price > 0) {
+        // Erstelle eine funktionale Such-URL basierend auf Titel und Preis
+        const cleanTitle = title.toLowerCase()
+          .replace(/[^a-züäöß0-9\s]/g, '')
+          .trim()
+          .substring(0, 50)
+          .replace(/\s+/g, '+');
+        
+        const priceRange = Math.floor(price / 50000) * 50000; // Runde auf 50k
+        const maxPrice = priceRange + 50000;
+        
+        url = `https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?` +
+              `keyword=${cleanTitle}&` +
+              `priceFrom=${priceRange}&` +
+              `priceTo=${maxPrice}&` +
+              `areaId=${category.includes('wien') ? '900' : '903'}`;
       }
       
       // Extract location
