@@ -210,18 +210,31 @@ export class ScraperHttpService {
         'privateigentümer'
       ];
 
-      // Lockere kommerzielle Ausschlüsse (da wir schon PRIVATE-gefiltert haben)
-      const hardCommercialKeywords = [
+      // VERSTÄRKTE kommerzielle Ausschlüsse - PRIVATE Filter funktioniert nicht richtig!
+      const commercialKeywords = [
+        'immobilienmakler',
+        'makler gmbh', 
+        'immobilien gmbh',
         'remax',
         'century 21',
         'engel & völkers',
-        'buwog'
+        'realitäten gmbh',
+        'kaltenegger',
+        'otto immobilien',
+        'buwog',
+        'provision',
+        'courtage',
+        'maklergebühr',
+        'makler',
+        'realitätenbüro',
+        'kg immobilien',
+        'gmbh'
       ];
 
-      // Nur die härtesten kommerziellen Ausschlüsse prüfen
-      const foundHardCommercial = hardCommercialKeywords.find(keyword => bodyText.includes(keyword));
-      if (foundHardCommercial) {
-        console.log(`[DEBUG] Hardkommerziel ausgeschlossen wegen: "${foundHardCommercial}" in ${url}`);
+      // ALLE kommerziellen Begriffe strikt ausschließen
+      const foundCommercial = commercialKeywords.find(keyword => bodyText.includes(keyword));
+      if (foundCommercial) {
+        console.log(`[DEBUG] MAKLER ausgeschlossen wegen: "${foundCommercial}" in ${url}`);
         return null; // Gewerblich ausschließen
       }
 
