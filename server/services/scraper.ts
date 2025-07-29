@@ -119,26 +119,48 @@ export class ScraperService {
           try {
             const listing = listings[i];
             
-            // Quick validation
+            // Quick validation - mit Debug-Ausgabe
             const listingText = await listing.evaluate((el: Element) => el.textContent?.toLowerCase() || '');
             
-            if (listingText.length < 30 || 
-                !listingText.includes('€') || 
-                listingText.includes('show-results') ||
-                listingText.includes('pagination')) {
+            // Viel liberalere Validierung - weniger restriktiv
+            if (listingText.length < 10) {  // Reduziert von 30 auf 10
+              options.onProgress(`[DEBUG] Übersprungen (${i+1}): Text zu kurz (${listingText.length} Zeichen)`);
               skippedCount++;
               continue;
             }
             
-            // Check if private - with detailed debugging
-            const isPrivate = await this.isPrivateListing(listing);
-            if (!isPrivate) {
-              commercialCount++;
-              // Zeige ersten Teil des Textes für Debug
-              const debugText = listingText.substring(0, 120).replace(/\s+/g, ' ');
-              options.onProgress(`[DEBUG] Nicht-privat (${i+1}): "${debugText}..."`);
+            // Prüfe auf Navigation/Werbung Elements (aber nicht auf €)
+            if (listingText.includes('show-results') || 
+                listingText.includes('pagination') ||
+                listingText.includes('weitere suchergebnisse') ||
+                listingText.includes('anzeige') && listingText.length < 50) {
+              options.onProgress(`[DEBUG] Übersprungen (${i+1}): Navigation-Element erkannt`);
+              skippedCount++;
               continue;
             }
+            
+            // Liberale private Erkennung - viel mehr akzeptieren
+            const hasPrivateKeywords = listingText.includes('privat') || 
+                                     listingText.includes('private') ||
+                                     listingText.includes('kein makler') ||
+                                     listingText.includes('ohne makler') ||
+                                     listingText.includes('eigentümer');
+            
+            // Strenge kommerzielle Ausschlüsse
+            const isCommercial = listingText.includes('remax') ||
+                               listingText.includes('century 21') ||
+                               listingText.includes('engel & völkers');
+            
+            // Liberal: Akzeptiere alle außer den eindeutig kommerziellen
+            if (isCommercial) {
+              commercialCount++;
+              options.onProgress(`[DEBUG] Kommerziell (${i+1}): Makler erkannt`);
+              continue;
+            }
+            
+            // Debug für alle akzeptierten Listings
+            options.onProgress(`[DEBUG] Akzeptiert (${i+1}): ${hasPrivateKeywords ? 'Mit PRIVAT-Keywords' : 'Neutral akzeptiert'}`);
+            
             
             privateListingsFound++;
             
