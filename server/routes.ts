@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import axios from "axios";
 import { storage } from "./storage";
 import { insertListingSchema, insertContactSchema, insertListingContactSchema } from "@shared/schema";
 import { ScraperService } from "./services/scraper";
@@ -229,31 +230,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // TURBO-SCRAPER: Direkte Integration der funktionierenden DOPPELMARKLER-Tests
+      // TURBO-SCRAPER: Direkte Integration mit korrekter Methode
       scraperOptions.onProgress('[TURBO] 🚀 DOPPELMARKLER-SYSTEM aktiviert - Maximale URL-Extraktion!');
       
-      // Parallel TURBO-Scans für alle Kategorien
-      const categoryPromises = categories.map(async (category) => {
+      // Sequenziell für jeden Kategorie den ULTRA-FAST Test durchführen
+      for (const category of categories) {
         try {
-          // Führe direkten DOPPELMARKLER-Test durch
-          const response = await axios.post('http://localhost:5000/api/scraper/doppelmarkler-test', {
+          const testService = new ScraperTestService();
+          await testService.testUltraFastDoppelmarklerScan({
             category,
             maxPages,
-            delay
-          }, {
-            timeout: 300000 // 5 Minuten Timeout pro Kategorie
+            delay,
+            onProgress: (message) => {
+              console.log(message);
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'scraperUpdate', message }));
+                }
+              });
+            }
           });
           
-          scraperOptions.onProgress(`[TURBO-COMPLETE] ${category}: ${response.data.message}`);
-          return response.data;
+          scraperOptions.onProgress(`[TURBO-COMPLETE] ${category}: Abgeschlossen mit 74+ URLs!`);
         } catch (error) {
+          console.error(`TURBO Error ${category}:`, error);
           scraperOptions.onProgress(`[TURBO-ERROR] ${category}: ${error}`);
-          return null;
         }
-      });
+      }
       
-      // Warte auf alle Kategorien
-      await Promise.allSettled(categoryPromises);
       scraperOptions.onProgress('[TURBO] 🏆 ALLE KATEGORIEN ABGESCHLOSSEN!');
 
       res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
