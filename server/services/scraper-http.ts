@@ -84,15 +84,50 @@ export class ScraperHttpService {
         });
 
         const $ = cheerio.load(response.data);
-        
-        // Detail-URLs finden (wie in Ihrem Python-Code)
-        const links = $('a[href*="/iad/immobilien/d/"]');
         const pageUrls: string[] = [];
         
-        links.each((i, link) => {
-          const href = $(link).attr('href');
-          if (href) {
-            const cleanUrl = href.split('?')[0]; // Parameter entfernen
+        // ULTRA-AGGRESSIVE URL EXTRAKTION - ALLE MÖGLICHEN SELEKTOREN
+        const selectors = [
+          'a[href*="/iad/immobilien/d/"]',
+          'a[href*="/immobilien/d/"]',
+          'a[data-testid*="result"]',
+          'a[data-testid*="listing"]', 
+          'a[data-testid*="ad"]',
+          '.result-list-entry a',
+          '.search-result-entry a',
+          '.SearchResultListItem a',
+          '.iadResultsAdCard a',
+          '.AdItem a',
+          '.SearchResultItem a',
+          '.result-item a',
+          '.listing-item a',
+          '[data-testid="result-item"] a',
+          '[data-testid="ad-item"] a',
+          '[data-testid="listing-card"] a'
+        ];
+        
+        // Durchlaufe ALLE Selektoren aggressiv
+        selectors.forEach(selector => {
+          $(selector).each((_, element) => {
+            const href = $(element).attr('href');
+            if (href && (href.includes('/iad/immobilien/d/') || href.includes('/immobilien/d/'))) {
+              const cleanUrl = href.split('?')[0];
+              const fullUrl = href.startsWith('http') ? cleanUrl : `https://www.willhaben.at${cleanUrl}`;
+              if (!pageUrls.includes(fullUrl)) {
+                pageUrls.push(fullUrl);
+              }
+            }
+          });
+        });
+        
+        // MEGA-FALLBACK: Alle Links mit Immobilien-Keywords durchsuchen
+        $('a').each((_, element) => {
+          const href = $(element).attr('href');
+          if (href && 
+              (href.includes('immobilien') || href.includes('eigentumswohnung') || href.includes('grundstueck')) &&
+              href.includes('/d/') &&
+              href.length > 30) {
+            const cleanUrl = href.split('?')[0];
             const fullUrl = href.startsWith('http') ? cleanUrl : `https://www.willhaben.at${cleanUrl}`;
             if (!pageUrls.includes(fullUrl)) {
               pageUrls.push(fullUrl);
