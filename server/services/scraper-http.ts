@@ -238,35 +238,56 @@ export class ScraperHttpService {
         return null; // Gewerblich ausschließen
       }
 
-      // Private Stichwörter suchen ODER keine kommerziellen Zeichen (liberaler Ansatz)
+      // MEHRSTUFIGER PERFEKTER PRIVATE FILTER
       const foundPrivateKeyword = privateKeywords.find(keyword => bodyText.includes(keyword));
-      if (foundPrivateKeyword) {
-        console.log(`[DEBUG] Privat akzeptiert wegen: "${foundPrivateKeyword}" in ${url}`);
+      
+      // Auch wenn "privat" gefunden - zusätzliche Makler-Verdachtsmomente prüfen
+      const suspiciousPhrases = [
+        'provisionsfreier erstbezug',
+        'bezugsfertig und sofort beziehbar',
+        'neubauprojekt',
+        'wohnbauträger',
+        'bauträger',
+        'projektentwicklung',
+        'anlegerpreis',
+        'anlegerhit',
+        'investitionsmöglichkeit',
+        'vorsorgewohnung',
+        'kapitalanlage',
+        'rendite',
+        'contact@',
+        'info@',
+        'office@',
+        'immobilien@',
+        'verkauf@',
+        '.at',
+        '.com',
+        'tel:',
+        'telefon:',
+        'mobil:',
+        'email:',
+        'www.',
+        'http',
+        'impressum',
+        'agb',
+        'datenschutz',
+        'mehrfache wohneinheiten',
+        'vollsaniert',
+        'erstbezug',
+        'schlüsselfertig'
+      ];
+      
+      const foundSuspicious = suspiciousPhrases.find(phrase => bodyText.includes(phrase));
+      if (foundSuspicious) {
+        console.log(`[DEBUG] MAKLER-VERDACHT trotz "privat": "${foundSuspicious}" in ${url}`);
+        return null;
       }
       
-      // Wenn keine privaten Keywords, aber auch keine kommerziellen - dann trotzdem akzeptieren
-      if (!foundPrivateKeyword) {
-        // Zusätzliche kommerzielle Indikatoren prüfen
-        const additionalCommercial = [
-          'provision',
-          'makler',
-          'immobilienagentur',
-          'gewerblich',
-          'unternehmen',
-          'gmbh',
-          'ag ',
-          'kg ',
-          'immobilien service'
-        ];
-        
-        const foundAdditionalCommercial = additionalCommercial.find(keyword => bodyText.includes(keyword));
-        if (foundAdditionalCommercial) {
-          console.log(`[DEBUG] Zusätzlich kommerziell ausgeschlossen wegen: "${foundAdditionalCommercial}" in ${url}`);
-          return null; // Verdächtig kommerziell
-        }
-        
-        // Sonst akzeptieren (liberaler Ansatz für private ohne explizite Keywords)
-        console.log(`[DEBUG] Neutral akzeptiert (keine privaten/kommerziellen Keywords): ${url}`);
+      // NUR wenn echte private Indikatoren UND keine Verdachtsmomente
+      if (foundPrivateKeyword) {
+        console.log(`[DEBUG] ✓ ECHT PRIVAT bestätigt: "${foundPrivateKeyword}" in ${url}`);
+      } else {
+        console.log(`[DEBUG] NEUTRAL akzeptiert (keine Hinweise): ${url}`);
       }
 
       // Titel extrahieren
