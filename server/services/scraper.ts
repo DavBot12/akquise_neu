@@ -107,9 +107,13 @@ export class ScraperService {
           continue;
         }
         
-        // Process listings efficiently
+        // Process listings efficiently - mit mehr Debug-Info
         let privateListingsFound = 0;
+        let commercialCount = 0;
+        let skippedCount = 0;
         const maxListingsPerPage = Math.min(listings.length, 15);
+        
+        options.onProgress(`[INFO] Prüfe ${maxListingsPerPage} von ${listings.length} Listings auf Seite ${currentPage}`);
         
         for (let i = 0; i < maxListingsPerPage; i++) {
           try {
@@ -122,12 +126,17 @@ export class ScraperService {
                 !listingText.includes('€') || 
                 listingText.includes('show-results') ||
                 listingText.includes('pagination')) {
+              skippedCount++;
               continue;
             }
             
-            // Check if private
+            // Check if private - with detailed debugging
             const isPrivate = await this.isPrivateListing(listing);
             if (!isPrivate) {
+              commercialCount++;
+              // Zeige ersten Teil des Textes für Debug
+              const debugText = listingText.substring(0, 150).replace(/\s+/g, ' ');
+              options.onProgress(`[DEBUG] Kommerziell (${i+1}): "${debugText}..."`);
               continue;
             }
             
@@ -146,7 +155,7 @@ export class ScraperService {
         }
         
         totalListingsFound += privateListingsFound;
-        options.onProgress(`[SUCCESS] Seite ${currentPage}: ${privateListingsFound} private Listings (gesamt: ${totalListingsFound})`);
+        options.onProgress(`[STATS] Seite ${currentPage}: ${privateListingsFound} privat, ${commercialCount} kommerziell, ${skippedCount} übersprungen (von ${listings.length} total)`);
         
         // Delay between pages
         if (currentPage < options.maxPages) {
@@ -164,23 +173,24 @@ export class ScraperService {
     try {
       const allText = await listing.evaluate((el: Element) => el.textContent?.toLowerCase() || '');
       
-      // Commercial exclusions
-      const commercialExclusions = [
-        'immobilienmakler',
-        'makler gmbh', 
-        'immobilien gmbh',
-        'realitäten gmbh',
+      // Sehr restriktive Liste - nur die bekanntesten Makler-Ketten ausschließen
+      const trulyCommercialExclusions = [
         'remax',
-        'century 21',
-        'kaltenegger',
-        'otto immobilien',
-        'engel & völkers'
+        'century 21', 
+        'engel & völkers',
+        'kaltenegger immobilien',
+        'otto immobilien'
       ];
       
-      const hasCommercial = commercialExclusions.some(indicator => allText.includes(indicator));
-      return !hasCommercial;
+      // Prüfe auf echte Makler-Begriffe (nicht einzelne Wörter wie "gmbh")
+      const isTrulyCommercial = trulyCommercialExclusions.some(indicator => 
+        allText.includes(indicator)
+      );
+      
+      // Liberal: Nur ausschließen wenn es wirklich ein bekannter Makler ist
+      return !isTrulyCommercial;
     } catch (error) {
-      return true; // Default to true to avoid missing private listings
+      return true; // Im Zweifel immer als privat behandeln
     }
   }
 
