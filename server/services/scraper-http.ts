@@ -198,21 +198,10 @@ export class ScraperHttpService {
       const $ = cheerio.load(response.data);
       const bodyText = $('body').text().toLowerCase();
 
-      // Private Stichworte suchen (wie früher besprochen)
-      const privateKeywords = [
-        'privat',
-        'privatverkauf', 
-        'private anzeige',
-        'privatperson',
-        'von privat',
-        'kein makler',
-        'ohne makler',
-        'eigentümer',
-        'privateigentümer'
-      ];
+      // Private Stichworte für später
 
-      // VERSTÄRKTE kommerzielle Ausschlüsse - PRIVATE Filter funktioniert nicht richtig!
-      const commercialKeywords = [
+      // VERSTÄRKTE kommerzielle Ausschlüsse - Vorab-Check
+      const preCommercialKeywords = [
         'immobilienmakler',
         'makler gmbh', 
         'immobilien gmbh',
@@ -222,21 +211,13 @@ export class ScraperHttpService {
         'realitäten gmbh',
         'kaltenegger',
         'otto immobilien',
-        'buwog',
-        'provision',
-        'courtage',
-        'maklergebühr',
-        'makler',
-        'realitätenbüro',
-        'kg immobilien',
-        'gmbh'
+        'buwog'
       ];
 
-      // ALLE kommerziellen Begriffe strikt ausschließen
-      const foundCommercial = commercialKeywords.find(keyword => bodyText.includes(keyword));
-      if (foundCommercial) {
-        console.log(`[DEBUG] MAKLER ausgeschlossen wegen: "${foundCommercial}" in ${url}`);
-        return null; // Gewerblich ausschließen
+      const foundPreCommercial = preCommercialKeywords.find(keyword => bodyText.includes(keyword.toLowerCase()));
+      if (foundPreCommercial) {
+        console.log(`[FILTER-1] ❌ VORAB-MAKLER: "${foundPreCommercial}" in ${url}`);
+        return null;
       }
 
       // BESCHREIBUNG LADEN UND FILTERN (wie gewünscht)
@@ -246,9 +227,8 @@ export class ScraperHttpService {
       // 1. HARTE MAKLER-AUSSCHLÜSSE in der Beschreibung
       const maklerKeywords = [
         'makler', 'immobilienmakler', 'realitätenbüro', 'immobilienagentur',
-        'gmbh', 'kg ', 'ag ', 'remax', 'century 21', 'engel & völkers',
-        'provision', 'courtage', 'maklergebühr', 'buwog', 'kaltenegger',
-        'otto immobilien', 'bauträger', 'wohnbauträger', 'projektentwicklung'
+        'gmbh', 'kg ', 'ag ', 'provision', 'courtage', 'maklergebühr', 
+        'bauträger', 'wohnbauträger', 'projektentwicklung'
       ];
       
       const foundMakler = maklerKeywords.find(keyword => 
@@ -257,7 +237,7 @@ export class ScraperHttpService {
       );
       
       if (foundMakler) {
-        console.log(`[MAKLER] ❌ Ausgeschlossen wegen "${foundMakler}" in ${url}`);
+        console.log(`[FILTER-2] ❌ MAKLER-BESCHREIBUNG: "${foundMakler}" in ${url}`);
         return null;
       }
       
@@ -276,7 +256,7 @@ export class ScraperHttpService {
       );
       
       if (foundSuspicious) {
-        console.log(`[VERDÄCHTIG] ❌ Marketing-Sprache "${foundSuspicious}" in ${url}`);
+        console.log(`[FILTER-3] ❌ MARKETING-VERDACHT: "${foundSuspicious}" in ${url}`);
         return null;
       }
       
@@ -288,9 +268,9 @@ export class ScraperHttpService {
       );
       
       if (foundPrivate) {
-        console.log(`[PRIVAT] ✓ ECHT PRIVAT bestätigt: "${foundPrivate}" in ${url}`);
+        console.log(`[FILTER-4] ✅ PRIVAT-BESTÄTIGT: "${foundPrivate}" in ${url}`);
       } else {
-        console.log(`[NEUTRAL] ? Neutral akzeptiert (keine klaren Hinweise) in ${url}`);
+        console.log(`[FILTER-5] ⚪ NEUTRAL-AKZEPTIERT: (keine Hinweise) in ${url}`);
       }
 
       // 4. ALLE DETAILS EXTRAHIEREN (nur bei privaten Anzeigen)
@@ -314,7 +294,7 @@ export class ScraperHttpService {
       const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
       const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
 
-      console.log(`[SUCCESS] ✅ Private Anzeige komplett: "${title}" - €${price}${phoneNumber ? ` - Tel: ${phoneNumber}` : ''}`);
+      console.log(`[EXTRACT] ✅ PRIVATE ANZEIGE KOMPLETT: "${title}" - €${price}${phoneNumber ? ` - Tel: ${phoneNumber}` : ' - KEINE TEL'}`);
 
       return {
         title,

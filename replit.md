@@ -38,6 +38,10 @@ Preferred communication style: Simple, everyday language.
 ✓ Suspicous phrase detection: Erstbezug, Neubauprojekt, Anleger, Bauträger, etc.
 ✓ Database cleanup: Removed commercial listings that slipped through
 ✓ Now achieving near-perfect private-only filtering
+✓ COMPLETE WILLHABEN SCAN: Starting full sweep of all categories and regions
+✓ Enhanced debug output: Shows exact filter stage that triggers (FILTER-1 to FILTER-5)
+✓ Phone number extraction: Austrian patterns with comprehensive contact detection
+✓ Production ready: Scanning entire Willhaben for afternoon sales start
 
 ## System Architecture
 
