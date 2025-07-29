@@ -1,0 +1,469 @@
+[INFO] Scraper bereit zum Start...
+[INFO] Neuer Scraper V2 gestartet...
+[FALLBACK] Playwright fehlgeschlagen, nutze HTTP-Scraper...
+[INFO] HTTP-basierter Scraper gestartet...
+[START] Kategorie eigentumswohnung-wien wird gescrapt...
+[LOAD] Seite 1: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=1
+[FOUND] Seite 1: 5 Detail-URLs gefunden
+[LOAD] Seite 2: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=2
+[FOUND] Seite 2: 5 Detail-URLs gefunden
+[LOAD] Seite 3: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=3
+[FOUND] Seite 3: 5 Detail-URLs gefunden
+[LOAD] Seite 4: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=4
+[FOUND] Seite 4: 5 Detail-URLs gefunden
+[LOAD] Seite 5: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=5
+[FOUND] Seite 5: 5 Detail-URLs gefunden
+[LOAD] Seite 6: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=6
+[FOUND] Seite 6: 5 Detail-URLs gefunden
+[LOAD] Seite 7: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=7
+[FOUND] Seite 7: 5 Detail-URLs gefunden
+[LOAD] Seite 8: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=8
+[FOUND] Seite 8: 11 Detail-URLs gefunden
+[LOAD] Seite 9: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=9
+[FOUND] Seite 9: 5 Detail-URLs gefunden
+[LOAD] Seite 10: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=10
+[FOUND] Seite 10: 5 Detail-URLs gefunden
+[INFO] Insgesamt 56 einzigartige Detail-URLs gefunden
+[CHECK] (1/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/sonnige-3-zimmer-mit-3-aussenflaechen-nbsp-anlegerpreis-1385000615/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/sonnige-3-zimmer-mit-3-aussenflaechen-nbsp-anlegerpreis-1385000615/
+[CHECK] (2/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/terrassenwohnung-mit-weitblick-2014565430/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/terrassenwohnung-mit-weitblick-2014565430/
+[CHECK] (3/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/gretls-garten-provisionsfreier-erstbezug-am-badeteich-hirschstetten-nahe-u2-36er-strassenbahn-1129549248/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/gretls-garten-provisionsfreier-erstbezug-am-badeteich-hirschstetten-nahe-u2-36er-strassenbahn-1129549248/
+[CHECK] (4/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/neuwertige-1-zimmer-wohnung-in-1100-wien-ihr-neues-zuhause-fuer-255-000-eur-1625494747/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/neuwertige-1-zimmer-wohnung-in-1100-wien-ihr-neues-zuhause-fuer-255-000-eur-1625494747/
+[CHECK] (5/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/charmante-1-zimmer-wohnung-in-1100-wien-ihr-neues-zuhause-fuer-245-000-eur-1029521761/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/charmante-1-zimmer-wohnung-in-1100-wien-ihr-neues-zuhause-fuer-245-000-eur-1029521761/
+[CHECK] (6/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/raum-zum-leben-platz-zum-geniessen-eigentumswohnungen-mit-balkon-terrasse-oder-garten-in-1210-wien-2029777131/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/raum-zum-leben-platz-zum-geniessen-eigentumswohnungen-mit-balkon-terrasse-oder-garten-in-1210-wien-2029777131/
+[CHECK] (7/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/provisionsfreie-schluesselfertige-eigentumswohnungen-in-moderner-wohnhausanlage-nahe-alter-donau-und-donau-zentrum-mit-perfekter-anbindung-1825442401/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/provisionsfreie-schluesselfertige-eigentumswohnungen-in-moderner-wohnhausanlage-nahe-alter-donau-und-donau-zentrum-mit-perfekter-anbindung-1825442401/
+[CHECK] (8/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/ankommen-wohlfuehlen-und-geniessen-ihr-neues-zuhause-mit-grosszuegigem-garten-in-1210-wien-1713665049/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/ankommen-wohlfuehlen-und-geniessen-ihr-neues-zuhause-mit-grosszuegigem-garten-in-1210-wien-1713665049/
+[CHECK] (9/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/ihr-neues-zuhause-in-floridsdorf-stilvolle-eigentumswohnungen-mit-durchdachten-grundrissen-und-hochwertiger-ausstattung-1988235067/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/ihr-neues-zuhause-in-floridsdorf-stilvolle-eigentumswohnungen-mit-durchdachten-grundrissen-und-hochwertiger-ausstattung-1988235067/
+[CHECK] (10/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/traumhafte-erdgeschosswohnung-in-1160-wien-ideal-fuer-singles-oder-wg-nur-110-000-00-eur-1031180967/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/traumhafte-erdgeschosswohnung-in-1160-wien-ideal-fuer-singles-oder-wg-nur-110-000-00-eur-1031180967/
+[CHECK] (11/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/6-stock-3-zimmer-wohnung-unweit-der-alten-donau-2045970434/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/6-stock-3-zimmer-wohnung-unweit-der-alten-donau-2045970434/
+[CHECK] (12/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/unweit-des-donauzentrums-und-der-alten-donau-2066638703/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/unweit-des-donauzentrums-und-der-alten-donau-2066638703/
+[CHECK] (13/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/-an-der-schanze-provisionsfreie-3-zimmer-familienwohnung-ende-2026-807540115/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/-an-der-schanze-provisionsfreie-3-zimmer-familienwohnung-ende-2026-807540115/
+[CHECK] (14/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/moderne-terrwhg-klima-fb-heizung-inkl-kueche-einbauten-pp-modern-terrace-apt-ac-fl-heating-incl-kitchen-fittings-parking-1450277021/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/moderne-terrwhg-klima-fb-heizung-inkl-kueche-einbauten-pp-modern-terrace-apt-ac-fl-heating-incl-kitchen-fittings-parking-1450277021/
+[CHECK] (15/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/schoen-sanierte-4-zimmer-wohnung-nahe-donauinsel-1306476741/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/schoen-sanierte-4-zimmer-wohnung-nahe-donauinsel-1306476741/
+[CHECK] (16/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-wo-urbanes-leben-auf-zukunftsvision-trifft-und-lebensraum-gestaltet-wird-1638326275/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-wo-urbanes-leben-auf-zukunftsvision-trifft-und-lebensraum-gestaltet-wird-1638326275/
+[CHECK] (17/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-entdecken-sie-maja-eine-zeitgenoessisch-moderne-oase-im-herzen-des-10-bezirks-1255325379/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-entdecken-sie-maja-eine-zeitgenoessisch-moderne-oase-im-herzen-des-10-bezirks-1255325379/
+[CHECK] (18/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-ihr-neuer-massstab-fuer-urbanes-wohnen-in-wien-favoriten-2077106957/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-ihr-neuer-massstab-fuer-urbanes-wohnen-in-wien-favoriten-2077106957/
+[CHECK] (19/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-wo-urbanes-leben-auf-zukunftsvision-trifft-und-lebensraum-gestaltet-wird-1040958040/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-wo-urbanes-leben-auf-zukunftsvision-trifft-und-lebensraum-gestaltet-wird-1040958040/
+[CHECK] (20/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-935328321/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-935328321/
+[CHECK] (21/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/schicke-1-zimmer-vorsorge-wohnung-mit-balkon-und-blick-ins-gruene-1109428376/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/schicke-1-zimmer-vorsorge-wohnung-mit-balkon-und-blick-ins-gruene-1109428376/
+[CHECK] (22/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-3-zimmer-altbauwohnung-mit-innenhofbalkon-nahe-dem-augarten-erstbezug-nach-sanierung-2004295172/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-3-zimmer-altbauwohnung-mit-innenhofbalkon-nahe-dem-augarten-erstbezug-nach-sanierung-2004295172/
+[CHECK] (23/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-perfekt-geplante-3-zimmer-altbauwohnung-mit-balkon-nahe-dem-augarten-top-2-8-1025743606/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-perfekt-geplante-3-zimmer-altbauwohnung-mit-balkon-nahe-dem-augarten-top-2-8-1025743606/
+[CHECK] (24/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-3-zimmer-galerie-gartenwohnung-mit-hofseitigem-balkon-nahe-dem-augarten-u4-friedensbruecke-1722285539/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-3-zimmer-galerie-gartenwohnung-mit-hofseitigem-balkon-nahe-dem-augarten-u4-friedensbruecke-1722285539/
+[CHECK] (25/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-3-zimmer-altbauwohnung-mit-innenhofbalkon-erstbezug-nach-sanierung-1741543148/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/initiative-top-100-raus-aus-gas-3-zimmer-altbauwohnung-mit-innenhofbalkon-erstbezug-nach-sanierung-1741543148/
+[CHECK] (26/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/timeless-16-exklusives-revitalisierungsprojekt-im-herzen-wiens-reihenhaeuser-im-innenhof-neubau-1226726336/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/timeless-16-exklusives-revitalisierungsprojekt-im-herzen-wiens-reihenhaeuser-im-innenhof-neubau-1226726336/
+[CHECK] (27/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/timeless-16-exklusives-revitalisierungsprojekt-im-herzen-wiens-reihenhaeuser-im-innenhof-neubau-2085217618/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/timeless-16-exklusives-revitalisierungsprojekt-im-herzen-wiens-reihenhaeuser-im-innenhof-neubau-2085217618/
+[CHECK] (28/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/timeless-16-exklusives-revitalisierungsprojekt-im-herzen-wiens-reihenhaeuser-im-innenhof-neubau-1261683215/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/timeless-16-exklusives-revitalisierungsprojekt-im-herzen-wiens-reihenhaeuser-im-innenhof-neubau-1261683215/
+[CHECK] (29/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/ihr-investment-fragen-sie-jetzt-einen-termin-an-und-lassen-sie-sich-beraten-838184655/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/ihr-investment-fragen-sie-jetzt-einen-termin-an-und-lassen-sie-sich-beraten-838184655/
+[CHECK] (30/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1150-rudolfsheim-fuenfhaus/suedlich-gelegene-2-zimmerwohnung-im-3-liftstock-in-einem-haus-welches-gerade-generalsaniert-wird-1698761431/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1150-rudolfsheim-fuenfhaus/suedlich-gelegene-2-zimmerwohnung-im-3-liftstock-in-einem-haus-welches-gerade-generalsaniert-wird-1698761431/
+[CHECK] (31/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/eleganter-erstbezug-stilvolle-2-zimmer-wohnung-mit-grosszuegiger-terrasse-in-idyllischer-ruhelage-und-gruenblick-1670213005/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/eleganter-erstbezug-stilvolle-2-zimmer-wohnung-mit-grosszuegiger-terrasse-in-idyllischer-ruhelage-und-gruenblick-1670213005/
+[CHECK] (32/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/erstbezug-helle-3-zimmer-wohnung-naehe-donaukanal-2071299722/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/erstbezug-helle-3-zimmer-wohnung-naehe-donaukanal-2071299722/
+[CHECK] (33/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/2-zimmerwohnung-in-hofruhelage-im-herzen-wiens-1873444198/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/2-zimmerwohnung-in-hofruhelage-im-herzen-wiens-1873444198/
+[CHECK] (34/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/modern-living-mit-weitblick-3-zimmer-wohnung-nahe-der-uno-city-1228902229/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/modern-living-mit-weitblick-3-zimmer-wohnung-nahe-der-uno-city-1228902229/
+[CHECK] (35/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/sandleiten-64-klimatisierte-1-zimmer-wohnung-am-fusse-des-wilheminenbergs-1573491934/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/sandleiten-64-klimatisierte-1-zimmer-wohnung-am-fusse-des-wilheminenbergs-1573491934/
+[CHECK] (36/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/traumhaftes-wohnen-in-top-lage-moderne-2-zimmer-wohnung-mit-balkon-komplett-saniert-fuer-nur-195-000-eur-1017013416/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/traumhaftes-wohnen-in-top-lage-moderne-2-zimmer-wohnung-mit-balkon-komplett-saniert-fuer-nur-195-000-eur-1017013416/
+[CHECK] (37/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-goennen-sie-sich-taeglichen-diesen-ausblick-hochwertige-luxuswohnung-mit-balkon-1875784072/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-goennen-sie-sich-taeglichen-diesen-ausblick-hochwertige-luxuswohnung-mit-balkon-1875784072/
+[CHECK] (38/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/gartenwohnung-in-ruhelage-kauf-oder-mietkauf-moeglich-2115004328/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/gartenwohnung-in-ruhelage-kauf-oder-mietkauf-moeglich-2115004328/
+[CHECK] (39/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/exklusive-neubauwohnungen-in-essling-esslinger-hauptstrasse-1220-wien-1342213981/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/exklusive-neubauwohnungen-in-essling-esslinger-hauptstrasse-1220-wien-1342213981/
+[CHECK] (40/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1160-ottakring/wohnen-am-park-urban-gruen-1947769539/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1160-ottakring/wohnen-am-park-urban-gruen-1947769539/
+[CHECK] (41/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/sonniger-neubau-erstbezug-nahe-7-8-bezirk-urbane-lage-perfekte-infrastruktur-1438963842/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/sonniger-neubau-erstbezug-nahe-7-8-bezirk-urbane-lage-perfekte-infrastruktur-1438963842/
+[CHECK] (42/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/neu-parkseitige-zweizimmer-wohnung-mit-abendsonne-freiflaeche-1496490388/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/neu-parkseitige-zweizimmer-wohnung-mit-abendsonne-freiflaeche-1496490388/
+[CHECK] (43/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/wohnen-am-park-urban-gruen-neubau-erstbezug-mit-ruher-innenhoflage-1490505712/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/wohnen-am-park-urban-gruen-neubau-erstbezug-mit-ruher-innenhoflage-1490505712/
+[CHECK] (44/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/sonnen-und-lichtdurchflutet-geraeumig-und-ganz-neu-wohnen-am-park-1973380940/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/sonnen-und-lichtdurchflutet-geraeumig-und-ganz-neu-wohnen-am-park-1973380940/
+[CHECK] (45/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/smarte-zweizimmer-wohnung-mit-balkon-in-urbaner-citylage-new-1769353165/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/smarte-zweizimmer-wohnung-mit-balkon-in-urbaner-citylage-new-1769353165/
+[CHECK] (46/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/urban-gruen-wohnen-am-park-neu-dreizimmer-wohnung-mit-hofseitigem-balkon-1837919178/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/urban-gruen-wohnen-am-park-neu-dreizimmer-wohnung-mit-hofseitigem-balkon-1837919178/
+[CHECK] (47/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-altbauwohnung-im-erstbezug-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1936839176/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-altbauwohnung-im-erstbezug-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1936839176/
+[CHECK] (48/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-unsanierte-altbauwohnung-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-931626997/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-unsanierte-altbauwohnung-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-931626997/
+[CHECK] (49/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/erstbezug-nach-kernsanierung-57m-naehe-kardinal-nagl-platz-1945050739/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/erstbezug-nach-kernsanierung-57m-naehe-kardinal-nagl-platz-1945050739/
+[CHECK] (50/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/unsanierte-altbauwohnung-naehe-hauptbahnhof-1044577916/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/unsanierte-altbauwohnung-naehe-hauptbahnhof-1044577916/
+[CHECK] (51/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/provisionsfrei-natur-trifft-exklusivitaet-3-zimmer-wohnparadies-mit-balkon-893076485/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/provisionsfrei-natur-trifft-exklusivitaet-3-zimmer-wohnparadies-mit-balkon-893076485/
+[CHECK] (52/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/charmante-2-zimmer-altbau-wohnung-in-zentrumsnaehe-885433002/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/charmante-2-zimmer-altbau-wohnung-in-zentrumsnaehe-885433002/
+[CHECK] (53/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/charmante-5-zimmer-altbau-wohnung-in-zentrumsnaehe-1014012796/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/charmante-5-zimmer-altbau-wohnung-in-zentrumsnaehe-1014012796/
+[CHECK] (54/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/attraktive-3-zimmer-eigentumswohnung-mit-einbaukueche-und-balkon-in-zentraler-lage-von-1100-wien-1181028487/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/attraktive-3-zimmer-eigentumswohnung-mit-einbaukueche-und-balkon-in-zentraler-lage-von-1100-wien-1181028487/
+[CHECK] (55/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/-sq-anleger-augepasst-moderne-2-zimmer-neubauwohnung-mit-loggia-naehe-kurpark-oberlaa-895610449/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/-sq-anleger-augepasst-moderne-2-zimmer-neubauwohnung-mit-loggia-naehe-kurpark-oberlaa-895610449/
+[CHECK] (56/56) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/village-im-dritten-view-homes-1301124176/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/village-im-dritten-view-homes-1301124176/
+[COMPLETE] Kategorie eigentumswohnung-wien: 0 private Listings gefunden
+[START] Kategorie grundstuecke-wien wird gescrapt...
+[LOAD] Seite 1: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=1
+[FOUND] Seite 1: 11 Detail-URLs gefunden
+[LOAD] Seite 2: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=2
+[FOUND] Seite 2: 5 Detail-URLs gefunden
+[LOAD] Seite 3: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=3
+[FOUND] Seite 3: 5 Detail-URLs gefunden
+[LOAD] Seite 4: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=4
+[FOUND] Seite 4: 5 Detail-URLs gefunden
+[LOAD] Seite 5: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=5
+[FOUND] Seite 5: 5 Detail-URLs gefunden
+[LOAD] Seite 6: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=6
+[FOUND] Seite 6: 5 Detail-URLs gefunden
+[LOAD] Seite 7: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=7
+[FOUND] Seite 7: 5 Detail-URLs gefunden
+[LOAD] Seite 8: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=8
+[FOUND] Seite 8: 11 Detail-URLs gefunden
+[LOAD] Seite 9: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=9
+[FOUND] Seite 9: 5 Detail-URLs gefunden
+[LOAD] Seite 10: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=10
+[FOUND] Seite 10: 5 Detail-URLs gefunden
+[INFO] Insgesamt 62 einzigartige Detail-URLs gefunden
+[CHECK] (1/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1110-simmering/traumhafte-2-zimmer-wohnung-mit-3-loggien-in-1110-wien-ab-785eur-rate-monat-832760242/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1110-simmering/traumhafte-2-zimmer-wohnung-mit-3-loggien-in-1110-wien-ab-785eur-rate-monat-832760242/
+[CHECK] (2/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/ca-4-5-bruttoanfangsrendite-unbefristet-vermietete-2-zimmer-wohnung-inkl-freiflaeche-1060467266/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/ca-4-5-bruttoanfangsrendite-unbefristet-vermietete-2-zimmer-wohnung-inkl-freiflaeche-1060467266/
+[CHECK] (3/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/charmante-und-geraeumige-2-zimmer-wohnung-1705175397/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/charmante-und-geraeumige-2-zimmer-wohnung-1705175397/
+[CHECK] (4/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/traumhafte-gartenwohnung-in-ruhelage-911703414/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/traumhafte-gartenwohnung-in-ruhelage-911703414/
+[CHECK] (5/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1588996457/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1588996457/
+[CHECK] (6/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1916325265/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1916325265/
+[CHECK] (7/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-2083522937/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-2083522937/
+[CHECK] (8/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1385449221/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1385449221/
+[CHECK] (9/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1142319531/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1142319531/
+[CHECK] (10/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1512138937/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1512138937/
+[CHECK] (11/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-969404231/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-969404231/
+[CHECK] (12/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/provisionsfrei-nachhaltig-investieren-waermepumpe-deckenkuehlung-keller-garage-1398282722/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/provisionsfrei-nachhaltig-investieren-waermepumpe-deckenkuehlung-keller-garage-1398282722/
+[CHECK] (13/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1070-neubau/summit-7-dem-himmel-nah-1335723207/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1070-neubau/summit-7-dem-himmel-nah-1335723207/
+[CHECK] (14/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/verkaufsstart-altbau-charme-trifft-nachhaltigen-wohnkomfort-3-zimmer-wohnung-mit-hochwertiger-ausstattung-innenhofbalkon-luftwaermepumpe-in-einem-generalsanierten-altbauhaus-1567207072/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/verkaufsstart-altbau-charme-trifft-nachhaltigen-wohnkomfort-3-zimmer-wohnung-mit-hochwertiger-ausstattung-innenhofbalkon-luftwaermepumpe-in-einem-generalsanierten-altbauhaus-1567207072/
+[CHECK] (15/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1060-mariahilf/-sq-beeindruckende-altbauwohnung-in-der-gumpendorfer-strasse-perfect-for-a-couple-811655668/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1060-mariahilf/-sq-beeindruckende-altbauwohnung-in-der-gumpendorfer-strasse-perfect-for-a-couple-811655668/
+[CHECK] (16/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/unbeschreiblich-schoen-hell-eigentumtraum-im-nordbahnviertel-t189-1997056425/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/unbeschreiblich-schoen-hell-eigentumtraum-im-nordbahnviertel-t189-1997056425/
+[CHECK] (17/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/helle-3-zimmer-wohnung-mit-durchdachter-raumaufteilung-802943837/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/helle-3-zimmer-wohnung-mit-durchdachter-raumaufteilung-802943837/
+[CHECK] (18/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/heller-2-zimmer-erstbezug-im-altwien-stil-in-generalsaniertem-gruenderzeithaus-784062617/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/heller-2-zimmer-erstbezug-im-altwien-stil-in-generalsaniertem-gruenderzeithaus-784062617/
+[CHECK] (19/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/lichtdurchfluteter-3-zimmer-stilaltbau-mit-modernster-ausstattung-und-loggia-2068120113/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/lichtdurchfluteter-3-zimmer-stilaltbau-mit-modernster-ausstattung-und-loggia-2068120113/
+[CHECK] (20/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/hochwertig-sanierter-2-zimmer-erstbezug-mit-durchdachtem-raumkonzept-1713530972/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/hochwertig-sanierter-2-zimmer-erstbezug-mit-durchdachtem-raumkonzept-1713530972/
+[CHECK] (21/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/luxurioese-dachgeschosswohnungen-mit-terrassen-exklusives-wohnen-an-der-alten-donau-750250034/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/luxurioese-dachgeschosswohnungen-mit-terrassen-exklusives-wohnen-an-der-alten-donau-750250034/
+[CHECK] (22/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-hoechste-qualitaet-effizienz-und-stil-maja-definiert-modernes-wohnen-neu-855575112/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-hoechste-qualitaet-effizienz-und-stil-maja-definiert-modernes-wohnen-neu-855575112/
+[CHECK] (23/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1933121893/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1933121893/
+[CHECK] (24/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-wo-urbanes-leben-auf-zukunftsvision-trifft-und-lebensraum-gestaltet-wird-1852391571/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-wo-urbanes-leben-auf-zukunftsvision-trifft-und-lebensraum-gestaltet-wird-1852391571/
+[CHECK] (25/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-ihr-neuer-massstab-fuer-urbanes-wohnen-in-wien-favoriten-875261996/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-maja-ihr-neuer-massstab-fuer-urbanes-wohnen-in-wien-favoriten-875261996/
+[CHECK] (26/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-hoechste-qualitaet-effizienz-und-stil-maja-definiert-modernes-wohnen-neu-1102834642/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-hoechste-qualitaet-effizienz-und-stil-maja-definiert-modernes-wohnen-neu-1102834642/
+[CHECK] (27/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1235842376/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1235842376/
+[CHECK] (28/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-1206697579/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-1206697579/
+[CHECK] (29/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/ruhige-suedseitige-1-zimmer-gartenwohnung-naehe-hirschstettner-aupark-1918450501/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/ruhige-suedseitige-1-zimmer-gartenwohnung-naehe-hirschstettner-aupark-1918450501/
+[CHECK] (30/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1010-innere-stadt/renovierungsbeduerftige-wohnung-in-bester-lage-naehe-franziskanerplatz-1006558502/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1010-innere-stadt/renovierungsbeduerftige-wohnung-in-bester-lage-naehe-franziskanerplatz-1006558502/
+[CHECK] (31/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/helle-3-zimmer-maisonette-inkl-tiefgaragenparkplatz-805363580/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/helle-3-zimmer-maisonette-inkl-tiefgaragenparkplatz-805363580/
+[CHECK] (32/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/alles-was-man-sich-wuenscht-kostenguenstige-heizung-kuehlung-ueber-erdwaerme-pv-anlage-weitlaeufige-gruenflaechen-837986685/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/alles-was-man-sich-wuenscht-kostenguenstige-heizung-kuehlung-ueber-erdwaerme-pv-anlage-weitlaeufige-gruenflaechen-837986685/
+[CHECK] (33/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/neubauprojekt-im-niedrig-energie-standard-im-gruenen-hirschfeld-naturnah-wohnen-provisionsfrei-1527571279/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/neubauprojekt-im-niedrig-energie-standard-im-gruenen-hirschfeld-naturnah-wohnen-provisionsfrei-1527571279/
+[CHECK] (34/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/hervorragende-raumaufteilungen-im-begehrte-niedrig-energie-standard-gruen-gruener-hirschfeld-964725553/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/hervorragende-raumaufteilungen-im-begehrte-niedrig-energie-standard-gruen-gruener-hirschfeld-964725553/
+[CHECK] (35/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/im-gruenen-mit-guter-anbindung-an-die-innenstadt-hier-kann-man-entspannen-824616594/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/im-gruenen-mit-guter-anbindung-an-die-innenstadt-hier-kann-man-entspannen-824616594/
+[CHECK] (36/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wald-wiese-bach-ihre-wohnoase-zum-entspannen-mit-toller-infrastruktur-1700541278/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wald-wiese-bach-ihre-wohnoase-zum-entspannen-mit-toller-infrastruktur-1700541278/
+[CHECK] (37/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/charmant-und-stilvoll-der-apostelhof-im-herzen-wiens-1101861893/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/charmant-und-stilvoll-der-apostelhof-im-herzen-wiens-1101861893/
+[CHECK] (38/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1974786337/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1974786337/
+[CHECK] (39/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/eintreten-wohlfuehlen-und-bleiben-willkommen-im-mokka-1752403417/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/eintreten-wohlfuehlen-und-bleiben-willkommen-im-mokka-1752403417/
+[CHECK] (40/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/energiesparen-leicht-gemacht-3-zi-erstbezug-mit-erdwaerme-und-sonnenenergieversorgung-1439252166/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/energiesparen-leicht-gemacht-3-zi-erstbezug-mit-erdwaerme-und-sonnenenergieversorgung-1439252166/
+[CHECK] (41/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/gerade-fertiggestellt-eintreten-wohlfuehlen-und-bleiben-willkommen-im-mokka-1713219127/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/gerade-fertiggestellt-eintreten-wohlfuehlen-und-bleiben-willkommen-im-mokka-1713219127/
+[CHECK] (42/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1914940538/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1914940538/
+[CHECK] (43/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-1288397582/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-1288397582/
+[CHECK] (44/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-790966828/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-790966828/
+[CHECK] (45/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1532025954/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1532025954/
+[CHECK] (46/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-909368037/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-909368037/
+[CHECK] (47/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1213245862/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1213245862/
+[CHECK] (48/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1275524053/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1275524053/
+[CHECK] (49/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-willkommen-zu-hause-2-zimmer-wohnung-mit-ost-ausrichtung-im-projekt-maja-2096158927/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-willkommen-zu-hause-2-zimmer-wohnung-mit-ost-ausrichtung-im-projekt-maja-2096158927/
+[CHECK] (50/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-2-zimmer-wohnung-mit-guter-raumaufteilung-mit-perfekter-anbindung-projekt-maja-1909917983/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-2-zimmer-wohnung-mit-guter-raumaufteilung-mit-perfekter-anbindung-projekt-maja-1909917983/
+[CHECK] (51/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-exklusive-2-zimmer-wohnung-mit-zentraler-begehbarkeit-urbanes-flair-im-projekt-maja-1631011524/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-exklusive-2-zimmer-wohnung-mit-zentraler-begehbarkeit-urbanes-flair-im-projekt-maja-1631011524/
+[CHECK] (52/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/exklusive-neubauwohnungen-in-essling-esslinger-hauptstrasse-1220-wien-952235078/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/exklusive-neubauwohnungen-in-essling-esslinger-hauptstrasse-1220-wien-952235078/
+[CHECK] (53/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1010-innere-stadt/moebliertes-4-zimmer-luxus-apartment-in-absoluter-bestlage-naehe-stephansplatz-1542050493/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1010-innere-stadt/moebliertes-4-zimmer-luxus-apartment-in-absoluter-bestlage-naehe-stephansplatz-1542050493/
+[CHECK] (54/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-altbauwohnung-im-erstbezug-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1718750034/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-altbauwohnung-im-erstbezug-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1718750034/
+[CHECK] (55/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/exklusive-5-zimmer-wohnung-in-1020-wien-vollsaniert-mit-balkon-und-luxusausstattung-898990384/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/exklusive-5-zimmer-wohnung-in-1020-wien-vollsaniert-mit-balkon-und-luxusausstattung-898990384/
+[CHECK] (56/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/dg-schmuckstueck-in-ruhiger-sackgasse-neubauprojekt-im-herzen-des-21-bezirks-1279272005/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/dg-schmuckstueck-in-ruhiger-sackgasse-neubauprojekt-im-herzen-des-21-bezirks-1279272005/
+[CHECK] (57/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/investing-in-viennas-prime-location-uno-city-vic-donauzentrum-1269542773/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/investing-in-viennas-prime-location-uno-city-vic-donauzentrum-1269542773/
+[CHECK] (58/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/hochwertige-dachgeschosswohnung-grosse-terrasse-erstbezug-top-lage-1385322951/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/hochwertige-dachgeschosswohnung-grosse-terrasse-erstbezug-top-lage-1385322951/
+[CHECK] (59/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/erstbezug-dachgeschosswohnung-hochwertige-ausstattung-terrasse-1702861230/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/erstbezug-dachgeschosswohnung-hochwertige-ausstattung-terrasse-1702861230/
+[CHECK] (60/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/dachgeschosswohnung-moderne-bauweise-terrasse-1376875886/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/dachgeschosswohnung-moderne-bauweise-terrasse-1376875886/
+[CHECK] (61/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/maisonette-neubau-terrasse-modernste-bauweise-892210249/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/maisonette-neubau-terrasse-modernste-bauweise-892210249/
+[CHECK] (62/62) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/wohnen-mit-stil-edle-2-zimmer-wohnung-im-altbaujuwel-hell-ruhig-1925256665/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/wohnen-mit-stil-edle-2-zimmer-wohnung-im-altbaujuwel-hell-ruhig-1925256665/
+[COMPLETE] Kategorie grundstuecke-wien: 0 private Listings gefunden
+[START] Kategorie eigentumswohnung-niederoesterreich wird gescrapt...
+[LOAD] Seite 1: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=1
+[FOUND] Seite 1: 0 Detail-URLs gefunden
+[LOAD] Seite 2: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=2
+[FOUND] Seite 2: 0 Detail-URLs gefunden
+[LOAD] Seite 3: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=3
+[FOUND] Seite 3: 0 Detail-URLs gefunden
+[LOAD] Seite 4: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=4
+[FOUND] Seite 4: 0 Detail-URLs gefunden
+[LOAD] Seite 5: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=5
+[FOUND] Seite 5: 0 Detail-URLs gefunden
+[LOAD] Seite 6: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=6
+[FOUND] Seite 6: 0 Detail-URLs gefunden
+[LOAD] Seite 7: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=7
+[FOUND] Seite 7: 0 Detail-URLs gefunden
+[LOAD] Seite 8: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=8
+[FOUND] Seite 8: 0 Detail-URLs gefunden
+[LOAD] Seite 9: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=9
+[FOUND] Seite 9: 0 Detail-URLs gefunden
+[LOAD] Seite 10: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25&page=10
+[FOUND] Seite 10: 0 Detail-URLs gefunden
+[INFO] Insgesamt 0 einzigartige Detail-URLs gefunden
+[COMPLETE] Kategorie eigentumswohnung-niederoesterreich: 0 private Listings gefunden
+[START] Kategorie grundstuecke-niederoesterreich wird gescrapt...
+[LOAD] Seite 1: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=1
+[FOUND] Seite 1: 5 Detail-URLs gefunden
+[LOAD] Seite 2: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=2
+[FOUND] Seite 2: 17 Detail-URLs gefunden
+[LOAD] Seite 3: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=3
+[FOUND] Seite 3: 5 Detail-URLs gefunden
+[LOAD] Seite 4: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=4
+[FOUND] Seite 4: 5 Detail-URLs gefunden
+[LOAD] Seite 5: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=5
+[FOUND] Seite 5: 5 Detail-URLs gefunden
+[LOAD] Seite 6: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=6
+[FOUND] Seite 6: 5 Detail-URLs gefunden
+[LOAD] Seite 7: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=7
+[FOUND] Seite 7: 5 Detail-URLs gefunden
+[LOAD] Seite 8: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=8
+[FOUND] Seite 8: 5 Detail-URLs gefunden
+[LOAD] Seite 9: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=9
+[FOUND] Seite 9: 11 Detail-URLs gefunden
+[LOAD] Seite 10: https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25&page=10
+[FOUND] Seite 10: 5 Detail-URLs gefunden
+[INFO] Insgesamt 68 einzigartige Detail-URLs gefunden
+[CHECK] (1/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1120-meidling/sanierte-altbauwohnung-nahe-u4-verkauf-1706916731/
+[SUCCESS] Private Anzeige: "Sanierte Altbauwohnung nahe U4 (Verkauf)" - €229,000
+[CHECK] (2/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1180-waehring/dachterrassenwohnung-mit-weitblick-und-altbaucharme-zweitbezug-nach-komplettsanierung-1745336137/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1180-waehring/dachterrassenwohnung-mit-weitblick-und-altbaucharme-zweitbezug-nach-komplettsanierung-1745336137/
+[CHECK] (3/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/erstbezug-nach-sanierung-provisionsfrei-1222819096/
+[SUCCESS] Private Anzeige: "ERSTBEZUG nach Sanierung! Provisionsfrei!" - €225,000
+[CHECK] (4/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/-neu-zwei-nebeneinanderliegende-sanierungsbeduerftige-1-zimmer-altbau-wohnungen-mit-potenzial-1147924168/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1160-ottakring/-neu-zwei-nebeneinanderliegende-sanierungsbeduerftige-1-zimmer-altbau-wohnungen-mit-potenzial-1147924168/
+[CHECK] (5/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/-apostelhof-charmante-3-zimmer-altbauwohnung-mit-3-balkone-modern-living-im-altbau-auf-hoechstem-standard-mitten-im-3-bezirk-1938083884/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/-apostelhof-charmante-3-zimmer-altbauwohnung-mit-3-balkone-modern-living-im-altbau-auf-hoechstem-standard-mitten-im-3-bezirk-1938083884/
+[CHECK] (6/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/charmante-und-geraeumige-2-zimmer-wohnung-1705175397/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/charmante-und-geraeumige-2-zimmer-wohnung-1705175397/
+[CHECK] (7/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/traumhafte-gartenwohnung-in-ruhelage-911703414/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/traumhafte-gartenwohnung-in-ruhelage-911703414/
+[CHECK] (8/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1588996457/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1588996457/
+[CHECK] (9/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1916325265/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1916325265/
+[CHECK] (10/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-2083522937/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-2083522937/
+[CHECK] (11/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1385449221/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1385449221/
+[CHECK] (12/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1142319531/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1142319531/
+[CHECK] (13/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1512138937/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-1512138937/
+[CHECK] (14/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-969404231/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/provisionsfrei-ten-living-ein-zuhause-mit-vielfalt-969404231/
+[CHECK] (15/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1210-floridsdorf/quarzweg-1-1553774555/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1210-floridsdorf/quarzweg-1-1553774555/
+[CHECK] (16/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/lichtdurchflutete-3-zimmer-dachgeschosswohnung-mit-zwei-terrassen-fuer-sonnenmomente-und-rueckzug-976212596/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/lichtdurchflutete-3-zimmer-dachgeschosswohnung-mit-zwei-terrassen-fuer-sonnenmomente-und-rueckzug-976212596/
+[CHECK] (17/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wohntraum-fuer-paerchen-oder-single-mit-10-terrasse-leben-am-quarzweg-1002885212/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wohntraum-fuer-paerchen-oder-single-mit-10-terrasse-leben-am-quarzweg-1002885212/
+[CHECK] (18/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/ein-zuhause-mit-weitblick-wohnqualitaet-provisionsfrei-1160451113/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/ein-zuhause-mit-weitblick-wohnqualitaet-provisionsfrei-1160451113/
+[CHECK] (19/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/2-zimmer-wohnung-mit-beeindruckendem-balkon-rueckzugsort-mit-freiraum-1216790217/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/2-zimmer-wohnung-mit-beeindruckendem-balkon-rueckzugsort-mit-freiraum-1216790217/
+[CHECK] (20/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/3-zimmer-grosser-balkon-im-erstbezug-2090533550/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/3-zimmer-grosser-balkon-im-erstbezug-2090533550/
+[CHECK] (21/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wohntraum-fuer-paerchen-oder-single-mit-balkon-leben-am-quarzweg-1758756373/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wohntraum-fuer-paerchen-oder-single-mit-balkon-leben-am-quarzweg-1758756373/
+[CHECK] (22/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1120-meidling/exklusiver-erstbezug-nach-sanierung-3-zimmerwohnung-mit-freiflaeche-in-den-ruhigen-innenhof-1051075187/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1120-meidling/exklusiver-erstbezug-nach-sanierung-3-zimmerwohnung-mit-freiflaeche-in-den-ruhigen-innenhof-1051075187/
+[CHECK] (23/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/provisionsfrei-nachhaltig-investieren-waermepumpe-deckenkuehlung-keller-garage-1398282722/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/provisionsfrei-nachhaltig-investieren-waermepumpe-deckenkuehlung-keller-garage-1398282722/
+[CHECK] (24/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1070-neubau/summit-7-dem-himmel-nah-1335723207/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1070-neubau/summit-7-dem-himmel-nah-1335723207/
+[CHECK] (25/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/verkaufsstart-altbau-charme-trifft-nachhaltigen-wohnkomfort-3-zimmer-wohnung-mit-hochwertiger-ausstattung-innenhofbalkon-luftwaermepumpe-in-einem-generalsanierten-altbauhaus-1567207072/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1170-hernals/verkaufsstart-altbau-charme-trifft-nachhaltigen-wohnkomfort-3-zimmer-wohnung-mit-hochwertiger-ausstattung-innenhofbalkon-luftwaermepumpe-in-einem-generalsanierten-altbauhaus-1567207072/
+[CHECK] (26/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1060-mariahilf/-sq-beeindruckende-altbauwohnung-in-der-gumpendorfer-strasse-perfect-for-a-couple-811655668/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1060-mariahilf/-sq-beeindruckende-altbauwohnung-in-der-gumpendorfer-strasse-perfect-for-a-couple-811655668/
+[CHECK] (27/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/unbeschreiblich-schoen-hell-eigentumtraum-im-nordbahnviertel-t189-1997056425/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/unbeschreiblich-schoen-hell-eigentumtraum-im-nordbahnviertel-t189-1997056425/
+[CHECK] (28/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/helle-3-zimmer-wohnung-mit-durchdachter-raumaufteilung-802943837/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/helle-3-zimmer-wohnung-mit-durchdachter-raumaufteilung-802943837/
+[CHECK] (29/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/heller-2-zimmer-erstbezug-im-altwien-stil-in-generalsaniertem-gruenderzeithaus-784062617/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/heller-2-zimmer-erstbezug-im-altwien-stil-in-generalsaniertem-gruenderzeithaus-784062617/
+[CHECK] (30/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/lichtdurchfluteter-3-zimmer-stilaltbau-mit-modernster-ausstattung-und-loggia-2068120113/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/lichtdurchfluteter-3-zimmer-stilaltbau-mit-modernster-ausstattung-und-loggia-2068120113/
+[CHECK] (31/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/hochwertig-sanierter-2-zimmer-erstbezug-mit-durchdachtem-raumkonzept-1713530972/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1050-margareten/hochwertig-sanierter-2-zimmer-erstbezug-mit-durchdachtem-raumkonzept-1713530972/
+[CHECK] (32/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/luxurioese-dachgeschosswohnungen-mit-terrassen-exklusives-wohnen-an-der-alten-donau-750250034/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/luxurioese-dachgeschosswohnungen-mit-terrassen-exklusives-wohnen-an-der-alten-donau-750250034/
+[CHECK] (33/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/obkirchergasse-ruhig-gelegene-2-zimmerwohnung-mit-balkon-676424203/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1190-doebling/obkirchergasse-ruhig-gelegene-2-zimmerwohnung-mit-balkon-676424203/
+[CHECK] (34/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/luftwaermepumpe-riesenterrasse-wohnen-mit-wow-effekt-im-dachgeschoss-goennen-sie-sich-das-besondere-worauf-warten-sie-noch-610477231/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1200-brigittenau/luftwaermepumpe-riesenterrasse-wohnen-mit-wow-effekt-im-dachgeschoss-goennen-sie-sich-das-besondere-worauf-warten-sie-noch-610477231/
+[CHECK] (35/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-916023236/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-916023236/
+[CHECK] (36/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-hoechste-qualitaet-effizienz-und-stil-maja-definiert-modernes-wohnen-neu-855575112/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-hoechste-qualitaet-effizienz-und-stil-maja-definiert-modernes-wohnen-neu-855575112/
+[CHECK] (37/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1933121893/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1933121893/
+[CHECK] (38/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-2037808592/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-2037808592/
+[CHECK] (39/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-lage-luxus-leben-maja-setzt-neue-massstaebe-fuer-urbanes-wohnen-in-wien-1971979334/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-lage-luxus-leben-maja-setzt-neue-massstaebe-fuer-urbanes-wohnen-in-wien-1971979334/
+[CHECK] (40/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-2094461533/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-2094461533/
+[CHECK] (41/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1235842376/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-nachhaltig-modern-effizient-erleben-sie-das-einzigartige-wohnkonzept-von-maja-1235842376/
+[CHECK] (42/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-1206697579/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/bezugsfertig-und-sofort-beziehbar-willkommen-in-maja-der-wohnkomfort-der-zukunft-inmitten-von-favoriten-1206697579/
+[CHECK] (43/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/name-ist-programm-schnappen-sie-sich-ihren-wohntraum-im-projekt-hirschfeld-naturnah-wohnen-1025947386/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/name-ist-programm-schnappen-sie-sich-ihren-wohntraum-im-projekt-hirschfeld-naturnah-wohnen-1025947386/
+[CHECK] (44/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/im-gruenen-mit-guter-anbindung-an-die-innenstadt-hier-kann-man-entspannen-921309514/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/im-gruenen-mit-guter-anbindung-an-die-innenstadt-hier-kann-man-entspannen-921309514/
+[CHECK] (45/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wald-wiese-bach-ihre-wohnoase-zum-entspannen-mit-toller-infrastruktur-1297210688/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/wald-wiese-bach-ihre-wohnoase-zum-entspannen-mit-toller-infrastruktur-1297210688/
+[CHECK] (46/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/alles-was-man-sich-wuenscht-kostenguenstige-heizung-kuehlung-ueber-erdwaerme-pv-anlage-weitlaeufige-gruenflaechen-837986685/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/alles-was-man-sich-wuenscht-kostenguenstige-heizung-kuehlung-ueber-erdwaerme-pv-anlage-weitlaeufige-gruenflaechen-837986685/
+[CHECK] (47/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/neubauprojekt-im-niedrig-energie-standard-im-gruenen-hirschfeld-naturnah-wohnen-provisionsfrei-1527571279/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/neubauprojekt-im-niedrig-energie-standard-im-gruenen-hirschfeld-naturnah-wohnen-provisionsfrei-1527571279/
+[CHECK] (48/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/charmant-und-stilvoll-der-apostelhof-im-herzen-wiens-1975588713/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/charmant-und-stilvoll-der-apostelhof-im-herzen-wiens-1975588713/
+[CHECK] (49/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-973128737/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-973128737/
+[CHECK] (50/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-821250994/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-821250994/
+[CHECK] (51/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/charmant-und-stilvoll-der-apostelhof-im-herzen-wiens-1101861893/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/charmant-und-stilvoll-der-apostelhof-im-herzen-wiens-1101861893/
+[CHECK] (52/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1974786337/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1974786337/
+[CHECK] (53/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/village-im-dritten-view-homes-819756412/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/village-im-dritten-view-homes-819756412/
+[CHECK] (54/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/exklusive-neubauwohnungen-in-essling-esslinger-hauptstrasse-1220-wien-1695038189/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/exklusive-neubauwohnungen-in-essling-esslinger-hauptstrasse-1220-wien-1695038189/
+[CHECK] (55/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/hoch-hinaus-4-zimmer-wohnung-mit-blick-auf-die-donau-1388747182/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1220-donaustadt/hoch-hinaus-4-zimmer-wohnung-mit-blick-auf-die-donau-1388747182/
+[CHECK] (56/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1914940538/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/neubauprojekt/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1914940538/
+[CHECK] (57/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-1288397582/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-1288397582/
+[CHECK] (58/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-790966828/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-790966828/
+[CHECK] (59/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1532025954/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1532025954/
+[CHECK] (60/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-909368037/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/klassischer-altbaucharme-und-backstein-treffen-auf-moderne-909368037/
+[CHECK] (61/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1213245862/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/wohnen-im-apostelhof-1213245862/
+[CHECK] (62/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1275524053/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1030-landstrasse/exklusives-wohnen-im-apostelhof-altbau-trifft-auf-modernen-neubau-1275524053/
+[CHECK] (63/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-willkommen-zu-hause-2-zimmer-wohnung-mit-ost-ausrichtung-im-projekt-maja-2096158927/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1100-favoriten/jetzt-investieren-willkommen-zu-hause-2-zimmer-wohnung-mit-ost-ausrichtung-im-projekt-maja-2096158927/
+[CHECK] (64/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-unsanierte-altbauwohnung-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1475520552/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-unsanierte-altbauwohnung-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1475520552/
+[CHECK] (65/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1010-innere-stadt/moebliertes-4-zimmer-luxus-apartment-in-absoluter-bestlage-naehe-stephansplatz-1542050493/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1010-innere-stadt/moebliertes-4-zimmer-luxus-apartment-in-absoluter-bestlage-naehe-stephansplatz-1542050493/
+[CHECK] (66/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-altbauwohnung-im-erstbezug-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1718750034/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/-sq-altbauwohnung-im-erstbezug-im-herzen-von-floridsdorf-perfekte-investitionsmoeglichkeit-1718750034/
+[CHECK] (67/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/exklusive-5-zimmer-wohnung-in-1020-wien-vollsaniert-mit-balkon-und-luxusausstattung-898990384/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1020-leopoldstadt/exklusive-5-zimmer-wohnung-in-1020-wien-vollsaniert-mit-balkon-und-luxusausstattung-898990384/
+[CHECK] (68/68) Prüfe: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/dg-schmuckstueck-in-ruhiger-sackgasse-neubauprojekt-im-herzen-des-21-bezirks-1279272005/
+[SKIP] Gewerblich oder Fehler: https://www.willhaben.at/iad/immobilien/d/eigentumswohnung/wien/wien-1210-floridsdorf/dg-schmuckstueck-in-ruhiger-sackgasse-neubauprojekt-im-herzen-des-21-bezirks-1279272005/
+[COMPLETE] Kategorie grundstuecke-niederoesterreich: 2 private Listings gefunden
+[FINAL] HTTP Scraper komplett abgeschlossen

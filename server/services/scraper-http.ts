@@ -210,24 +210,18 @@ export class ScraperHttpService {
         'privateigentümer'
       ];
 
-      // Kommerzielle Ausschlüsse
-      const commercialKeywords = [
-        'immobilienmakler',
-        'makler gmbh', 
-        'immobilien gmbh',
+      // Lockere kommerzielle Ausschlüsse (da wir schon PRIVATE-gefiltert haben)
+      const hardCommercialKeywords = [
         'remax',
         'century 21',
         'engel & völkers',
-        'realitäten gmbh',
-        'kaltenegger',
-        'otto immobilien',
         'buwog'
       ];
 
-      // Erst kommerzielle Ausschlüsse prüfen
-      const foundCommercial = commercialKeywords.find(keyword => bodyText.includes(keyword));
-      if (foundCommercial) {
-        console.log(`[DEBUG] Kommerziell ausgeschlossen wegen: "${foundCommercial}" in ${url}`);
+      // Nur die härtesten kommerziellen Ausschlüsse prüfen
+      const foundHardCommercial = hardCommercialKeywords.find(keyword => bodyText.includes(keyword));
+      if (foundHardCommercial) {
+        console.log(`[DEBUG] Hardkommerziel ausgeschlossen wegen: "${foundHardCommercial}" in ${url}`);
         return null; // Gewerblich ausschließen
       }
 
@@ -550,10 +544,10 @@ export class ScraperHttpService {
 
   private buildUrl(category: string, page: number): string {
     const baseUrls: { [key: string]: string } = {
-      'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25',
-      'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25',
-      'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25',
-      'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&rows=25'
+      'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&SELLER_TYPE=PRIVATE&rows=25',
+      'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&SELLER_TYPE=PRIVATE&rows=25',
+      'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&SELLER_TYPE=PRIVATE&rows=25',
+      'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=903&SELLER_TYPE=PRIVATE&rows=25'
     };
 
     const baseUrl = baseUrls[category] || baseUrls['eigentumswohnung-wien'];
