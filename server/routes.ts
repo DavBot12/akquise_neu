@@ -7,6 +7,7 @@ import { ScraperService } from "./services/scraper";
 import { scraperV2Service } from "./services/scraper-v2";
 import { scraperHttpService } from "./services/scraper-http";
 import { ScraperTestService } from "./services/scraper-test";
+import { scraperUltraService } from "./services/scraper-ultra";
 import { PriceEvaluator } from "./services/priceEvaluator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -228,14 +229,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // Try Playwright first, fallback to HTTP scraper
-      try {
-        await scraperV2Service.startScraping(scraperOptions);
-      } catch (playwrightError) {
-        scraperOptions.onProgress('[FALLBACK] Playwright fehlgeschlagen, nutze HTTP-Scraper...');
-        console.log('Playwright failed, falling back to HTTP scraper:', playwrightError);
-        await scraperHttpService.startScraping(scraperOptions);
-      }
+      // DOPPELMARKLER ULTRA-SCRAPER (12 URLs/Seite statt 5!)
+      const testService = new ScraperTestService();
+      scraperOptions.onProgress('[ULTRA] 🚀 Aktiviere DOPPELMARKLER-System mit maximaler URL-Extraktion!');
+      await testService.startDoppelmarklerScan(categories, {
+        maxPages,
+        delay,
+        onProgress: (message) => {
+          console.log(message);
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'scraperUpdate', message }));
+            }
+          });
+        },
+        onListingFound: scraperOptions.onListingFound
+      });
 
       res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
     } catch (error) {
