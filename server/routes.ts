@@ -15,6 +15,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const scraperService = new ScraperService();
   const priceEvaluator = new PriceEvaluator();
   const scraperTestService = new ScraperTestService();
+  // Import both gentle and stealth scraper services
+  const { GentleScraperService } = await import('./services/scraper-gentle');
+  const { StealthScraperService } = await import('./services/scraper-stealth');
+  const gentleScraperService = new GentleScraperService();
+  const stealthScraperService = new StealthScraperService();
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
@@ -230,17 +235,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // TURBO-SCRAPER: Direkte Integration mit korrekter Methode
-      scraperOptions.onProgress('[TURBO] 🚀 DOPPELMARKLER-SYSTEM aktiviert - Maximale URL-Extraktion!');
+      // STEALTH DOPPELMARKLER-SCANNER: Advanced Session Management
+      scraperOptions.onProgress('🥷 STEALTH DOPPELMARKLER-SCANNER aktiviert - Session-basiert!');
       
-      // Sequenziell für jeden Kategorie den ULTRA-FAST Test durchführen
+      // Sequenziell für jeden Kategorie den STEALTH Scan durchführen
       for (const category of categories) {
         try {
-          const testService = new ScraperTestService();
-          await testService.testUltraFastDoppelmarklerScan({
+          await stealthScraperService.stealthDoppelmarklerScan({
             category,
             maxPages,
-            delay,
+            delay: Math.max(delay, 15000), // Mindestens 15 Sekunden für Stealth
             onProgress: (message) => {
               console.log(message);
               wss.clients.forEach(client => {
@@ -251,14 +255,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
           
-          scraperOptions.onProgress(`[TURBO-COMPLETE] ${category}: Abgeschlossen mit 74+ URLs!`);
+          scraperOptions.onProgress(`✅ STEALTH-COMPLETE ${category}: Session erfolgreich!`);
         } catch (error) {
-          console.error(`TURBO Error ${category}:`, error);
-          scraperOptions.onProgress(`[TURBO-ERROR] ${category}: ${error}`);
+          console.error(`STEALTH Error ${category}:`, error);
+          scraperOptions.onProgress(`❌ STEALTH-ERROR ${category}: ${error}`);
         }
       }
       
-      scraperOptions.onProgress('[TURBO] 🏆 ALLE KATEGORIEN ABGESCHLOSSEN!');
+      scraperOptions.onProgress('🏆 STEALTH SCAN KOMPLETT - Session-Management erfolgreich!');
 
       res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
     } catch (error) {

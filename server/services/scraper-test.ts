@@ -34,32 +34,48 @@ export class ScraperTestService {
     return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
   }
 
-  // ULTRA-SCHNELLER TEST mit DOPPELMARKLER SUCHE
+  // ROBUSTER DOPPELMARKLER-SCAN mit besserer Fehlerbehandlung
   async testUltraFastDoppelmarklerScan(options: TestScrapingOptions): Promise<void> {
-    const { category, startPage = Math.floor(Math.random() * 20) + 1, maxPages, delay, onProgress } = options;
+    const { category, maxPages, delay, onProgress } = options;
     
-    onProgress(`🚀 ULTRA-SCHNELL TEST: Starting ${category} from page ${startPage}`);
+    onProgress(`🚀 ROBUSTER DOPPELMARKLER-SCAN: ${category}`);
     onProgress(`🎯 SUCHE: "Doppelmarkler" und "Dopplermarklertätigkeit"`);
     
     const detailUrls: string[] = [];
-    let currentPage = startPage;
+    let currentPage = 1;
     let pagesProcessed = 0;
+    let consecutiveErrors = 0;
 
-    // SCHRITT 1: SAMMLE URLs ULTRA-SCHNELL (weniger Delay)
-    while (pagesProcessed < maxPages) {
+    // SCHRITT 1: SAMMLE URLs mit robuster Fehlerbehandlung
+    while (pagesProcessed < maxPages && consecutiveErrors < 5) {
       const url = this.buildSearchUrl(category, currentPage);
-      onProgress(`⚡ SPEED-LOAD Seite ${currentPage}: ${url}`);
+      onProgress(`⚡ LOAD Seite ${currentPage}/${maxPages}`);
       
       try {
-        const pageUrls = await this.extractListingUrls(url);
+        const pageUrls = await this.extractListingUrlsWithRetry(url, onProgress);
         detailUrls.push(...pageUrls);
-        onProgress(`⚡ FOUND Seite ${currentPage}: ${pageUrls.length} URLs`);
+        onProgress(`✅ FOUND ${pageUrls.length} URLs (Total: ${detailUrls.length})`);
         
-        // MINIMAL DELAY für Speed
-        await new Promise(resolve => setTimeout(resolve, Math.max(delay / 2, 500)));
+        consecutiveErrors = 0; // Reset error counter
         
-      } catch (error) {
-        onProgress(`❌ ERROR Seite ${currentPage}: ${error}`);
+        // Progressive delay basierend auf aktueller Performance
+        const baseDelay = Math.max(delay, 2000);
+        const progressiveDelay = baseDelay + (consecutiveErrors * 1000);
+        await new Promise(resolve => setTimeout(resolve, progressiveDelay));
+        
+      } catch (error: any) {
+        consecutiveErrors++;
+        onProgress(`❌ ERROR Seite ${currentPage}: ${error.message || error}`);
+        
+        if (consecutiveErrors >= 3) {
+          onProgress(`⚠️ Zu viele Fehler - beende Kategorie ${category}`);
+          break;
+        }
+        
+        // Exponential backoff für Fehler
+        const backoffDelay = Math.min(5000 * Math.pow(2, consecutiveErrors), 30000);
+        onProgress(`⏰ Warte ${backoffDelay/1000}s wegen Fehlern...`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
       }
       
       currentPage++;
@@ -85,8 +101,8 @@ export class ScraperTestService {
           onProgress(`💎 DOPPELMARKLER GEFUNDEN: ${result.title} - €${result.price} - Tel: ${result.phoneNumber || 'KEINE'}`);
         }
         
-        // MINIMAL DELAY für ultra-speed
-        await new Promise(resolve => setTimeout(resolve, Math.max(delay / 3, 300)));
+        // ROBUSTER DELAY für Detail-Checks
+        await new Promise(resolve => setTimeout(resolve, Math.max(delay, 1000)));
         
       } catch (error) {
         onProgress(`❌ DOPPELMARKLER-ERROR: ${error}`);
@@ -103,9 +119,11 @@ export class ScraperTestService {
           'User-Agent': this.getRandomUserAgent(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
-          'Referer': 'https://www.willhaben.at/'
+          'Referer': 'https://www.willhaben.at/',
+          'Cache-Control': 'no-cache'
         },
-        timeout: 10000 // Faster timeout
+        timeout: 15000,
+        maxRedirects: 3
       });
 
       const $ = cheerio.load(response.data);
@@ -166,22 +184,57 @@ export class ScraperTestService {
       'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25',
       'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=904&rows=25',
       'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25',
-      'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=904&rows=25'
+      'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=904&rows=25',
+      'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=900&areaId=903&rows=25',
+      'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?sfId=f81bdc8f-08a7-4f66-8e9a-6bd19b0c23ae&isNavigation=true&areaId=904&rows=25'
     };
 
-    return `${baseUrls[category]}&page=${page}`;
+    const baseUrl = baseUrls[category];
+    if (!baseUrl) {
+      throw new Error(`Invalid category: ${category}`);
+    }
+    
+    return `${baseUrl}&page=${page}`;
+  }
+
+  private async extractListingUrlsWithRetry(url: string, onProgress: (msg: string) => void): Promise<string[]> {
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (retries < maxRetries) {
+      try {
+        return await this.extractListingUrls(url);
+      } catch (error: any) {
+        retries++;
+        if (error.response?.status === 429) {
+          const waitTime = 10000 * retries; // 10s, 20s, 30s
+          onProgress(`🚫 Rate limit - Retry ${retries}/${maxRetries} in ${waitTime/1000}s`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        } else if (retries >= maxRetries) {
+          throw error;
+        } else {
+          onProgress(`⚠️ Retry ${retries}/${maxRetries} wegen: ${error.message}`);
+          await new Promise(resolve => setTimeout(resolve, 2000 * retries));
+        }
+      }
+    }
+    
+    return [];
   }
 
   private async extractListingUrls(url: string): Promise<string[]> {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': this.getRandomUserAgent(),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
-        'Referer': 'https://www.willhaben.at/'
-      },
-      timeout: 10000
-    });
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': this.getRandomUserAgent(),
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
+          'Referer': 'https://www.willhaben.at/',
+          'Cache-Control': 'no-cache'
+        },
+        timeout: 15000,
+        maxRedirects: 5
+      });
 
     const $ = cheerio.load(response.data);
     const urls: string[] = [];
@@ -195,7 +248,15 @@ export class ScraperTestService {
       }
     });
 
-    return urls;
+      return urls;
+    } catch (error: any) {
+      if (error.response?.status === 429) {
+        console.log('Rate limit hit, waiting longer...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        throw new Error('Rate limit - retrying later');
+      }
+      throw error;
+    }
   }
 
   private extractDetailDescription($: cheerio.CheerioAPI): string {
