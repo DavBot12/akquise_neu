@@ -224,53 +224,23 @@ export class ScraperHttpService {
       const description = this.extractDetailDescription($);
       console.log(`[FILTER] Prüfe Beschreibung für ${url}...`);
       
-      // 1. HARTE MAKLER-AUSSCHLÜSSE in der Beschreibung
-      const maklerKeywords = [
-        'makler', 'immobilienmakler', 'realitätenbüro', 'immobilienagentur',
-        'gmbh', 'kg ', 'ag ', 'provision', 'courtage', 'maklergebühr', 
-        'bauträger', 'wohnbauträger', 'projektentwicklung'
-      ];
+      // EINFACHER 2-SCHRITT FILTER: 
+      // 1. DOPPELMARKLER suchen (Durchbruch!)
+      // 2. Falls nicht gefunden, dann "privat" suchen
       
-      const foundMakler = maklerKeywords.find(keyword => 
-        description.toLowerCase().includes(keyword.toLowerCase()) ||
-        bodyText.toLowerCase().includes(keyword.toLowerCase())
-      );
+      const foundDoppelmarkler = (description + ' ' + bodyText).toLowerCase().includes('doppelmarkler');
       
-      if (foundMakler) {
-        console.log(`[FILTER-2] ❌ MAKLER-BESCHREIBUNG: "${foundMakler}" in ${url}`);
-        return null;
-      }
-      
-      // 2. VERDÄCHTIGE MARKETING-PHRASEN
-      const suspiciousPhrases = [
-        'bezugsfertig und sofort beziehbar', 'neubauprojekt', 'anlegerpreis',
-        'anlegerhit', 'vorsorgewohnung', 'kapitalanlage', 'rendite',
-        'schlüsselfertig', 'vollsaniert', 'erstbezug', 'provisionsfreier',
-        'contact@', 'info@', 'office@', 'verkauf@', 'immobilien@',
-        'www.', 'impressum', 'agb', 'datenschutz'
-      ];
-      
-      const foundSuspicious = suspiciousPhrases.find(phrase => 
-        description.toLowerCase().includes(phrase.toLowerCase()) ||
-        bodyText.toLowerCase().includes(phrase.toLowerCase())
-      );
-      
-      if (foundSuspicious) {
-        console.log(`[FILTER-3] ❌ MARKETING-VERDACHT: "${foundSuspicious}" in ${url}`);
-        return null;
-      }
-      
-      // 3. POSITIVE PRIVATE INDIKATOREN
-      const privateKeywords = ['privat', 'privatverkauf', 'eigentümer', 'privateigentümer'];
-      const foundPrivate = privateKeywords.find(keyword => 
-        description.toLowerCase().includes(keyword.toLowerCase()) ||
-        bodyText.toLowerCase().includes(keyword.toLowerCase())
-      );
-      
-      if (foundPrivate) {
-        console.log(`[FILTER-4] ✅ PRIVAT-BESTÄTIGT: "${foundPrivate}" in ${url}`);
+      if (foundDoppelmarkler) {
+        console.log(`[FILTER-FINAL] 🎯 DOPPELMARKLER GEFUNDEN in ${url}`);
       } else {
-        console.log(`[FILTER-5] ⚪ NEUTRAL-AKZEPTIERT: (keine Hinweise) in ${url}`);
+        const foundPrivat = (description + ' ' + bodyText).toLowerCase().includes('privat');
+        
+        if (foundPrivat) {
+          console.log(`[FILTER-FINAL] ✅ PRIVAT GEFUNDEN in ${url}`);
+        } else {
+          console.log(`[FILTER-FINAL] ❌ WEDER DOPPELMARKLER NOCH PRIVAT in ${url}`);
+          return null; // Raus wenn keins von beiden
+        }
       }
 
       // 4. ALLE DETAILS EXTRAHIEREN (nur bei privaten Anzeigen)
