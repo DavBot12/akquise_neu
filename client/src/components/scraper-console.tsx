@@ -43,27 +43,39 @@ export default function ScraperConsole() {
   // WebSocket for real-time scraper updates
   useWebSocket("/ws", {
     onMessage: (data) => {
-      if (data.type === "log") {
-        setLogs(prev => [...prev, data.message]);
+      if (data.type === "log" || data.type === "scraperUpdate") {
+        const message = data.message || data.data;
+        setLogs(prev => [...prev, message]);
         scrollToBottom();
         
         // Update statistics based on log messages
-        if (data.message.includes('[SUCCESS] Private Anzeige:')) {
+        if (message.includes('[SUCCESS] Private Anzeige:') || message.includes('🏆 DOPPELMARKLER-SCAN COMPLETE:')) {
           setScraperStats(prev => ({ ...prev, newListings: prev.newListings + 1 }));
-        } else if (data.message.includes('[ERROR]') || data.message.includes('[WARNING]')) {
+        } else if (message.includes('[ERROR]') || message.includes('[WARNING]') || message.includes('❌ ERROR')) {
           setScraperStats(prev => ({ ...prev, errors: prev.errors + 1 }));
-        } else if (data.message.includes('[LOAD] Seite')) {
-          const pageMatch = data.message.match(/Seite (\d+)/);
+        } else if (message.includes('[LOAD] Seite') || message.includes('⚡ SPEED-LOAD Seite')) {
+          const pageMatch = message.match(/Seite (\d+)/);
           if (pageMatch) {
             setScraperStats(prev => ({ ...prev, pagesProcessed: parseInt(pageMatch[1]) }));
           }
-        } else if (data.message.includes('[START] Kategorie')) {
-          const categoryMatch = data.message.match(/Kategorie (.+) wird gescrapt/);
+        } else if (message.includes('[START] Kategorie') || message.includes('🚀 ULTRA-SCHNELL TEST:')) {
+          const categoryMatch = message.match(/Kategorie (.+) wird gescrapt|Starting (.+) from page/);
           if (categoryMatch) {
             setScraperStats(prev => ({ 
               ...prev, 
-              currentCategory: categoryMatch[1],
+              currentCategory: categoryMatch[1] || categoryMatch[2],
               startTime: prev.startTime || new Date()
+            }));
+          }
+        } else if (message.includes('🔍 DOPPELMARKLER-CHECK')) {
+          const checkMatch = message.match(/\((\d+)\/(\d+)\)/);
+          if (checkMatch) {
+            const current = parseInt(checkMatch[1]);
+            const total = parseInt(checkMatch[2]);
+            setScraperStats(prev => ({ 
+              ...prev, 
+              progress: Math.round((current / total) * 100),
+              totalPages: total
             }));
           }
         }
