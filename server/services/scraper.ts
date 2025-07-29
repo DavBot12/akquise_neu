@@ -107,15 +107,15 @@ export class ScraperService {
           continue;
         }
         
-        // Process listings efficiently - mit mehr Debug-Info
+        // Process listings efficiently - ALLE Listings verarbeiten
         let privateListingsFound = 0;
         let commercialCount = 0;
         let skippedCount = 0;
-        const maxListingsPerPage = Math.min(listings.length, 15);
+        const maxListingsPerPage = listings.length; // ALLE Listings verarbeiten, keine Begrenzung!
         
-        options.onProgress(`[INFO] Prüfe ${maxListingsPerPage} von ${listings.length} Listings auf Seite ${currentPage}`);
+        options.onProgress(`[INFO] Prüfe ALLE ${maxListingsPerPage} Listings auf Seite ${currentPage}`);
         
-        for (let i = 0; i < maxListingsPerPage; i++) {
+        for (let i = 0; i < listings.length; i++) {
           try {
             const listing = listings[i];
             

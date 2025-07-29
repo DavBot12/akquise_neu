@@ -23,6 +23,9 @@ Preferred communication style: Simple, everyday language.
 ✓ Optimized listing detection with fallback selectors for maximum coverage
 ✓ Streamlined data extraction for faster processing and fewer timeouts
 ✓ Dashboard now displays listings properly with all filtering features working
+✓ CRITICAL FIX: Removed artificial 15-listing limit - now processes ALL listings per page
+✓ STRATEGY CHANGE: Switched to explicit "PRIVAT" keyword detection for more precise filtering
+✓ Enhanced debug output to show exact processing statistics per page
 
 ## System Architecture
 
