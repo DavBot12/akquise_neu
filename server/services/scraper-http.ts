@@ -18,6 +18,7 @@ interface ListingData {
   url: string;
   images: string[];
   description: string;
+  phoneNumber: string | null;
   category: string;
   region: string;
   eur_per_m2: number;
@@ -238,82 +239,82 @@ export class ScraperHttpService {
         return null; // Gewerblich ausschließen
       }
 
-      // MEHRSTUFIGER PERFEKTER PRIVATE FILTER
-      const foundPrivateKeyword = privateKeywords.find(keyword => bodyText.includes(keyword));
+      // BESCHREIBUNG LADEN UND FILTERN (wie gewünscht)
+      const description = this.extractDetailDescription($);
+      console.log(`[FILTER] Prüfe Beschreibung für ${url}...`);
       
-      // Auch wenn "privat" gefunden - zusätzliche Makler-Verdachtsmomente prüfen
-      const suspiciousPhrases = [
-        'provisionsfreier erstbezug',
-        'bezugsfertig und sofort beziehbar',
-        'neubauprojekt',
-        'wohnbauträger',
-        'bauträger',
-        'projektentwicklung',
-        'anlegerpreis',
-        'anlegerhit',
-        'investitionsmöglichkeit',
-        'vorsorgewohnung',
-        'kapitalanlage',
-        'rendite',
-        'contact@',
-        'info@',
-        'office@',
-        'immobilien@',
-        'verkauf@',
-        '.at',
-        '.com',
-        'tel:',
-        'telefon:',
-        'mobil:',
-        'email:',
-        'www.',
-        'http',
-        'impressum',
-        'agb',
-        'datenschutz',
-        'mehrfache wohneinheiten',
-        'vollsaniert',
-        'erstbezug',
-        'schlüsselfertig'
+      // 1. HARTE MAKLER-AUSSCHLÜSSE in der Beschreibung
+      const maklerKeywords = [
+        'makler', 'immobilienmakler', 'realitätenbüro', 'immobilienagentur',
+        'gmbh', 'kg ', 'ag ', 'remax', 'century 21', 'engel & völkers',
+        'provision', 'courtage', 'maklergebühr', 'buwog', 'kaltenegger',
+        'otto immobilien', 'bauträger', 'wohnbauträger', 'projektentwicklung'
       ];
       
-      const foundSuspicious = suspiciousPhrases.find(phrase => bodyText.includes(phrase));
-      if (foundSuspicious) {
-        console.log(`[DEBUG] MAKLER-VERDACHT trotz "privat": "${foundSuspicious}" in ${url}`);
+      const foundMakler = maklerKeywords.find(keyword => 
+        description.toLowerCase().includes(keyword.toLowerCase()) ||
+        bodyText.toLowerCase().includes(keyword.toLowerCase())
+      );
+      
+      if (foundMakler) {
+        console.log(`[MAKLER] ❌ Ausgeschlossen wegen "${foundMakler}" in ${url}`);
         return null;
       }
       
-      // NUR wenn echte private Indikatoren UND keine Verdachtsmomente
-      if (foundPrivateKeyword) {
-        console.log(`[DEBUG] ✓ ECHT PRIVAT bestätigt: "${foundPrivateKeyword}" in ${url}`);
+      // 2. VERDÄCHTIGE MARKETING-PHRASEN
+      const suspiciousPhrases = [
+        'bezugsfertig und sofort beziehbar', 'neubauprojekt', 'anlegerpreis',
+        'anlegerhit', 'vorsorgewohnung', 'kapitalanlage', 'rendite',
+        'schlüsselfertig', 'vollsaniert', 'erstbezug', 'provisionsfreier',
+        'contact@', 'info@', 'office@', 'verkauf@', 'immobilien@',
+        'www.', 'impressum', 'agb', 'datenschutz'
+      ];
+      
+      const foundSuspicious = suspiciousPhrases.find(phrase => 
+        description.toLowerCase().includes(phrase.toLowerCase()) ||
+        bodyText.toLowerCase().includes(phrase.toLowerCase())
+      );
+      
+      if (foundSuspicious) {
+        console.log(`[VERDÄCHTIG] ❌ Marketing-Sprache "${foundSuspicious}" in ${url}`);
+        return null;
+      }
+      
+      // 3. POSITIVE PRIVATE INDIKATOREN
+      const privateKeywords = ['privat', 'privatverkauf', 'eigentümer', 'privateigentümer'];
+      const foundPrivate = privateKeywords.find(keyword => 
+        description.toLowerCase().includes(keyword.toLowerCase()) ||
+        bodyText.toLowerCase().includes(keyword.toLowerCase())
+      );
+      
+      if (foundPrivate) {
+        console.log(`[PRIVAT] ✓ ECHT PRIVAT bestätigt: "${foundPrivate}" in ${url}`);
       } else {
-        console.log(`[DEBUG] NEUTRAL akzeptiert (keine Hinweise): ${url}`);
+        console.log(`[NEUTRAL] ? Neutral akzeptiert (keine klaren Hinweise) in ${url}`);
       }
 
-      // Titel extrahieren
+      // 4. ALLE DETAILS EXTRAHIEREN (nur bei privaten Anzeigen)
+      console.log(`[EXTRACT] ✅ Extrahiere alle Details für ${url}...`);
+      
       const title = this.extractDetailTitle($);
       if (!title || title.length < 10) return null;
 
-      // Preis extrahieren  
       const price = this.extractDetailPrice($);
       if (price === 0) return null;
 
-      // Fläche extrahieren
       const area = this.extractDetailArea($);
-
-      // Standort extrahieren
       const location = this.extractDetailLocation($);
-
-      // Bilder extrahieren
       const images = this.extractDetailImages($);
-
-      // Beschreibung extrahieren
-      const description = this.extractDetailDescription($);
+      
+      // TELEFONNUMMER EXTRAHIEREN (wichtig für Akquisition)
+      const phoneNumber = this.extractPhoneNumber($, bodyText);
 
       // Metadaten
       const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
       const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
       const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
+
+      console.log(`[SUCCESS] ✅ Private Anzeige komplett: "${title}" - €${price}${phoneNumber ? ` - Tel: ${phoneNumber}` : ''}`);
 
       return {
         title,
@@ -323,6 +324,7 @@ export class ScraperHttpService {
         url,
         images,
         description,
+        phoneNumber,
         category: listingCategory,
         region,
         eur_per_m2
@@ -417,9 +419,60 @@ export class ScraperHttpService {
   private extractDetailDescription($: cheerio.CheerioAPI): string {
     const descriptions = $('.description, .ad-description, [data-testid*="description"]');
     if (descriptions.length > 0) {
-      return descriptions.first().text().trim().substring(0, 200);
+      return descriptions.first().text().trim();
     }
     return '';
+  }
+
+  private extractPhoneNumber($: cheerio.CheerioAPI, bodyText: string): string | null {
+    // Österreichische Telefonnummer-Patterns
+    const phonePatterns = [
+      /(?:\+43|0043|0)\s*(\d{1,4})\s*(\d{3,4})\s*(\d{3,4})/g,  // +43 1 234 5678
+      /(?:\+43|0043)\s*(\d{1,4})\s*(\d{6,8})/g,                 // +43 1 2345678
+      /0(\d{1,4})\s*(\d{3,4})\s*(\d{3,4})/g,                    // 01 234 5678
+      /0(\d{1,4})\/(\d{3,4})-?(\d{3,4})/g,                      // 01/234-5678
+      /(\d{4})\s*(\d{3,4})\s*(\d{3,4})/g                        // 1234 567 890
+    ];
+
+    for (const pattern of phonePatterns) {
+      const matches = bodyText.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          // Nummer bereinigen
+          const cleanNumber = match.replace(/[^\d+]/g, '').replace(/^0043/, '+43').replace(/^00/, '+');
+          if (cleanNumber.length >= 10 && cleanNumber.length <= 15) {
+            return cleanNumber;
+          }
+        }
+      }
+    }
+
+    // Zusätzlich in spezifischen Elementen suchen
+    const contactSelectors = [
+      '[data-testid*="contact"]',
+      '.contact',
+      '.phone',
+      '.telefon',
+      '.tel'
+    ];
+
+    for (const selector of contactSelectors) {
+      const element = $(selector);
+      if (element.length > 0) {
+        const text = element.text();
+        for (const pattern of phonePatterns) {
+          const matches = text.match(pattern);
+          if (matches && matches[0]) {
+            const cleanNumber = matches[0].replace(/[^\d+]/g, '').replace(/^0043/, '+43');
+            if (cleanNumber.length >= 10 && cleanNumber.length <= 15) {
+              return cleanNumber;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   private extractListing($listing: cheerio.Cheerio<any>, category: string): ListingData | null {

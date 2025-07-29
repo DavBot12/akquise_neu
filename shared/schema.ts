@@ -11,6 +11,7 @@ export const listings = pgTable("listings", {
   area: decimal("area", { precision: 10, scale: 2 }),
   eur_per_m2: decimal("eur_per_m2", { precision: 10, scale: 2 }),
   description: text("description"),
+  phone_number: text("phone_number"),
   images: json("images").$type<string[]>().default([]),
   url: text("url").notNull().unique(),
   scraped_at: timestamp("scraped_at").defaultNow().notNull(),
