@@ -25,6 +25,16 @@ interface ListingData {
 
 export class ScraperHttpService {
   private isRunning = false;
+  private userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  ];
+
+  private getRandomUserAgent(): string {
+    return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
+  }
 
   async startScraping(options: ScrapingOptions): Promise<void> {
     if (this.isRunning) {
@@ -60,13 +70,14 @@ export class ScraperHttpService {
       try {
         const response = await axios.get(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': this.getRandomUserAgent(),
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
             'Accept-Encoding': 'gzip, deflate, br',
             'DNT': '1',
             'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
+            'Upgrade-Insecure-Requests': '1',
+            'Referer': 'https://www.willhaben.at/'
           },
           timeout: 30000
         });
@@ -91,13 +102,53 @@ export class ScraperHttpService {
         detailUrls.push(...pageUrls);
         options.onProgress(`[FOUND] Seite ${pageNum}: ${pageUrls.length} Detail-URLs gefunden`);
         
-        // Pause zwischen Seiten
+        // Längere Pause zwischen Seiten (gegen 429 Fehler)
         if (pageNum < options.maxPages) {
-          await new Promise(resolve => setTimeout(resolve, options.delay));
+          await new Promise(resolve => setTimeout(resolve, Math.max(options.delay * 3, 5000)));
         }
 
-      } catch (error) {
-        options.onProgress(`[ERROR] Seite ${pageNum} fehlgeschlagen: ${error}`);
+      } catch (error: any) {
+        if (error.response?.status === 429) {
+          options.onProgress(`[RATE-LIMIT] Seite ${pageNum}: Warte 10 Sekunden...`);
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          // Retry einmal
+          try {
+            const retryResponse = await axios.get(url, {
+              headers: {
+                'User-Agent': this.getRandomUserAgent(),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Referer': 'https://www.willhaben.at/'
+              },
+              timeout: 30000
+            });
+            
+            const $ = cheerio.load(retryResponse.data);
+            const links = $('a[href*="/iad/immobilien/d/"]');
+            const pageUrls: string[] = [];
+            
+            links.each((i, link) => {
+              const href = $(link).attr('href');
+              if (href) {
+                const cleanUrl = href.split('?')[0];
+                const fullUrl = href.startsWith('http') ? cleanUrl : `https://www.willhaben.at${cleanUrl}`;
+                if (!pageUrls.includes(fullUrl)) {
+                  pageUrls.push(fullUrl);
+                }
+              }
+            });
+
+            detailUrls.push(...pageUrls);
+            options.onProgress(`[RETRY-SUCCESS] Seite ${pageNum}: ${pageUrls.length} URLs nach Retry`);
+          } catch (retryError) {
+            options.onProgress(`[ERROR] Seite ${pageNum} auch nach Retry fehlgeschlagen: ${retryError}`);
+          }
+        } else {
+          options.onProgress(`[ERROR] Seite ${pageNum} fehlgeschlagen: ${error}`);
+        }
       }
     }
 
@@ -120,8 +171,8 @@ export class ScraperHttpService {
           options.onProgress(`[SKIP] Gewerblich oder Fehler: ${detailUrl}`);
         }
         
-        // Pause zwischen Detail-Anfragen
-        await new Promise(resolve => setTimeout(resolve, Math.max(options.delay / 2, 500)));
+        // Längere Pause zwischen Detail-Anfragen (gegen 429 Fehler)
+        await new Promise(resolve => setTimeout(resolve, Math.max(options.delay * 2, 2000)));
         
       } catch (error) {
         options.onProgress(`[ERROR] Detail-Seite fehlgeschlagen: ${error}`);
@@ -135,9 +186,10 @@ export class ScraperHttpService {
     try {
       const response = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': this.getRandomUserAgent(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'de,en-US;q=0.7,en;q=0.3'
+          'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
+          'Referer': 'https://www.willhaben.at/'
         },
         timeout: 15000
       });

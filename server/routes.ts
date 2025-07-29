@@ -168,10 +168,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxPages,
         delay,
         onProgress: (message: string) => {
-          // Broadcast to WebSocket clients
+          console.log(`[SCRAPER] ${message}`);
+          
+          // Broadcast to WebSocket clients mit besseren Updates
           wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({ type: 'log', message }));
+              client.send(JSON.stringify({ 
+                type: 'log', 
+                message, 
+                timestamp: new Date().toISOString() 
+              }));
             }
           });
         },
@@ -189,10 +195,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               price_evaluation: priceEvaluation
             });
             
-            // Broadcast new listing
+            // Broadcast new listing UND aktuelle Statistiken
             wss.clients.forEach(client => {
               if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ type: 'newListing', listing }));
+                
+                // Auch sofort aktuelle Statistiken senden
+                storage.getListings({}).then(allListings => {
+                  const stats = {
+                    activeListings: allListings.filter(l => !l.akquise_erledigt).length,
+                    completedListings: allListings.filter(l => l.akquise_erledigt).length,
+                    totalListings: allListings.length,
+                    newListings: allListings.filter(l => {
+                      const today = new Date();
+                      const listingDate = new Date(l.scraped_at);
+                      return listingDate.toDateString() === today.toDateString();
+                    }).length
+                  };
+                  
+                  client.send(JSON.stringify({ 
+                    type: 'statsUpdate', 
+                    stats 
+                  }));
+                }).catch(err => console.error('Stats update error:', err));
               }
             });
           } catch (error) {

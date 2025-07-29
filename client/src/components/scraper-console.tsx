@@ -48,17 +48,17 @@ export default function ScraperConsole() {
         scrollToBottom();
         
         // Update statistics based on log messages
-        if (data.message.includes('[SUCCESS] Speichere Listing:')) {
+        if (data.message.includes('[SUCCESS] Private Anzeige:')) {
           setScraperStats(prev => ({ ...prev, newListings: prev.newListings + 1 }));
         } else if (data.message.includes('[ERROR]') || data.message.includes('[WARNING]')) {
           setScraperStats(prev => ({ ...prev, errors: prev.errors + 1 }));
-        } else if (data.message.includes('Lade Seite')) {
-          const pageMatch = data.message.match(/Lade Seite (\d+)/);
+        } else if (data.message.includes('[LOAD] Seite')) {
+          const pageMatch = data.message.match(/Seite (\d+)/);
           if (pageMatch) {
             setScraperStats(prev => ({ ...prev, pagesProcessed: parseInt(pageMatch[1]) }));
           }
-        } else if (data.message.includes('Starte Scraping für')) {
-          const categoryMatch = data.message.match(/Starte Scraping für (.+)/);
+        } else if (data.message.includes('[START] Kategorie')) {
+          const categoryMatch = data.message.match(/Kategorie (.+) wird gescrapt/);
           if (categoryMatch) {
             setScraperStats(prev => ({ 
               ...prev, 
@@ -77,6 +77,19 @@ export default function ScraperConsole() {
             startTime: null 
           }));
         }
+      } else if (data.type === "statsUpdate") {
+        // Live-Statistik-Updates vom Server
+        setScraperStats(prev => ({
+          ...prev,
+          newListings: data.stats.newListings || prev.newListings
+        }));
+      } else if (data.type === "newListing") {
+        // Neue Anzeige gefunden
+        setScraperStats(prev => ({ ...prev, newListings: prev.newListings + 1 }));
+        toast({
+          title: "Neue Anzeige gefunden!",
+          description: `${data.listing.title} - €${data.listing.price.toLocaleString()}`,
+        });
       }
     },
   });
