@@ -6,9 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/login";
-import StatsPage from "@/pages/stats";
-import AdminPerformancePage from "@/pages/admin-performance";
-import NotFound from "@/pages/not-found";
+
 
 function Router({ user, onLogout }: { user: { id: number; username: string; is_admin?: boolean }; onLogout: () => void }) {
   return (

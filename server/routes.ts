@@ -5,25 +5,17 @@ import axios from "axios";
 import { storage } from "./storage";
 import { insertListingSchema, insertContactSchema, insertListingContactSchema } from "@shared/schema";
 import { ScraperService } from "./services/scraper";
-import { scraperV2Service } from "./services/scraper-v2";
-import { scraperHttpService } from "./services/scraper-http";
-import { ScraperTestService } from "./services/scraper-test";
-import { scraperUltraService } from "./services/scraper-ultra";
+
 import { PriceEvaluator } from "./services/priceEvaluator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const scraperService = new ScraperService();
   const priceEvaluator = new PriceEvaluator();
-  const scraperTestService = new ScraperTestService();
-  // Import all scraper services
-  const { GentleScraperService } = await import('./services/scraper-gentle');
+  // Import remaining scraper services
   const { StealthScraperService } = await import('./services/scraper-stealth');
-  const { DelayTesterService } = await import('./services/delay-tester');
   const { ContinuousScraper247Service } = await import('./services/scraper-24-7');
   const { PriceMirrorScraperService } = await import('./services/price-mirror-scraper');
-  const gentleScraperService = new GentleScraperService();
   const stealthScraperService = new StealthScraperService();
-  const delayTesterService = new DelayTesterService();
   const continuousScraper = new ContinuousScraper247Service();
   const priceMirrorService = new PriceMirrorScraperService();
 
@@ -345,39 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELAY-TEST ENDPOINT
-  app.post("/api/scraper/test-delay", async (req, res) => {
-    try {
-      const scraperOptions = {
-        onProgress: (message: string) => {
-          console.log('[DELAY-TEST]', message);
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({ type: 'scraperUpdate', message: `[DELAY-TEST] ${message}` }));
-            }
-          });
-        }
-      };
 
-      scraperOptions.onProgress('🔬 DELAY-TEST GESTARTET - Finde optimales Minimum!');
-      
-      const minimumDelay = await delayTesterService.findMinimumDelay(scraperOptions.onProgress);
-      
-      scraperOptions.onProgress(`🎯 RESULT: Minimum funktionierendes Delay = ${minimumDelay}ms`);
-      scraperOptions.onProgress(`💡 RECOMMENDED: Nutze ${minimumDelay + 1000}ms für Produktionseinsatz`);
-      
-      res.json({ 
-        success: true, 
-        minimumDelay,
-        recommendedDelay: minimumDelay + 1000,
-        message: `Minimum Delay gefunden: ${minimumDelay}ms` 
-      });
-
-    } catch (error) {
-      console.error('Delay test error:', error);
-      res.status(500).json({ message: "Delay test failed" });
-    }
-  });
 
   // 24/7 SCRAPER ENDPOINTS
   app.post("/api/scraper/start-247", async (req, res) => {
@@ -459,57 +419,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws.send(JSON.stringify({ type: 'connected', message: 'WebSocket connected' }));
   });
 
-  // DOPPELMARKLER ULTRA-TEST Route
-  app.post("/api/scraper/doppelmarkler-test", async (req, res) => {
+
+
+  // Authentication routes with real tracking
+  app.get("/api/auth/user", async (req, res) => {
     try {
-      const { category = "eigentumswohnung-wien", maxPages = 5, delay = 800 } = req.body;
-      
-      console.log(`🎯 DOPPELMARKLER-TEST GESTARTET: ${category}`);
-      
-      // Start broadcast
-      wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: 'scraperStatus', status: 'DOPPELMARKLER-TEST LÄUFT' }));
-        }
-      });
-
-      // Execute ultra-fast Doppelmarkler scan
-      await scraperTestService.testUltraFastDoppelmarklerScan({
-        category,
-        maxPages,
-        delay,
-        onProgress: (message: string) => {
-          console.log(`[DOPPELMARKLER-TEST] ${message}`);
-          
-          // Broadcast to WebSocket clients
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({ 
-                type: 'log', 
-                message: `[DOPPELMARKLER] ${message}`, 
-                timestamp: new Date().toISOString() 
-              }));
-            }
-          });
-        }
-      });
-
-      // End broadcast
-      wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: 'scraperStatus', status: 'DOPPELMARKLER-TEST COMPLETE' }));
-        }
-      });
-
-      res.json({ success: true, message: "DOPPELMARKLER-Test abgeschlossen" });
-      
+      // For now, return null if no session exists
+      // This will be enhanced with proper session management later
+      res.json(null);
     } catch (error) {
-      console.error("DOPPELMARKLER-TEST ERROR:", error);
-      res.status(500).json({ message: "DOPPELMARKLER-Test fehlgeschlagen" });
+      console.error("Get user error:", error);
+      res.status(500).json({ error: "Failed to get user" });
     }
   });
 
-  // Authentication routes with real tracking
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
