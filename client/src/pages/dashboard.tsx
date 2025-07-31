@@ -9,6 +9,7 @@ import ListingCard from "@/components/listing-card";
 import ContactCard from "@/components/contact-card";
 import ContactModal from "@/components/contact-modal";
 import ScraperConsole from "@/components/scraper-console";
+import ScraperDualConsole from "@/components/scraper-dual-console";
 import PriceMirror from "../components/price-mirror";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
@@ -234,7 +235,7 @@ export default function Dashboard() {
 
           {/* Scraper Console Tab */}
           <TabsContent value="scraper" className="h-full m-0">
-            <ScraperConsole />
+            <ScraperDualConsole />
           </TabsContent>
 
           {/* Contacts Tab */}

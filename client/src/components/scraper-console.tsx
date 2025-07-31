@@ -21,7 +21,8 @@ export default function ScraperConsole() {
     "grundstuecke-niederoesterreich"
   ]);
   const [maxPages, setMaxPages] = useState(10);
-  const [delay, setDelay] = useState(1000);
+  const [delay, setDelay] = useState(2000); // Optimierter Delay
+  const [scraper247Status, setScraper247Status] = useState<{isRunning: boolean, currentCycle: number}>({isRunning: false, currentCycle: 0});
   const [logs, setLogs] = useState<string[]>([
     "[INFO] Scraper bereit zum Start...",
   ]);

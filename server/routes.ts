@@ -19,9 +19,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { GentleScraperService } = await import('./services/scraper-gentle');
   const { StealthScraperService } = await import('./services/scraper-stealth');
   const { DelayTesterService } = await import('./services/delay-tester');
+  const { ContinuousScraper247Service } = await import('./services/scraper-24-7');
   const gentleScraperService = new GentleScraperService();
   const stealthScraperService = new StealthScraperService();
   const delayTesterService = new DelayTesterService();
+  const continuousScraper = new ContinuousScraper247Service();
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
@@ -303,6 +305,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Delay test error:', error);
       res.status(500).json({ message: "Delay test failed" });
+    }
+  });
+
+  // 24/7 SCRAPER ENDPOINTS
+  app.post("/api/scraper/start-247", async (req, res) => {
+    try {
+      const scraperOptions = {
+        onProgress: (message: string) => {
+          console.log('[24/7-SCRAPER]', message);
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'scraperUpdate', message: `[24/7] ${message}` }));
+            }
+          });
+        },
+        onListingFound: async (listingData: any) => {
+          try {
+            // Price evaluation
+            const priceEvaluation = await priceEvaluator.evaluatePrice(
+              listingData.eur_per_m2,
+              listingData.region
+            );
+            
+            // Save to database
+            const listing = await storage.createListing({
+              ...listingData,
+              price_evaluation: priceEvaluation
+            });
+            
+            // Broadcast new listing
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'newListing', listing }));
+              }
+            });
+          } catch (error) {
+            console.error('Error saving 24/7 listing:', error);
+          }
+        }
+      };
+
+      await continuousScraper.start247Scraping(scraperOptions);
+      
+      res.json({ success: true, message: "24/7 Scraper gestartet" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start 24/7 scraper" });
+    }
+  });
+
+  app.post("/api/scraper/stop-247", async (req, res) => {
+    try {
+      continuousScraper.stop247Scraping();
+      res.json({ success: true, message: "24/7 Scraper gestoppt" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to stop 24/7 scraper" });
+    }
+  });
+
+  app.get("/api/scraper/status-247", async (req, res) => {
+    try {
+      const status = continuousScraper.getStatus();
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get 24/7 scraper status" });
     }
   });
 
