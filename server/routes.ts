@@ -20,10 +20,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { StealthScraperService } = await import('./services/scraper-stealth');
   const { DelayTesterService } = await import('./services/delay-tester');
   const { ContinuousScraper247Service } = await import('./services/scraper-24-7');
+  const { PriceMirrorScraperService } = await import('./services/price-mirror-scraper');
   const gentleScraperService = new GentleScraperService();
   const stealthScraperService = new StealthScraperService();
   const delayTesterService = new DelayTesterService();
   const continuousScraper = new ContinuousScraper247Service();
+  const priceMirrorService = new PriceMirrorScraperService();
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
@@ -202,25 +204,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Price mirror scraper routes
   app.post("/api/scraper/price-mirror", async (req, res) => {
     try {
-      const priceMirrorService = new (await import('./services/price-mirror-scraper.js')).PriceMirrorScraperService();
+      console.log("🚀 PRICE MIRROR SCRAPER API TRIGGERED");
       
-      // Start daily price mirror scraping
-      priceMirrorService.startDailyPriceMirrorScrape();
+      // Start daily price mirror scraping with detailed logging
+      priceMirrorService.startDailyPriceMirrorScrape()
+        .then(() => {
+          console.log("✅ PRICE MIRROR SCRAPER COMPLETED SUCCESSFULLY");
+        })
+        .catch((error: any) => {
+          console.error("❌ PRICE MIRROR SCRAPER FAILED:", error);
+        });
       
       res.json({ success: true, message: "Preisspiegel-Scraper gestartet" });
-    } catch (error) {
-      console.error("Price mirror scraper error:", error);
-      res.status(500).json({ error: "Failed to start price mirror scraper" });
+    } catch (error: any) {
+      console.error("❌ Price mirror scraper API error:", error);
+      res.status(500).json({ error: "Failed to start price mirror scraper", details: error.message });
     }
   });
 
   app.get("/api/price-mirror-data", async (req, res) => {
     try {
+      console.log("📊 FETCHING PRICE MIRROR DATA");
       const data = await storage.getPriceMirrorData();
+      console.log(`📈 FOUND ${data.length} PRICE MIRROR RECORDS`);
       res.json(data);
-    } catch (error) {
-      console.error("Price mirror data error:", error);
-      res.status(500).json({ error: "Failed to fetch price mirror data" });
+    } catch (error: any) {
+      console.error("❌ Price mirror data error:", error);
+      res.status(500).json({ error: "Failed to fetch price mirror data", details: error.message });
     }
   });
 

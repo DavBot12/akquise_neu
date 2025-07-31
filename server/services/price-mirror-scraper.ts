@@ -88,15 +88,15 @@ export class PriceMirrorScraperService {
           const avgArea = validAreas.length > 0 ? Math.round(validAreas.reduce((sum, a) => sum + a, 0) / validAreas.length) : null;
           const pricePerSqm = avgArea ? Math.round(avgPrice / avgArea) : null;
 
-          // Speichere in price_mirror_data Tabelle
-          await this.savePriceMirrorData({
+          // Speichere in price_mirror_data Tabelle über Storage Interface
+          const { storage } = await import('../storage');
+          await storage.savePriceMirrorData({
             category,
             region,
             average_price: avgPrice,
             average_area: avgArea,
             price_per_sqm: pricePerSqm,
-            sample_size: validPrices.length,
-            scraped_at: new Date()
+            sample_size: validPrices.length
           });
 
           console.log(`💰 ${category}/${region}: €${avgPrice.toLocaleString()} (${validPrices.length} Objekte)`);
@@ -157,25 +157,7 @@ export class PriceMirrorScraperService {
     return Array.from(new Set(areas)); // Entferne Duplikate
   }
 
-  private async savePriceMirrorData(data: any): Promise<void> {
-    try {
-      await db
-        .insert(price_mirror_data)
-        .values(data)
-        .onConflictDoUpdate({
-          target: [price_mirror_data.category, price_mirror_data.region],
-          set: {
-            average_price: data.average_price,
-            average_area: data.average_area,
-            price_per_sqm: data.price_per_sqm,
-            sample_size: data.sample_size,
-            scraped_at: data.scraped_at
-          }
-        });
-    } catch (error) {
-      console.error("Fehler beim Speichern der Preisspiegel-Daten:", error);
-    }
-  }
+
 
   // Täglicher Cron-Job um 3:00 Uhr
   startDailySchedule(): void {

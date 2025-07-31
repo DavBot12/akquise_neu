@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -170,12 +170,14 @@ export const price_mirror_data = pgTable("price_mirror_data", {
   price_per_sqm: integer("price_per_sqm"), // Euro per m²
   sample_size: integer("sample_size"), // number of listings analyzed
   scraped_at: timestamp("scraped_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  categoryRegionUnique: uniqueIndex('price_mirror_category_region_unique').on(table.category, table.region)
+}));
 
 export const insertPriceMirrorSchema = createInsertSchema(price_mirror_data).omit({
   id: true,
   scraped_at: true,
 });
 
-export type InsertPriceMirror = z.infer<typeof insertPriceMirrorSchema>;
-export type PriceMirror = typeof price_mirror_data.$inferSelect;
+export type InsertPriceMirrorData = z.infer<typeof insertPriceMirrorSchema>;
+export type PriceMirrorData = typeof price_mirror_data.$inferSelect;

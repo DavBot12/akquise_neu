@@ -5,18 +5,21 @@ import {
   users,
   acquisitions,
   user_sessions,
+  price_mirror_data,
   type Listing, 
   type Contact, 
   type ListingContact,
   type User,
   type Acquisition,
   type UserSession,
+  type PriceMirrorData,
   type InsertListing, 
   type InsertContact, 
   type InsertListingContact,
   type InsertUser,
   type InsertAcquisition,
-  type InsertUserSession
+  type InsertUserSession,
+  type InsertPriceMirrorData
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -88,8 +91,8 @@ export interface IStorage {
   updateLoginStats(userId: number): Promise<void>;
   
   // Price mirror data
-  savePriceMirrorData(data: any): Promise<void>;
-  getPriceMirrorData(): Promise<any[]>;
+  savePriceMirrorData(data: InsertPriceMirrorData): Promise<PriceMirrorData>;
+  getPriceMirrorData(): Promise<PriceMirrorData[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -668,38 +671,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Save price mirror data
-  async savePriceMirrorData(data: any): Promise<void> {
-    try {
-      await db
-        .insert(price_mirror_data)
-        .values(data)
-        .onConflictDoUpdate({
-          target: [price_mirror_data.category, price_mirror_data.region],
-          set: {
-            average_price: data.average_price,
-            average_area: data.average_area,
-            price_per_sqm: data.price_per_sqm,
-            sample_size: data.sample_size,
-            scraped_at: data.scraped_at
-          }
-        });
-    } catch (error) {
-      console.error("Fehler beim Speichern der Preisspiegel-Daten:", error);
-    }
+  async savePriceMirrorData(data: InsertPriceMirrorData): Promise<PriceMirrorData> {
+    // Upsert: Insert or update existing record for same category/region
+    const [result] = await db
+      .insert(price_mirror_data)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [price_mirror_data.category, price_mirror_data.region],
+        set: {
+          average_price: data.average_price,
+          average_area: data.average_area,
+          price_per_sqm: data.price_per_sqm,
+          sample_size: data.sample_size,
+          scraped_at: new Date()
+        }
+      })
+      .returning();
+    
+    return result;
   }
 
   // Get price mirror data
-  async getPriceMirrorData(): Promise<any[]> {
-    try {
-      const data = await db
-        .select()
-        .from(price_mirror_data)
-        .orderBy(desc(price_mirror_data.scraped_at));
-      return data;
-    } catch (error) {
-      console.error("Fehler beim Abrufen der Preisspiegel-Daten:", error);
-      return [];
-    }
+  async getPriceMirrorData(): Promise<PriceMirrorData[]> {
+    return await db
+      .select()
+      .from(price_mirror_data)
+      .orderBy(desc(price_mirror_data.scraped_at));
   }
 }
 

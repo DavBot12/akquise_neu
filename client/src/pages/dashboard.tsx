@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Building, ChartLine, Users, TrendingUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ListingCard from "@/components/listing-card";
@@ -190,9 +190,9 @@ export default function Dashboard({ user }: DashboardProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="h-full m-0">
+        {/* Dashboard Tab */}
+        {activeTab === "dashboard" && (
+          <div className="h-full">
             <div className="p-6 border-b border-gray-200 bg-white">
               <div className="flex justify-between items-center">
                 <div>
@@ -259,18 +259,19 @@ export default function Dashboard({ user }: DashboardProps) {
                 </div>
               )}
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* Scraper Console Tab - Admin only */}
-          {user?.is_admin && (
-            <TabsContent value="scraper" className="h-full m-0">
-              <ScraperDualConsole />
-            </TabsContent>
-          )}
+        {/* Scraper Console Tab - Admin only */}
+        {user?.is_admin && activeTab === "scraper" && (
+          <div className="h-full">
+            <ScraperDualConsole />
+          </div>
+        )}
 
-          {/* Contacts Tab - Admin only */}
-          {user?.is_admin && (
-            <TabsContent value="contacts" className="h-full m-0">
+        {/* Contacts Tab - Admin only */}
+        {user?.is_admin && activeTab === "contacts" && (
+          <div className="h-full">
             <div className="p-6 border-b border-gray-200 bg-white">
               <div className="flex justify-between items-center">
                 <div>
@@ -306,11 +307,12 @@ export default function Dashboard({ user }: DashboardProps) {
                 </div>
               </div>
             </div>
-            </TabsContent>
-          )}
+          </div>
+        )}
 
-          {/* Price Spiegel Tab */}
-          <TabsContent value="preisspiegel" className="h-full m-0">
+        {/* Price Spiegel Tab */}
+        {activeTab === "preisspiegel" && (
+          <div className="h-full">
             <div className="p-6 border-b border-gray-200 bg-white">
               <div className="flex justify-between items-center">
                 <div>
@@ -322,22 +324,24 @@ export default function Dashboard({ user }: DashboardProps) {
             <div className="p-6 h-full overflow-y-auto">
               <PriceMirror />
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* Statistics Tab */}
-          <TabsContent value="statistiken" className="h-full m-0">
-            <Statistics user={user} />
-          </TabsContent>
+        {/* Statistics Tab */}
+        {activeTab === "statistiken" && (
+          <div className="h-full">
+            <Statistics user={user!} />
+          </div>
+        )}
 
-          {/* Price Scraper Tab - Admin only */}
-          {user?.is_admin && (
-            <TabsContent value="price-scraper" className="h-full m-0">
-              <div className="p-6">
-                <PriceMirrorControl />
-              </div>
-            </TabsContent>
-          )}
-        </Tabs>
+        {/* Price Scraper Tab - Admin only */}
+        {user?.is_admin && activeTab === "price-scraper" && (
+          <div className="h-full">
+            <div className="p-6">
+              <PriceMirrorControl />
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Contact Modal - Admin only */}
