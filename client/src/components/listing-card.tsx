@@ -136,17 +136,19 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           <span className="text-sm">{listing.location}</span>
         </div>
         
-        {listing.phone_number && (
-          <div className="flex items-center text-gray-600 mb-3">
-            <Phone className="mr-2 h-4 w-4 text-gray-400" />
+        <div className="flex items-center text-gray-600 mb-3">
+          <Phone className="mr-2 h-4 w-4 text-gray-400" />
+          {listing.phone_number ? (
             <a 
               href={`tel:${listing.phone_number}`}
               className="text-sm text-primary hover:underline"
             >
               {listing.phone_number}
             </a>
-          </div>
-        )}
+          ) : (
+            <span className="text-sm text-gray-500">anschreiben</span>
+          )}
+        </div>
         
         <p className="text-gray-600 text-sm mb-4 line-clamp-3">
           {listing.description || "Keine Beschreibung verfügbar"}

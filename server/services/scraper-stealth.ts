@@ -349,7 +349,7 @@ export class StealthScraperService {
         const areaString = this.extractArea($);
         const area = areaString ? parseInt(areaString) : 0;
         const location = this.extractLocation($);
-        const phoneNumber = this.extractPhoneNumber(bodyText);
+        const phoneNumber = this.extractPhoneNumber(bodyText + ' ' + description);
         
         // Nur speichern wenn Preis verfügbar
         if (price > 0) {
@@ -400,18 +400,48 @@ export class StealthScraperService {
   }
 
   private extractDetailDescription($: cheerio.CheerioAPI): string {
-    const selectors = [
-      '[data-testid="ad-detail-ad-description"] p',
+    // Method 1: Look for Willhaben-specific description sections
+    const descriptionSelectors = [
+      'h2:contains("Objektbeschreibung")',  // "Objektbeschreibung" header
+      'div:contains("Objektbeschreibung")',
+      '[data-testid="ad-detail-ad-description"]',
       '.AdDescription-description',
-      '[data-testid="object-description-text"]',
-      '.description-text',
-      '.ad-description'
+      '[data-testid="object-description-text"]'
     ];
 
-    for (const selector of selectors) {
+    for (const selector of descriptionSelectors) {
       const element = $(selector);
       if (element.length > 0) {
-        return element.text().trim();
+        // Get text from the element and its following siblings
+        let description = '';
+        
+        if (selector.includes('Objektbeschreibung')) {
+          // If we found the "Objektbeschreibung" header, get the next paragraph(s)
+          const nextElements = element.nextAll('p, div').first();
+          if (nextElements.length > 0) {
+            description = nextElements.text().trim();
+          }
+        } else {
+          description = element.text().trim();
+        }
+        
+        if (description && description.length > 20) { // Must be substantial
+          return description.substring(0, 1000); // Limit length
+        }
+      }
+    }
+
+    // Method 2: Search for description text patterns in body
+    const bodyText = $('body').text();
+    const descriptionPatterns = [
+      /Objektbeschreibung\s*([\s\S]{50,1000})(?:Mehr anzeigen|Energieausweis|Kontakt|€|Finanzierung)/i,
+      /Beschreibung\s*([\s\S]{50,1000})(?:Mehr anzeigen|Energieausweis|Kontakt|€|Finanzierung)/i
+    ];
+
+    for (const pattern of descriptionPatterns) {
+      const match = bodyText.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim().substring(0, 1000);
       }
     }
 
@@ -570,56 +600,105 @@ export class StealthScraperService {
   private extractImages($: cheerio.CheerioAPI): string[] {
     const images: string[] = [];
     
-    // Willhaben-specific image selectors based on real HTML structure
-    const selectors = [
-      'img[src*="cache.willhaben.at"]',  // Main cache images
-      'img[alt*="Bild"][src*="willhaben"]', // Images with "Bild X von Y" alt text
-      'img[alt*="Grundriss"][src*="willhaben"]', // Floor plan images
-      '[class*="gallery"] img[src*="willhaben"]',
-      '[class*="carousel"] img[src*="willhaben"]',
-      '[class*="slider"] img[src*="willhaben"]'
-    ];
+    // Method 1: Find all Willhaben cache images (exclude thumbnails immediately)
+    $('img[src*="cache.willhaben.at"]').each((_, element) => {
+      const src = $(element).attr('src');
+      if (src && !src.includes('_thumb') && !images.includes(src)) {
+        images.push(src);
+      }
+    });
 
-    for (const selector of selectors) {
-      $(selector).each((_, element) => {
-        const src = $(element).attr('src');
-        if (src && 
-            src.includes('cache.willhaben.at') && 
-            !src.includes('_thumb') && // Exclude thumbnail versions
-            !images.includes(src)) {
-          images.push(src);
-        }
-      });
-    }
-
-    // Also check for high-quality image URLs in the text content
-    const bodyText = $('body').text();
-    const imageMatches = bodyText.match(/https:\/\/cache\.willhaben\.at\/[^\s"']+(?:\.jpg|\.jpeg|\.png)/gi);
-    if (imageMatches) {
-      imageMatches.forEach(url => {
+    // Method 2: Extract from HTML source for high-quality images
+    const htmlSource = $.html();
+    const fullSizeMatches = htmlSource.match(/https:\/\/cache\.willhaben\.at\/mmo\/[^"'\s]+\.jpg/gi);
+    if (fullSizeMatches) {
+      fullSizeMatches.forEach(url => {
+        // Only add if it's NOT a thumbnail and not already included
         if (!url.includes('_thumb') && !images.includes(url)) {
           images.push(url);
         }
       });
     }
 
+    // Method 3: Convert any remaining thumbnails to full-size
+    const thumbnailImages: string[] = [];
+    $('img[src*="_thumb.jpg"]').each((_, element) => {
+      const src = $(element).attr('src');
+      if (src) {
+        const fullSizeUrl = src.replace('_thumb.jpg', '.jpg');
+        if (!images.includes(fullSizeUrl)) {
+          thumbnailImages.push(fullSizeUrl);
+        }
+      }
+    });
+    
+    // Add converted full-size images
+    images.push(...thumbnailImages);
+
     return images.slice(0, 15); // Limit to 15 images like Willhaben shows
   }
 
   private extractPhoneNumber(text: string): string | null {
-    const phonePatterns = [
-      /(\+43|0043)[\s\-]?[1-9]\d{1,4}[\s\-]?\d{3,8}/g,
-      /0[1-9]\d{1,4}[\s\-]?\d{3,8}/g,
-      /[1-9]\d{1,4}[\s\-]?\d{3,8}/g
+    // Look for explicit phone number contexts first
+    const phoneContexts = [
+      /telefon[:\s]*([+\d\s\-()]+)/gi,
+      /phone[:\s]*([+\d\s\-()]+)/gi,
+      /handy[:\s]*([+\d\s\-()]+)/gi,
+      /mobil[:\s]*([+\d\s\-()]+)/gi,
+      /kontakt[:\s]*([+\d\s\-()]+)/gi,
+      /erreichbar[:\s]*([+\d\s\-()]+)/gi
     ];
 
-    for (const pattern of phonePatterns) {
+    for (const pattern of phoneContexts) {
+      const matches = text.match(pattern);
+      if (matches && matches[1]) {
+        const cleanNumber = matches[1].replace(/[\s\-()]/g, '');
+        if (this.isValidAustrianPhone(cleanNumber)) {
+          return cleanNumber;
+        }
+      }
+    }
+
+    // Specific Austrian phone patterns - more restrictive
+    const austrianPatterns = [
+      /(\+43|0043)[\s\-]?[1-9]\d{2,4}[\s\-]?\d{4,8}/g,  // International format
+      /0[1-9]\d{2,4}[\s\-]?\d{4,8}/g,  // National format starting with area code
+      /066[4-9]\d{7}/g,  // Mobile numbers 0664-0669
+      /067[0-7]\d{7}/g,  // Mobile numbers 0670-0677
+      /068[0-9]\d{7}/g   // Mobile numbers 0680-0689
+    ];
+
+    for (const pattern of austrianPatterns) {
       const matches = text.match(pattern);
       if (matches && matches.length > 0) {
-        return matches[0].replace(/[\s\-]/g, '');
+        const cleanNumber = matches[0].replace(/[\s\-]/g, '');
+        if (this.isValidAustrianPhone(cleanNumber)) {
+          return cleanNumber;
+        }
       }
     }
 
     return null;
+  }
+
+  private isValidAustrianPhone(phone: string): boolean {
+    // Remove any remaining spaces or special chars
+    const clean = phone.replace(/[^\d+]/g, '');
+    
+    // Must be 8-14 digits (realistic Austrian phone length)
+    if (clean.length < 8 || clean.length > 14) return false;
+    
+    // Must not be obviously fake (like sequential numbers, all same digits)
+    if (/^(\d)\1{6,}$/.test(clean)) return false; // All same digits
+    if (/^(0123456789|1234567890)/.test(clean)) return false; // Sequential
+    if (/^(1111111|2222222|3333333)/.test(clean)) return false; // Repeated patterns
+    
+    // Austrian phone number validation
+    if (clean.startsWith('+43')) return clean.length >= 11;
+    if (clean.startsWith('0043')) return clean.length >= 14;
+    if (clean.startsWith('0')) return clean.length >= 8;
+    if (clean.startsWith('66') || clean.startsWith('67') || clean.startsWith('68')) return clean.length >= 10;
+    
+    return clean.length >= 8 && clean.length <= 12;
   }
 }
