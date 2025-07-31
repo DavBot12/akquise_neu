@@ -159,3 +159,23 @@ export const insertUserSessionSchema = createInsertSchema(user_sessions).omit({
 
 export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
 export type UserSession = typeof user_sessions.$inferSelect;
+
+// Price mirror data table for daily market analysis
+export const price_mirror_data = pgTable("price_mirror_data", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull(), // eigentumswohnung, haus, grundstuecke
+  region: text("region").notNull(), // wien, niederoesterreich, etc.
+  average_price: integer("average_price"),
+  average_area: integer("average_area"), // in m²
+  price_per_sqm: integer("price_per_sqm"), // Euro per m²
+  sample_size: integer("sample_size"), // number of listings analyzed
+  scraped_at: timestamp("scraped_at").defaultNow().notNull(),
+});
+
+export const insertPriceMirrorSchema = createInsertSchema(price_mirror_data).omit({
+  id: true,
+  scraped_at: true,
+});
+
+export type InsertPriceMirror = z.infer<typeof insertPriceMirrorSchema>;
+export type PriceMirror = typeof price_mirror_data.$inferSelect;

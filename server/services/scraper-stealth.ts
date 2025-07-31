@@ -703,18 +703,26 @@ export class StealthScraperService {
   }
 
   private extractPhoneNumber(text: string): string | null {
-    // CRITICAL: Block known fake/placeholder numbers immediately
-    const fakeNumbers = ['01520253035', '1520253035', '0152025303'];
+    // ERWEITERTE FAKE-NUMMER FILTERUNG: Mehr bekannte problematische Nummern
+    const fakeNumbers = [
+      '01520253035', '1520253035', '0152025303',
+      '0800000000', '123456789', '1234567890',
+      '0000000000', '1111111111', '9999999999',
+      '0123456789', '123123123'
+    ];
+    
     for (const fake of fakeNumbers) {
       if (text.includes(fake)) {
         console.log(`🚫 FAKE NUMBER BLOCKED: ${fake}`);
         return null;
       }
     }
-    
+
     // Look for explicit phone number contexts first
     const phoneContexts = [
-      /(?:telefon|tel|phone|handy|mobil|kontakt|erreichbar)[:\s]*([+\d\s\-()\/]{8,20})/gi
+      /(?:telefon|tel|phone|handy|mobil|kontakt|erreichbar)[:\s]*([+\d\s\-()\/]{8,20})/gi,
+      /(?:anrufen|call|rufen)[:\s]*([+\d\s\-()\/]{8,20})/gi,
+      /(?:nummer|number)[:\s]*([+\d\s\-()\/]{8,20})/gi
     ];
 
     for (const pattern of phoneContexts) {

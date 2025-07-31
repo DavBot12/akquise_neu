@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { PriceMirrorScraperService } from "./services/price-mirror-scraper";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -67,5 +68,9 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start daily price mirror scraper schedule
+    const priceMirrorService = new PriceMirrorScraperService();
+    priceMirrorService.startDailySchedule();
   });
 })();

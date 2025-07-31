@@ -199,6 +199,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Price mirror scraper routes
+  app.post("/api/scraper/price-mirror", async (req, res) => {
+    try {
+      const priceMirrorService = new (await import('./services/price-mirror-scraper.js')).PriceMirrorScraperService();
+      
+      // Start daily price mirror scraping
+      priceMirrorService.startDailyPriceMirrorScrape();
+      
+      res.json({ success: true, message: "Preisspiegel-Scraper gestartet" });
+    } catch (error) {
+      console.error("Price mirror scraper error:", error);
+      res.status(500).json({ error: "Failed to start price mirror scraper" });
+    }
+  });
+
+  app.get("/api/price-mirror-data", async (req, res) => {
+    try {
+      const data = await storage.getPriceMirrorData();
+      res.json(data);
+    } catch (error) {
+      console.error("Price mirror data error:", error);
+      res.status(500).json({ error: "Failed to fetch price mirror data" });
+    }
+  });
+
   // Scraper routes
   app.post("/api/scraper/start", async (req, res) => {
     try {

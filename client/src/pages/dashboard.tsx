@@ -11,6 +11,7 @@ import ContactModal from "@/components/contact-modal";
 import ScraperConsole from "@/components/scraper-console";
 import ScraperDualConsole from "@/components/scraper-dual-console";
 import PriceMirror from "@/components/price-mirror";
+import PriceMirrorControl from "@/components/price-mirror-control";
 import Statistics from "@/pages/statistics";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
@@ -38,15 +39,15 @@ export default function Dashboard({ user }: DashboardProps) {
     },
   });
 
-  // Fetch listings with proper query parameters
+  // Fetch listings with proper query parameters - HIDE COMPLETED ACQUISITIONS
   const { data: listings = [], isLoading: listingsLoading } = useQuery<Listing[]>({
     queryKey: ["/api/listings", regionFilter, priceFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
       if (priceFilter !== "Alle Preise") params.append("price_evaluation", priceFilter);
-      // Show all listings by default - user can filter via dashboard controls
-      // params.append("akquise_erledigt", "false");
+      // WICHTIG: Verstecke erledigte Akquisen vom Dashboard
+      params.append("akquise_erledigt", "false");
       
       const url = `/api/listings${params.toString() ? '?' + params.toString() : ''}`;
       const response = await fetch(url);
@@ -137,6 +138,14 @@ export default function Dashboard({ user }: DashboardProps) {
                 >
                   <Users className="mr-3 h-4 w-4" />
                   Kontakte
+                </Button>
+                <Button
+                  variant={activeTab === "price-scraper" ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("price-scraper")}
+                >
+                  <TrendingUp className="mr-3 h-4 w-4" />
+                  Preisspiegel Scraper
                 </Button>
               </>
             )}
@@ -319,6 +328,15 @@ export default function Dashboard({ user }: DashboardProps) {
           <TabsContent value="statistiken" className="h-full m-0">
             <Statistics user={user} />
           </TabsContent>
+
+          {/* Price Scraper Tab - Admin only */}
+          {user?.is_admin && (
+            <TabsContent value="price-scraper" className="h-full m-0">
+              <div className="p-6">
+                <PriceMirrorControl />
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </main>
 

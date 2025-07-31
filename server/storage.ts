@@ -86,6 +86,10 @@ export interface IStorage {
   createUserSession(userId: number, ipAddress?: string, userAgent?: string): Promise<UserSession>;
   endUserSession(sessionId: number): Promise<void>;
   updateLoginStats(userId: number): Promise<void>;
+  
+  // Price mirror data
+  savePriceMirrorData(data: any): Promise<void>;
+  getPriceMirrorData(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -661,6 +665,41 @@ export class DatabaseStorage implements IStorage {
         total_logins: sql`${users.total_logins} + 1`
       })
       .where(eq(users.id, userId));
+  }
+
+  // Save price mirror data
+  async savePriceMirrorData(data: any): Promise<void> {
+    try {
+      await db
+        .insert(price_mirror_data)
+        .values(data)
+        .onConflictDoUpdate({
+          target: [price_mirror_data.category, price_mirror_data.region],
+          set: {
+            average_price: data.average_price,
+            average_area: data.average_area,
+            price_per_sqm: data.price_per_sqm,
+            sample_size: data.sample_size,
+            scraped_at: data.scraped_at
+          }
+        });
+    } catch (error) {
+      console.error("Fehler beim Speichern der Preisspiegel-Daten:", error);
+    }
+  }
+
+  // Get price mirror data
+  async getPriceMirrorData(): Promise<any[]> {
+    try {
+      const data = await db
+        .select()
+        .from(price_mirror_data)
+        .orderBy(desc(price_mirror_data.scraped_at));
+      return data;
+    } catch (error) {
+      console.error("Fehler beim Abrufen der Preisspiegel-Daten:", error);
+      return [];
+    }
   }
 }
 
