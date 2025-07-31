@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   User, 
@@ -54,6 +54,7 @@ interface StatisticsProps {
 }
 
 export default function Statistics({ user }: StatisticsProps) {
+  const [activeView, setActiveView] = useState("personal");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("successRate");
   const [filterBy, setFilterBy] = useState("all");
@@ -149,20 +150,35 @@ export default function Statistics({ user }: StatisticsProps) {
             {user.is_admin ? "Team-Performance und Benutzer-Übersicht" : "Ihre persönlichen Leistungsdaten"}
           </p>
         </div>
-        <Button onClick={refreshStats} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Aktualisieren
-        </Button>
+        <div className="flex space-x-3">
+          {user.is_admin && (
+            <div className="flex space-x-2">
+              <Button 
+                onClick={() => setActiveView("personal")} 
+                variant={activeView === "personal" ? "default" : "outline"}
+                size="sm"
+              >
+                Persönliche Statistiken
+              </Button>
+              <Button 
+                onClick={() => setActiveView("team")} 
+                variant={activeView === "team" ? "default" : "outline"}
+                size="sm"
+              >
+                Team-Übersicht
+              </Button>
+            </div>
+          )}
+          <Button onClick={refreshStats} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Aktualisieren
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="personal">Persönliche Statistiken</TabsTrigger>
-          {user.is_admin && <TabsTrigger value="team">Team-Übersicht</TabsTrigger>}
-        </TabsList>
-
-        {/* Personal Statistics Tab */}
-        <TabsContent value="personal" className="space-y-6">
+        {/* Personal Statistics View */}
+        {activeView === "personal" && (
+          <div className="space-y-6">
           {personalLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[...Array(4)].map((_, i) => (
@@ -272,11 +288,12 @@ export default function Statistics({ user }: StatisticsProps) {
               </Card>
             </>
           )}
-        </TabsContent>
+          </div>
+        )}
 
-        {/* Team Overview Tab - Admin Only */}
-        {user.is_admin && (
-          <TabsContent value="team" className="space-y-6">
+        {/* Team Overview View - Admin Only */}
+        {user.is_admin && activeView === "team" && (
+          <div className="space-y-6">
             {/* Search and Filter Controls */}
             <Card>
               <CardHeader>
@@ -390,9 +407,8 @@ export default function Statistics({ user }: StatisticsProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
         )}
-      </Tabs>
 
       {/* User Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
