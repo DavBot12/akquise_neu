@@ -10,7 +10,7 @@ import ContactCard from "@/components/contact-card";
 import ContactModal from "@/components/contact-modal";
 import ScraperConsole from "@/components/scraper-console";
 import ScraperDualConsole from "@/components/scraper-dual-console";
-import PriceMirror from "../components/price-mirror";
+import PriceMirror from "@/components/price-mirror";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
 
@@ -293,7 +293,17 @@ export default function Dashboard({ user }: DashboardProps) {
 
           {/* Price Spiegel Tab */}
           <TabsContent value="preisspiegel" className="h-full m-0">
-            <PriceSpiegelTab />
+            <div className="p-6 border-b border-gray-200 bg-white">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">📊 Immobilienpreis Spiegel</h2>
+                  <p className="text-gray-600 mt-1">Durchschnittspreise nach Bezirken und Regionen</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 h-full overflow-y-auto">
+              <PriceMirror />
+            </div>
           </TabsContent>
         </Tabs>
       </main>
