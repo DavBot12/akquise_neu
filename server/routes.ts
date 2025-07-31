@@ -163,6 +163,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User statistics routes for sidebar
+  app.get("/api/user-stats/personal/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const stats = await storage.getPersonalStats(parseInt(userId));
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching personal stats:", error);
+      res.status(500).json({ message: "Failed to fetch personal statistics" });
+    }
+  });
+
+  app.get("/api/user-stats/all", async (req, res) => {
+    try {
+      const stats = await storage.getAllUserStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching all user stats:", error);
+      res.status(500).json({ message: "Failed to fetch user statistics" });
+    }
+  });
+
   // Scraper routes
   app.post("/api/scraper/start", async (req, res) => {
     try {

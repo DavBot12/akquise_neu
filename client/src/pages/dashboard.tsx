@@ -11,6 +11,7 @@ import ContactModal from "@/components/contact-modal";
 import ScraperConsole from "@/components/scraper-console";
 import ScraperDualConsole from "@/components/scraper-dual-console";
 import PriceMirror from "@/components/price-mirror";
+import StatsSidebar from "@/components/stats-sidebar";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
 
@@ -100,8 +101,11 @@ export default function Dashboard({ user }: DashboardProps) {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-lg">
+      {/* Stats Sidebar */}
+      <StatsSidebar user={user} />
+      
+      {/* Main Sidebar */}
+      <aside className="w-64 bg-white shadow-lg fixed left-80 top-0 h-full z-30">
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-xl font-bold text-gray-800 flex items-center">
             <Building className="text-primary mr-2" />
@@ -171,7 +175,7 @@ export default function Dashboard({ user }: DashboardProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden" style={{ marginLeft: '320px' }}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="h-full m-0">

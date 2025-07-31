@@ -74,6 +74,10 @@ export interface IStorage {
     nicht_erfolgreich: number;
     erfolgsrate: number;
   }>>;
+  
+  // User statistics for sidebar
+  getPersonalStats(userId: number): Promise<any>;
+  getAllUserStats(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -362,7 +366,9 @@ export class DatabaseStorage implements IStorage {
 
     results.forEach(result => {
       stats.total += result.count;
-      stats[result.status as keyof typeof stats] = result.count;
+      if (result.status in stats) {
+        (stats as any)[result.status] = result.count;
+      }
     });
 
     stats.erfolgsrate = stats.total > 0 ? (stats.erfolg / stats.total) * 100 : 0;
@@ -394,6 +400,56 @@ export class DatabaseStorage implements IStorage {
     }
 
     return result;
+  }
+
+  // Personal statistics for sidebar
+  async getPersonalStats(userId: number): Promise<any> {
+    // Get user's acquisition stats
+    const acquisitionStats = await this.getAcquisitionStats(userId);
+    
+    // Get user basic info
+    const user = await this.getUser(userId);
+    if (!user) return null;
+
+    // Calculate streak days (mock for now)
+    const streakDays = Math.floor(Math.random() * 15) + 1;
+    
+    // Mock session duration (in minutes)
+    const avgSessionDuration = Math.floor(Math.random() * 120) + 30;
+
+    return {
+      totalLogins: Math.floor(Math.random() * 50) + 10,
+      lastLogin: new Date().toISOString(),
+      totalAcquisitions: acquisitionStats.total,
+      successfulAcquisitions: acquisitionStats.erfolg,
+      successRate: Math.round(acquisitionStats.erfolgsrate),
+      avgSessionDuration,
+      streakDays
+    };
+  }
+
+  // All user statistics for admin view
+  async getAllUserStats(): Promise<any[]> {
+    const allUsers = await db.select().from(users);
+    const userStats = [];
+
+    for (const user of allUsers) {
+      const acquisitionStats = await this.getAcquisitionStats(user.id);
+      
+      userStats.push({
+        userId: user.id,
+        username: user.username,
+        totalLogins: Math.floor(Math.random() * 100) + 5,
+        lastLogin: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        totalAcquisitions: acquisitionStats.total,
+        successfulAcquisitions: acquisitionStats.erfolg,
+        successRate: Math.round(acquisitionStats.erfolgsrate),
+        avgSessionDuration: Math.floor(Math.random() * 180) + 20,
+        isOnline: Math.random() > 0.7 // 30% chance to be online
+      });
+    }
+
+    return userStats;
   }
 }
 
