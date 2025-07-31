@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { Building, ChartLine, Users, TrendingUp } from "lucide-react";
+import { Building, ChartLine, Users, TrendingUp, LogOut, User } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ListingCard from "@/components/listing-card";
 import ContactCard from "@/components/contact-card";
@@ -18,9 +18,10 @@ import type { Listing, Contact } from "@shared/schema";
 
 interface DashboardProps {
   user?: { id: number; username: string; is_admin?: boolean };
+  onLogout?: () => void;
 }
 
-export default function Dashboard({ user }: DashboardProps) {
+export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [regionFilter, setRegionFilter] = useState("Alle Regionen");
   const [priceFilter, setPriceFilter] = useState("Alle Preise");
@@ -185,6 +186,29 @@ export default function Dashboard({ user }: DashboardProps) {
               <span className="font-medium text-xs">{formatLastScrape(stats?.lastScrape || null)}</span>
             </div>
           </div>
+        </div>
+
+        {/* User Info and Logout */}
+        <div className="mt-auto p-4 border-t border-gray-200">
+          <div className="flex items-center space-x-3 mb-3">
+            <User className="h-5 w-5 text-gray-500" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">{user?.username}</p>
+              {user?.is_admin && (
+                <p className="text-xs text-blue-600 font-medium">Admin</p>
+              )}
+            </div>
+          </div>
+          {onLogout && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-600 hover:text-gray-900"
+              onClick={onLogout}
+            >
+              <LogOut className="mr-3 h-4 w-4" />
+              Abmelden
+            </Button>
+          )}
         </div>
       </aside>
 
