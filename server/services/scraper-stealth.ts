@@ -222,12 +222,16 @@ export class StealthScraperService {
     const $ = cheerio.load(response.data);
     const urls: string[] = [];
 
-    // Extract listing URLs with multiple selectors
+    // Extract listing URLs with aggressive selectors
     const selectors = [
       'a[href*="/iad/immobilien/d/"]',
       'a[data-testid*="result-item"]',
       '.result-item a',
-      '[data-testid="search-result-item"] a'
+      '[data-testid="search-result-item"] a',
+      '[data-testid*="result"] a',
+      '.search-result a',
+      '[class*="result"] a',
+      '[class*="listing"] a'
     ];
 
     selectors.forEach(selector => {
@@ -260,20 +264,32 @@ export class StealthScraperService {
       const bodyText = $('body').text().toLowerCase();
       const description = this.extractDetailDescription($);
 
-      // Doppelmarkler keywords
-      const doppelmarklerKeywords = [
+      // Enhanced private detection - ANY private seller keywords
+      const privateKeywords = [
+        'privatverkauf',
+        'privat verkauf', 
+        'von privat',
+        'privater verkäufer',
+        'privater anbieter',
         'doppelmarkler',
-        'dopplermarklertätigkeit',
-        'doppelmaklertätigkeit'
+        'ohne makler',
+        'verkaufe privat',
+        'privat zu verkaufen',
+        'eigenheim',
+        'private anzeige'
       ];
 
-      const foundDoppelmarkler = doppelmarklerKeywords.find(keyword => 
+      const foundPrivate = privateKeywords.find(keyword => 
         bodyText.includes(keyword.toLowerCase()) || 
         description.toLowerCase().includes(keyword.toLowerCase())
       );
 
-      if (foundDoppelmarkler) {
-        onProgress(`🎯 STEALTH HIT: "${foundDoppelmarkler}"`);
+      // AUCH speichern wenn Seite SELLER_TYPE=PRIVATE hat (pre-gefiltert)
+      const hasPrivateFilter = true; // URL bereits mit SELLER_TYPE=PRIVATE
+      
+      if (foundPrivate || hasPrivateFilter) {
+        const privateReason = foundPrivate || 'SELLER_TYPE=PRIVATE';
+        onProgress(`💎 PRIVATE HIT: "${privateReason}"`);
         
         const title = this.extractTitle($);
         const price = this.extractPrice($);
@@ -281,23 +297,26 @@ export class StealthScraperService {
         const location = this.extractLocation($);
         const phoneNumber = this.extractPhoneNumber(bodyText);
         
-        const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
-        const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
-        const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
+        // Nur speichern wenn Preis verfügbar
+        if (price > 0) {
+          const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
+          const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
+          const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
 
-        return {
-          title,
-          price,
-          area,
-          location,
-          url,
-          images: [],
-          description,
-          phoneNumber,
-          category: listingCategory,
-          region,
-          eur_per_m2
-        };
+          return {
+            title,
+            price,
+            area,
+            location,
+            url,
+            images: [],
+            description,
+            phoneNumber,
+            category: listingCategory,
+            region,
+            eur_per_m2
+          };
+        }
       }
 
       return null;
