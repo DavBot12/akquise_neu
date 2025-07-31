@@ -445,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserByUsername(username);
       
       if (user && user.password === password) {
-        res.json({ success: true, user: { id: user.id, username: user.username } });
+        res.json({ success: true, user: { id: user.id, username: user.username, is_admin: user.is_admin } });
       } else {
         res.status(401).json({ error: "Invalid credentials" });
       }
@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const user = await storage.createUser({ username, password });
-      res.json({ success: true, user: { id: user.id, username: user.username } });
+      res.json({ success: true, user: { id: user.id, username: user.username, is_admin: user.is_admin } });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ error: "Registration failed" });
@@ -515,6 +515,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user acquisitions:", error);
       res.status(500).json({ error: "Failed to fetch acquisitions" });
+    }
+  });
+
+  // Admin routes
+  app.get("/api/admin/users-stats", async (req, res) => {
+    try {
+      const stats = await storage.getAllUsersWithStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching users stats:", error);
+      res.status(500).json({ error: "Failed to fetch users stats" });
     }
   });
 

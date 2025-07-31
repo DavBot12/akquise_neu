@@ -56,15 +56,24 @@ export interface IStorage {
 
   // Acquisition tracking methods
   createAcquisition(acquisition: InsertAcquisition): Promise<Acquisition>;
-  updateAcquisitionStatus(id: number, status: "erfolg" | "absage" | "in_bearbeitung", notes?: string): Promise<void>;
+  updateAcquisitionStatus(id: number, status: "erfolg" | "absage" | "in_bearbeitung" | "nicht_erfolgreich", notes?: string): Promise<void>;
   getAcquisitionsByUser(userId: number): Promise<Acquisition[]>;
   getAcquisitionStats(userId?: number): Promise<{
     total: number;
     erfolg: number;
     absage: number;
+    nicht_erfolgreich: number;
     in_bearbeitung: number;
     erfolgsrate: number;
   }>;
+  getAllUsersWithStats(): Promise<Array<{
+    id: number;
+    username: string;
+    total: number;
+    erfolg: number;
+    nicht_erfolgreich: number;
+    erfolgsrate: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -304,7 +313,7 @@ export class DatabaseStorage implements IStorage {
     return acquisition;
   }
 
-  async updateAcquisitionStatus(id: number, status: "erfolg" | "absage" | "in_bearbeitung", notes?: string): Promise<void> {
+  async updateAcquisitionStatus(id: number, status: "erfolg" | "absage" | "in_bearbeitung" | "nicht_erfolgreich", notes?: string): Promise<void> {
     await db
       .update(acquisitions)
       .set({ 
@@ -327,6 +336,7 @@ export class DatabaseStorage implements IStorage {
     total: number;
     erfolg: number;
     absage: number;
+    nicht_erfolgreich: number;
     in_bearbeitung: number;
     erfolgsrate: number;
   }> {
@@ -345,6 +355,7 @@ export class DatabaseStorage implements IStorage {
       total: 0,
       erfolg: 0,
       absage: 0,
+      nicht_erfolgreich: 0,
       in_bearbeitung: 0,
       erfolgsrate: 0
     };
@@ -357,6 +368,32 @@ export class DatabaseStorage implements IStorage {
     stats.erfolgsrate = stats.total > 0 ? (stats.erfolg / stats.total) * 100 : 0;
     
     return stats;
+  }
+
+  async getAllUsersWithStats(): Promise<Array<{
+    id: number;
+    username: string;
+    total: number;
+    erfolg: number;
+    nicht_erfolgreich: number;
+    erfolgsrate: number;
+  }>> {
+    const allUsers = await db.select().from(users).where(eq(users.is_admin, false));
+    const result = [];
+
+    for (const user of allUsers) {
+      const stats = await this.getAcquisitionStats(user.id);
+      result.push({
+        id: user.id,
+        username: user.username,
+        total: stats.total,
+        erfolg: stats.erfolg,
+        nicht_erfolgreich: stats.nicht_erfolgreich,
+        erfolgsrate: stats.erfolgsrate
+      });
+    }
+
+    return result;
   }
 }
 

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 interface StatsPageProps {
-  user: { id: number; username: string };
+  user: { id: number; username: string; is_admin?: boolean };
 }
 
 export default function StatsPage({ user }: StatsPageProps) {
@@ -61,8 +61,8 @@ export default function StatsPage({ user }: StatsPageProps) {
             <CardTitle className="text-sm font-medium">Absagen</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats?.absage || 0}</div>
-            <p className="text-xs text-muted-foreground">Abgelehnte Anfragen</p>
+            <div className="text-2xl font-bold text-red-600">{stats?.nicht_erfolgreich || 0}</div>
+            <p className="text-xs text-muted-foreground">Nicht erfolgreiche Akquisen</p>
           </CardContent>
         </Card>
 

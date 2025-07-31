@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { AkquiseModal } from "@/components/akquise-modal";
 import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 import type { Listing } from "@shared/schema";
 
@@ -10,10 +12,13 @@ interface ListingCardProps {
   listing: Listing;
   onMarkCompleted: (id: number) => void;
   isMarkingCompleted: boolean;
+  user?: { id: number; username: string };
 }
 
-export default function ListingCard({ listing, onMarkCompleted, isMarkingCompleted }: ListingCardProps) {
+export default function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, user }: ListingCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showAkquiseModal, setShowAkquiseModal] = useState(false);
+  const { toast } = useToast();
   
   const hasImages = listing.images && listing.images.length > 0;
   const images = hasImages ? listing.images! : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300"];
@@ -168,7 +173,7 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
         <div className="flex space-x-2">
           <Button 
             className="flex-1" 
-            onClick={() => onMarkCompleted(listing.id)}
+            onClick={() => setShowAkquiseModal(true)}
             disabled={isMarkingCompleted}
           >
             <Check className="mr-1 h-4 w-4" />
@@ -184,6 +189,40 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           </Button>
         </div>
       </CardContent>
+      
+      <AkquiseModal
+        isOpen={showAkquiseModal}
+        onClose={() => setShowAkquiseModal(false)}
+        onSubmit={async (status, notes) => {
+          if (!user) return;
+          
+          try {
+            await fetch("/api/acquisitions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                user_id: user.id,
+                listing_id: listing.id,
+                status,
+                notes
+              }),
+            });
+            
+            onMarkCompleted(listing.id);
+            toast({
+              title: "Akquise gespeichert",
+              description: `Status: ${status === "erfolg" ? "Erfolgreich" : "Nicht erfolgreich"}`,
+            });
+          } catch (error) {
+            toast({
+              title: "Fehler",
+              description: "Akquise konnte nicht gespeichert werden",
+              variant: "destructive",
+            });
+          }
+        }}
+        listingTitle={listing.title}
+      />
     </Card>
   );
 }

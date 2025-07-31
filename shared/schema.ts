@@ -84,6 +84,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  is_admin: boolean("is_admin").default(false).notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -99,7 +100,7 @@ export const acquisitions = pgTable("acquisitions", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   listing_id: integer("listing_id").notNull().references(() => listings.id, { onDelete: "cascade" }),
-  status: text("status").$type<"erfolg" | "absage" | "in_bearbeitung">().notNull(),
+  status: text("status").$type<"erfolg" | "absage" | "in_bearbeitung" | "nicht_erfolgreich">().notNull(),
   notes: text("notes"),
   contacted_at: timestamp("contacted_at").defaultNow().notNull(),
   result_date: timestamp("result_date"),

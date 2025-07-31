@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 
 
 interface LoginPageProps {
-  onLogin: (user: { id: number; username: string }) => void;
+  onLogin: (user: { id: number; username: string; is_admin?: boolean }) => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
