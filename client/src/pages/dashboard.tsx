@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building, ChartLine, Worm, NotebookTabs, TrendingUp } from "lucide-react";
+import { Building, ChartLine, Users, TrendingUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ListingCard from "@/components/listing-card";
 import ContactCard from "@/components/contact-card";
@@ -14,7 +14,11 @@ import PriceMirror from "../components/price-mirror";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
 
-export default function Dashboard() {
+interface DashboardProps {
+  user?: { id: number; username: string; is_admin?: boolean };
+}
+
+export default function Dashboard({ user }: DashboardProps) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [regionFilter, setRegionFilter] = useState("Alle Regionen");
   const [priceFilter, setPriceFilter] = useState("Alle Preise");
@@ -115,26 +119,30 @@ export default function Dashboard() {
               <ChartLine className="mr-3 h-4 w-4" />
               Dashboard
             </Button>
+            {user?.is_admin && (
+              <>
+                <Button
+                  variant={activeTab === "scraper" ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("scraper")}
+                >
+                  <Users className="mr-3 h-4 w-4" />
+                  Scraper Console
+                </Button>
+                <Button
+                  variant={activeTab === "contacts" ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("contacts")}
+                >
+                  <Users className="mr-3 h-4 w-4" />
+                  Kontakte
+                </Button>
+              </>
+            )}
             <Button
-              variant={activeTab === "scraper" ? "default" : "ghost"}
+              variant={activeTab === "preisspiegel" ? "default" : "ghost"}
               className="w-full justify-start"
-              onClick={() => setActiveTab("scraper")}
-            >
-              <Worm className="mr-3 h-4 w-4" />
-              Scraper Console
-            </Button>
-            <Button
-              variant={activeTab === "contacts" ? "default" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => setActiveTab("contacts")}
-            >
-              <NotebookTabs className="mr-3 h-4 w-4" />
-              Kontakte
-            </Button>
-            <Button
-              variant={activeTab === "price-mirror" ? "default" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => setActiveTab("price-mirror")}
+              onClick={() => setActiveTab("preisspiegel")}
             >
               <TrendingUp className="mr-3 h-4 w-4" />
               Preisspiegel
@@ -227,6 +235,7 @@ export default function Dashboard() {
                       listing={listing}
                       onMarkCompleted={handleMarkCompleted}
                       isMarkingCompleted={markCompletedMutation.isPending}
+                      user={user}
                     />
                   ))}
                 </div>
@@ -234,13 +243,16 @@ export default function Dashboard() {
             </div>
           </TabsContent>
 
-          {/* Scraper Console Tab */}
-          <TabsContent value="scraper" className="h-full m-0">
-            <ScraperDualConsole />
-          </TabsContent>
+          {/* Scraper Console Tab - Admin only */}
+          {user?.is_admin && (
+            <TabsContent value="scraper" className="h-full m-0">
+              <ScraperDualConsole />
+            </TabsContent>
+          )}
 
-          {/* Contacts Tab */}
-          <TabsContent value="contacts" className="h-full m-0">
+          {/* Contacts Tab - Admin only */}
+          {user?.is_admin && (
+            <TabsContent value="contacts" className="h-full m-0">
             <div className="p-6 border-b border-gray-200 bg-white">
               <div className="flex justify-between items-center">
                 <div>
@@ -276,35 +288,27 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          </TabsContent>
+            </TabsContent>
+          )}
 
-          {/* Price Mirror Tab */}
-          <TabsContent value="price-mirror" className="h-full m-0">
-            <div className="p-6 border-b border-gray-200 bg-white">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">📊 Immobilienpreis Spiegel</h2>
-                  <p className="text-gray-600 mt-1">Durchschnittspreise nach Bezirken und Regionen</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 h-full overflow-y-auto">
-              <PriceMirror />
-            </div>
+          {/* Price Spiegel Tab */}
+          <TabsContent value="preisspiegel" className="h-full m-0">
+            <PriceSpiegelTab />
           </TabsContent>
         </Tabs>
       </main>
 
-      {/* Contact Modal */}
-      <ContactModal
-        isOpen={isContactModalOpen}
-        onClose={() => {
-          setIsContactModalOpen(false);
-          setEditingContact(null);
-        }}
-        contact={editingContact}
-      />
+      {/* Contact Modal - Admin only */}
+      {user?.is_admin && (
+        <ContactModal
+          isOpen={isContactModalOpen}
+          onClose={() => {
+            setIsContactModalOpen(false);
+            setEditingContact(null);
+          }}
+          contact={editingContact}
+        />
+      )}
     </div>
   );
 }

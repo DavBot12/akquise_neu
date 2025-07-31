@@ -10,7 +10,7 @@ import StatsPage from "@/pages/stats";
 import AdminPerformancePage from "@/pages/admin-performance";
 import NotFound from "@/pages/not-found";
 
-function Router({ user }: { user: { id: number; username: string; is_admin?: boolean } }) {
+function Router({ user, onLogout }: { user: { id: number; username: string; is_admin?: boolean }; onLogout: () => void }) {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
@@ -31,7 +31,7 @@ function Router({ user }: { user: { id: number; username: string; is_admin?: boo
               {user.is_admin && <span className="ml-1 text-blue-600 font-medium">(Admin)</span>}
             </span>
             <button
-              onClick={() => window.location.reload()}
+              onClick={onLogout}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               Abmelden
@@ -40,7 +40,9 @@ function Router({ user }: { user: { id: number; username: string; is_admin?: boo
         </div>
       </div>
       <Switch>
-        <Route path="/" component={Dashboard} />
+        <Route path="/">
+          <Dashboard user={user} />
+        </Route>
         <Route path="/stats">
           <StatsPage user={user} />
         </Route>
@@ -56,16 +58,30 @@ function Router({ user }: { user: { id: number; username: string; is_admin?: boo
 }
 
 function App() {
-  const [user, setUser] = useState<{ id: number; username: string; is_admin?: boolean } | null>(null);
+  const [user, setUser] = useState<{ id: number; username: string; is_admin?: boolean } | null>(() => {
+    // Restore user from localStorage
+    const saved = localStorage.getItem('user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleLogin = (userData: { id: number; username: string; is_admin?: boolean }) => {
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('user');
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         {user ? (
-          <Router user={user} />
+          <Router user={user} onLogout={handleLogout} />
         ) : (
-          <LoginPage onLogin={setUser} />
+          <LoginPage onLogin={handleLogin} />
         )}
       </TooltipProvider>
     </QueryClientProvider>

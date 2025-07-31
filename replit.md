@@ -101,6 +101,10 @@ Preferred communication style: Simple, everyday language.
 ✓ LOGIN-SYSTEM IMPLEMENTIERT: Benutzer-Authentifizierung mit Akquise-Statistiken
 ✓ AKQUISE-TRACKING: Erfolg/Absage/In-Bearbeitung Status für jeden Benutzer
 ✓ STATISTIK-DASHBOARD: Erfolgsrate und detaillierte Akquise-Übersicht
+✓ SESSION-PERSISTENZ: Login bleibt nach Seitenwechsel bestehen
+✓ ADMIN-ROLLEN SYSTEM: deim/jaros Admins mit erweiterten Berechtigungen
+✓ ROLLENBASIERTE NAVIGATION: Scraper Console und Kontakte nur für Admins
+✓ ERWEITERTE AKQUISE-MODAL: Erfolg/Nicht-Erfolgreich mit Notizen-Feld
 
 ## System Architecture
 
