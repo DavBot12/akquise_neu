@@ -293,19 +293,46 @@ export class StealthScraperService {
       const $ = cheerio.load(response.data);
       const bodyText = $('body').text().toLowerCase();
       const description = this.extractDetailDescription($);
+      const title = this.extractTitle($);
 
-      // Enhanced private detection - ANY private seller keywords
+      // STRENGE Makler-Detection - diese Begriffe = MAKLER/BAUTRÄGER
+      const commercialKeywords = [
+        'neubauprojekt',
+        'erstbezug',
+        'bauträger', 
+        'anleger',
+        'wohnprojekt',
+        'immobilienmakler',
+        'provisionsaufschlag',
+        'fertigstellung',
+        'projektentwicklung',
+        'immobilienvertrieb',
+        'besichtigungstermin',
+        'immobilienbüro'
+      ];
+
+      const foundCommercial = commercialKeywords.find(keyword => 
+        bodyText.includes(keyword.toLowerCase()) || 
+        description.toLowerCase().includes(keyword.toLowerCase()) ||
+        title.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      if (foundCommercial) {
+        onProgress(`🏢 MAKLER DETECTED: "${foundCommercial}" - SKIP`);
+        return null;
+      }
+
+      // Enhanced private detection - NUR echte private Verkäufer
       const privateKeywords = [
         'privatverkauf',
         'privat verkauf', 
         'von privat',
         'privater verkäufer',
         'privater anbieter',
-        'doppelmarkler',
         'ohne makler',
         'verkaufe privat',
         'privat zu verkaufen',
-        'eigenheim',
+        'eigenheim verkauf',
         'private anzeige'
       ];
 
@@ -313,15 +340,11 @@ export class StealthScraperService {
         bodyText.includes(keyword.toLowerCase()) || 
         description.toLowerCase().includes(keyword.toLowerCase())
       );
-
-      // AUCH speichern wenn Seite SELLER_TYPE=PRIVATE hat (pre-gefiltert)
-      const hasPrivateFilter = true; // URL bereits mit SELLER_TYPE=PRIVATE
       
-      if (foundPrivate || hasPrivateFilter) {
-        const privateReason = foundPrivate || 'SELLER_TYPE=PRIVATE';
+      if (foundPrivate) {
+        const privateReason = foundPrivate;
         onProgress(`💎 PRIVATE HIT: "${privateReason}"`);
         
-        const title = this.extractTitle($);
         const price = this.extractPrice($);
         const area = this.extractArea($);
         const location = this.extractLocation($);

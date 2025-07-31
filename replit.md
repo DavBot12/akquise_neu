@@ -80,6 +80,9 @@ Preferred communication style: Simple, everyday language.
 ✓ KRITISCHER PRICE-BUG BEHOBEN: Integer-Overflow durch 6-stellige Preis-Limitierung
 ✓ DATABASE-SPEICHER FUNKTIONIERT: Final Price Check verhindert exponential notation
 ✓ 💾 GESPEICHERT Nachrichten: Confirma da successful database insertion
+✓ MAKLER-FILTER IMPLEMENTIERT: Strenge Erkennung von Neubauprojekt, Erstbezug, Bauträger
+✓ 🏢 MAKLER DETECTED Messages: Zeigt gefilterte kommerzielle Anbieter
+✓ PRIVATE-ONLY VALIDIERUNG: Nur echte Privatverkäufer werden gespeichert
 
 ## System Architecture
 
