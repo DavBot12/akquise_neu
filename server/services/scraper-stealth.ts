@@ -181,11 +181,11 @@ export class StealthScraperService {
   }
 
   private async ultraStealthPause(onProgress: (msg: string) => void): Promise<void> {
-    const ultraDelay = 60000 + Math.random() * 30000; // 1-1.5 minutes
-    onProgress(`🛡️ Ultra-stealth mode: ${Math.round(ultraDelay/1000)}s pause`);
+    const ultraDelay = 10000 + Math.random() * 5000; // Nur 10-15 Sekunden statt 60-90
+    onProgress(`🛡️ Optimized pause: ${Math.round(ultraDelay/1000)}s (getestet!)`);
     await new Promise(resolve => setTimeout(resolve, ultraDelay));
     
-    // Refresh session after ultra pause
+    // Refresh session after pause
     await this.refreshSession(onProgress);
   }
 

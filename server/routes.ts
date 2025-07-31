@@ -15,11 +15,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const scraperService = new ScraperService();
   const priceEvaluator = new PriceEvaluator();
   const scraperTestService = new ScraperTestService();
-  // Import both gentle and stealth scraper services
+  // Import all scraper services
   const { GentleScraperService } = await import('./services/scraper-gentle');
   const { StealthScraperService } = await import('./services/scraper-stealth');
+  const { DelayTesterService } = await import('./services/delay-tester');
   const gentleScraperService = new GentleScraperService();
   const stealthScraperService = new StealthScraperService();
+  const delayTesterService = new DelayTesterService();
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
@@ -244,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await stealthScraperService.stealthDoppelmarklerScan({
             category,
             maxPages,
-            delay: Math.max(delay, 15000), // Mindestens 15 Sekunden für Stealth
+            delay: Math.max(delay, 2000), // Optimiert: Nur 2 Sekunden nach Test
             onProgress: (message) => {
               console.log(message);
               wss.clients.forEach(client => {
@@ -267,6 +269,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
     } catch (error) {
       res.status(500).json({ message: "Failed to start scraping" });
+    }
+  });
+
+  // DELAY-TEST ENDPOINT
+  app.post("/api/scraper/test-delay", async (req, res) => {
+    try {
+      const scraperOptions = {
+        onProgress: (message: string) => {
+          console.log('[DELAY-TEST]', message);
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'scraperUpdate', message: `[DELAY-TEST] ${message}` }));
+            }
+          });
+        }
+      };
+
+      scraperOptions.onProgress('🔬 DELAY-TEST GESTARTET - Finde optimales Minimum!');
+      
+      const minimumDelay = await delayTesterService.findMinimumDelay(scraperOptions.onProgress);
+      
+      scraperOptions.onProgress(`🎯 RESULT: Minimum funktionierendes Delay = ${minimumDelay}ms`);
+      scraperOptions.onProgress(`💡 RECOMMENDED: Nutze ${minimumDelay + 1000}ms für Produktionseinsatz`);
+      
+      res.json({ 
+        success: true, 
+        minimumDelay,
+        recommendedDelay: minimumDelay + 1000,
+        message: `Minimum Delay gefunden: ${minimumDelay}ms` 
+      });
+
+    } catch (error) {
+      console.error('Delay test error:', error);
+      res.status(500).json({ message: "Delay test failed" });
     }
   });
 
