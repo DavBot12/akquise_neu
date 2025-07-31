@@ -417,6 +417,20 @@ export class DatabaseStorage implements IStorage {
     // Mock session duration (in minutes)
     const avgSessionDuration = Math.floor(Math.random() * 120) + 30;
 
+    // Generate monthly login data (last 12 months)
+    const monthlyLogins = Array.from({ length: 12 }, () => Math.floor(Math.random() * 25) + 5);
+    
+    // Generate daily activity for last 30 days
+    const dailyActivity = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return {
+        date: date.toISOString().split('T')[0],
+        logins: Math.floor(Math.random() * 5),
+        acquisitions: Math.floor(Math.random() * 3)
+      };
+    });
+
     return {
       totalLogins: Math.floor(Math.random() * 50) + 10,
       lastLogin: new Date().toISOString(),
@@ -424,7 +438,9 @@ export class DatabaseStorage implements IStorage {
       successfulAcquisitions: acquisitionStats.erfolg,
       successRate: Math.round(acquisitionStats.erfolgsrate),
       avgSessionDuration,
-      streakDays
+      streakDays,
+      monthlyLogins,
+      dailyActivity
     };
   }
 
@@ -436,6 +452,23 @@ export class DatabaseStorage implements IStorage {
     for (const user of allUsers) {
       const acquisitionStats = await this.getAcquisitionStats(user.id);
       
+      // Generate login history for last 30 days
+      const loginHistory = Array.from({ length: 15 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        return {
+          date: date.toISOString(),
+          duration: Math.floor(Math.random() * 180) + 30
+        };
+      });
+
+      // Generate recent actions
+      const recentActions = [
+        { action: "Akquise erstellt", timestamp: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(), details: "Listing #276 kontaktiert" },
+        { action: "Login", timestamp: new Date(Date.now() - Math.random() * 48 * 60 * 60 * 1000).toISOString(), details: "Session gestartet" },
+        { action: "Kontakt erstellt", timestamp: new Date(Date.now() - Math.random() * 72 * 60 * 60 * 1000).toISOString(), details: "Neuer Kontakt hinzugefügt" }
+      ];
+      
       userStats.push({
         userId: user.id,
         username: user.username,
@@ -445,7 +478,10 @@ export class DatabaseStorage implements IStorage {
         successfulAcquisitions: acquisitionStats.erfolg,
         successRate: Math.round(acquisitionStats.erfolgsrate),
         avgSessionDuration: Math.floor(Math.random() * 180) + 20,
-        isOnline: Math.random() > 0.7 // 30% chance to be online
+        isOnline: Math.random() > 0.7, // 30% chance to be online
+        monthlyLogins: Array.from({ length: 12 }, () => Math.floor(Math.random() * 25) + 5),
+        loginHistory,
+        recentActions
       });
     }
 
