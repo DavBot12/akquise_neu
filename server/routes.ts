@@ -323,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onListingFound: async (listingData: any) => {
           try {
             // Price evaluation
-            const priceEvaluation = await priceEvaluator.evaluatePrice(
+            const priceEvaluation = await priceEvaluator.evaluateListing(
               listingData.eur_per_m2,
               listingData.region
             );
@@ -435,6 +435,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("DOPPELMARKLER-TEST ERROR:", error);
       res.status(500).json({ message: "DOPPELMARKLER-Test fehlgeschlagen" });
+    }
+  });
+
+  // Simple authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      const user = await storage.getUserByUsername(username);
+      
+      if (user && user.password === password) {
+        res.json({ success: true, user: { id: user.id, username: user.username } });
+      } else {
+        res.status(401).json({ error: "Invalid credentials" });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      const existingUser = await storage.getUserByUsername(username);
+      
+      if (existingUser) {
+        res.status(400).json({ error: "Username already exists" });
+        return;
+      }
+      
+      const user = await storage.createUser({ username, password });
+      res.json({ success: true, user: { id: user.id, username: user.username } });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // Acquisition tracking routes
+  app.post("/api/acquisitions", async (req, res) => {
+    try {
+      const acquisition = await storage.createAcquisition(req.body);
+      res.json(acquisition);
+    } catch (error) {
+      console.error("Error creating acquisition:", error);
+      res.status(500).json({ error: "Failed to create acquisition" });
+    }
+  });
+
+  app.patch("/api/acquisitions/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+      await storage.updateAcquisitionStatus(parseInt(id), status, notes);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating acquisition:", error);
+      res.status(500).json({ error: "Failed to update acquisition" });
+    }
+  });
+
+  app.get("/api/acquisitions/stats", async (req, res) => {
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const stats = await storage.getAcquisitionStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching acquisition stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/acquisitions/user/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const acquisitions = await storage.getAcquisitionsByUser(parseInt(userId));
+      res.json(acquisitions);
+    } catch (error) {
+      console.error("Error fetching user acquisitions:", error);
+      res.status(500).json({ error: "Failed to fetch acquisitions" });
     }
   });
 

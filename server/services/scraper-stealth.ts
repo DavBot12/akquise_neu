@@ -703,22 +703,34 @@ export class StealthScraperService {
   }
 
   private extractPhoneNumber(text: string): string | null {
+    // CRITICAL: Block known fake/placeholder numbers immediately
+    const fakeNumbers = ['01520253035', '1520253035', '0152025303'];
+    for (const fake of fakeNumbers) {
+      if (text.includes(fake)) {
+        console.log(`🚫 FAKE NUMBER BLOCKED: ${fake}`);
+        return null;
+      }
+    }
+    
     // Look for explicit phone number contexts first
     const phoneContexts = [
-      /telefon[:\s]*([+\d\s\-()]+)/gi,
-      /phone[:\s]*([+\d\s\-()]+)/gi,
-      /handy[:\s]*([+\d\s\-()]+)/gi,
-      /mobil[:\s]*([+\d\s\-()]+)/gi,
-      /kontakt[:\s]*([+\d\s\-()]+)/gi,
-      /erreichbar[:\s]*([+\d\s\-()]+)/gi
+      /(?:telefon|tel|phone|handy|mobil|kontakt|erreichbar)[:\s]*([+\d\s\-()\/]{8,20})/gi
     ];
 
     for (const pattern of phoneContexts) {
       const matches = text.match(pattern);
       if (matches && matches[1]) {
-        const cleanNumber = matches[1].replace(/[\s\-()]/g, '');
+        const cleanNumber = matches[1].replace(/[\s\-()\/]/g, '');
+        
+        // Skip if it contains fake numbers
+        if (fakeNumbers.some(fake => cleanNumber.includes(fake))) {
+          console.log(`🚫 CONTEXT FAKE BLOCKED: ${cleanNumber}`);
+          continue;
+        }
+        
         if (this.isValidAustrianPhone(cleanNumber)) {
-          return cleanNumber;
+          console.log(`📞 CONTEXT PHONE FOUND: ${cleanNumber}`);
+          return this.formatPhoneNumber(cleanNumber);
         }
       }
     }
@@ -736,18 +748,44 @@ export class StealthScraperService {
       const matches = text.match(pattern);
       if (matches && matches.length > 0) {
         const cleanNumber = matches[0].replace(/[\s\-]/g, '');
+        
+        // Skip fake numbers in pattern matches too
+        if (fakeNumbers.some(fake => cleanNumber.includes(fake))) {
+          console.log(`🚫 PATTERN FAKE BLOCKED: ${cleanNumber}`);
+          continue;
+        }
+        
         if (this.isValidAustrianPhone(cleanNumber)) {
-          return cleanNumber;
+          console.log(`📞 PATTERN PHONE FOUND: ${cleanNumber}`);
+          return this.formatPhoneNumber(cleanNumber);
         }
       }
     }
 
+    console.log(`📞 NO VALID PHONE in: ${text.substring(0, 80)}...`);
     return null;
+  }
+
+  private formatPhoneNumber(phone: string): string {
+    // Format Austrian phone numbers nicely
+    if (phone.startsWith('43')) {
+      return `+${phone}`;
+    } else if (phone.startsWith('0')) {
+      return phone;
+    }
+    return `0${phone}`;
   }
 
   private isValidAustrianPhone(phone: string): boolean {
     // Remove any remaining spaces or special chars
     const clean = phone.replace(/[^\d+]/g, '');
+    
+    // CRITICAL: Block known fake numbers at validation level too
+    const fakeNumbers = ['01520253035', '1520253035', '0152025303'];
+    if (fakeNumbers.some(fake => clean.includes(fake))) {
+      console.log(`🚫 VALIDATION FAKE BLOCKED: ${clean}`);
+      return false;
+    }
     
     // Must be 8-14 digits (realistic Austrian phone length)
     if (clean.length < 8 || clean.length > 14) return false;

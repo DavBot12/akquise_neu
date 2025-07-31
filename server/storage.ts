@@ -3,14 +3,17 @@ import {
   contacts, 
   listing_contacts,
   users,
+  acquisitions,
   type Listing, 
   type Contact, 
   type ListingContact,
+  type User,
+  type Acquisition,
   type InsertListing, 
   type InsertContact, 
   type InsertListingContact,
-  type User,
-  type InsertUser
+  type InsertUser,
+  type InsertAcquisition
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -50,6 +53,18 @@ export interface IStorage {
   getContactsForListing(listingId: number): Promise<Contact[]>;
   getListingsForContact(contactId: number): Promise<Listing[]>;
   unassignContactFromListing(listingId: number, contactId: number): Promise<void>;
+
+  // Acquisition tracking methods
+  createAcquisition(acquisition: InsertAcquisition): Promise<Acquisition>;
+  updateAcquisitionStatus(id: number, status: "erfolg" | "absage" | "in_bearbeitung", notes?: string): Promise<void>;
+  getAcquisitionsByUser(userId: number): Promise<Acquisition[]>;
+  getAcquisitionStats(userId?: number): Promise<{
+    total: number;
+    erfolg: number;
+    absage: number;
+    in_bearbeitung: number;
+    erfolgsrate: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -278,6 +293,70 @@ export class DatabaseStorage implements IStorage {
           eq(listing_contacts.contact_id, contactId)
         )
       );
+  }
+
+  // Acquisition tracking methods
+  async createAcquisition(insertAcquisition: InsertAcquisition): Promise<Acquisition> {
+    const [acquisition] = await db
+      .insert(acquisitions)
+      .values(insertAcquisition)
+      .returning();
+    return acquisition;
+  }
+
+  async updateAcquisitionStatus(id: number, status: "erfolg" | "absage" | "in_bearbeitung", notes?: string): Promise<void> {
+    await db
+      .update(acquisitions)
+      .set({ 
+        status, 
+        notes,
+        result_date: status !== "in_bearbeitung" ? new Date() : null
+      })
+      .where(eq(acquisitions.id, id));
+  }
+
+  async getAcquisitionsByUser(userId: number): Promise<Acquisition[]> {
+    return await db
+      .select()
+      .from(acquisitions)
+      .where(eq(acquisitions.user_id, userId))
+      .orderBy(desc(acquisitions.contacted_at));
+  }
+
+  async getAcquisitionStats(userId?: number): Promise<{
+    total: number;
+    erfolg: number;
+    absage: number;
+    in_bearbeitung: number;
+    erfolgsrate: number;
+  }> {
+    const whereClause = userId ? eq(acquisitions.user_id, userId) : undefined;
+    
+    const results = await db
+      .select({
+        status: acquisitions.status,
+        count: sql<number>`count(*)`.as('count')
+      })
+      .from(acquisitions)
+      .where(whereClause)
+      .groupBy(acquisitions.status);
+
+    const stats = {
+      total: 0,
+      erfolg: 0,
+      absage: 0,
+      in_bearbeitung: 0,
+      erfolgsrate: 0
+    };
+
+    results.forEach(result => {
+      stats.total += result.count;
+      stats[result.status as keyof typeof stats] = result.count;
+    });
+
+    stats.erfolgsrate = stats.total > 0 ? (stats.erfolg / stats.total) * 100 : 0;
+    
+    return stats;
   }
 }
 

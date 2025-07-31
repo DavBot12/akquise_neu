@@ -93,3 +93,37 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Acquisition tracking table for success/failure statistics
+export const acquisitions = pgTable("acquisitions", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  listing_id: integer("listing_id").notNull().references(() => listings.id, { onDelete: "cascade" }),
+  status: text("status").$type<"erfolg" | "absage" | "in_bearbeitung">().notNull(),
+  notes: text("notes"),
+  contacted_at: timestamp("contacted_at").defaultNow().notNull(),
+  result_date: timestamp("result_date"),
+});
+
+export const acquisitionsRelations = relations(acquisitions, ({ one }) => ({
+  user: one(users, {
+    fields: [acquisitions.user_id],
+    references: [users.id],
+  }),
+  listing: one(listings, {
+    fields: [acquisitions.listing_id],
+    references: [listings.id],
+  }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  acquisitions: many(acquisitions),
+}));
+
+export const insertAcquisitionSchema = createInsertSchema(acquisitions).omit({
+  id: true,
+  contacted_at: true,
+});
+
+export type InsertAcquisition = z.infer<typeof insertAcquisitionSchema>;
+export type Acquisition = typeof acquisitions.$inferSelect;
