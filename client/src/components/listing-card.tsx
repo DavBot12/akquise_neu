@@ -150,9 +150,15 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           )}
         </div>
         
-        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-          {listing.description || "Keine Beschreibung verfügbar"}
-        </p>
+        {listing.description && listing.description.length > 0 ? (
+          <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+            {listing.description}
+          </p>
+        ) : (
+          <p className="text-gray-400 text-sm mb-4 italic">
+            Keine Beschreibung verfügbar
+          </p>
+        )}
         
         <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
           <span>Gescraped: {formatScrapedAt(listing.scraped_at)}</span>

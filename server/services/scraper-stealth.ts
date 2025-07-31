@@ -348,7 +348,7 @@ export class StealthScraperService {
         const price = this.extractPrice($);
         const areaString = this.extractArea($);
         const area = areaString ? parseInt(areaString) : 0;
-        const location = this.extractLocation($);
+        const location = this.extractLocation($) || this.getLocationFromUrl(url);
         const phoneNumber = this.extractPhoneNumber(bodyText + ' ' + description);
         
         // Nur speichern wenn Preis verfügbar
@@ -434,14 +434,29 @@ export class StealthScraperService {
     // Method 2: Search for description text patterns in body
     const bodyText = $('body').text();
     const descriptionPatterns = [
-      /Objektbeschreibung\s*([\s\S]{50,1000})(?:Mehr anzeigen|Energieausweis|Kontakt|€|Finanzierung)/i,
-      /Beschreibung\s*([\s\S]{50,1000})(?:Mehr anzeigen|Energieausweis|Kontakt|€|Finanzierung)/i
+      /Objektbeschreibung\s*([\s\S]{30,2000})(?:Mehr anzeigen|Energieausweis|Kontakt|Kreditrechner|Anbieterdetails)/i,
+      /Beschreibung\s*([\s\S]{30,2000})(?:Mehr anzeigen|Energieausweis|Kontakt|Kreditrechner|Anbieterdetails)/i
     ];
 
     for (const pattern of descriptionPatterns) {
       const match = bodyText.match(pattern);
       if (match && match[1]) {
-        return match[1].trim().substring(0, 1000);
+        let description = match[1].trim();
+        // Clean up common artifacts
+        description = description.replace(/\s+/g, ' '); // Normalize spaces
+        description = description.replace(/\n+/g, ' '); // Remove line breaks
+        return description.substring(0, 1000);
+      }
+    }
+
+    // Method 3: Search for long paragraphs that might be descriptions
+    const paragraphs = $('p').toArray();
+    for (const p of paragraphs) {
+      const text = $(p).text().trim();
+      if (text.length > 100 && 
+          text.includes('Wohnung') && 
+          (text.includes('verkauf') || text.includes('privat'))) {
+        return text.substring(0, 1000);
       }
     }
 
@@ -581,20 +596,69 @@ export class StealthScraperService {
   }
 
   private extractLocation($: cheerio.CheerioAPI): string {
-    const selectors = [
+    // Method 1: Look for "Objektstandort" section (from real Willhaben structure)
+    const locationSelectors = [
+      'h2:contains("Objektstandort")',
+      'div:contains("Objektstandort")',
       '[data-testid="ad-detail-ad-location"]',
-      '.AdDetailLocation',
-      '.location-info'
+      '.AdDetailLocation'
     ];
 
-    for (const selector of selectors) {
+    for (const selector of locationSelectors) {
       const element = $(selector);
       if (element.length > 0) {
-        return element.text().trim();
+        if (selector.includes('Objektstandort')) {
+          // Get the next element after "Objektstandort" header
+          const nextElement = element.next();
+          if (nextElement.length > 0) {
+            const location = nextElement.text().trim();
+            if (location && location.length > 5) {
+              return location;
+            }
+          }
+        } else {
+          const location = element.text().trim();
+          if (location && location.length > 5) {
+            return location;
+          }
+        }
       }
     }
 
-    return 'Unknown Location';
+    // Method 2: Extract location from URL path (more reliable)
+    const url = $.html(); // Get the current URL context
+    const urlLocationMatch = url.match(/wien-(\d{4})-([^\/]+)/i);
+    if (urlLocationMatch) {
+      const postalCode = urlLocationMatch[1];
+      const district = urlLocationMatch[2].replace(/-/g, ' ');
+      return `${postalCode} Wien, ${district}`;
+    }
+
+    // Method 3: Search for Vienna district patterns in body text  
+    const bodyText = $('body').text();
+    const locationPatterns = [
+      /(\d{4}\s+Wien,\s+\d{2}\.\s+Bezirk[^,]*)/gi,  // "1070 Wien, 07. Bezirk, Neubau"
+      /(Wien,\s+\d{2}\.\s+Bezirk[^,\n]*)/gi,        // "Wien, 07. Bezirk, Neubau"
+      /(\d{4}\s+Wien[^,\n]*)/gi,                    // "1070 Wien"
+      /([A-Z][a-z]+gasse[^,\n]*)/gi,                // Street names ending in "gasse"
+      /([A-Z][a-z]+straße[^,\n]*)/gi,               // Street names ending in "straße"
+      /([A-Z][a-z]+platz[^,\n]*)/gi                 // Square names ending in "platz"
+    ];
+
+    for (const pattern of locationPatterns) {
+      const matches = bodyText.match(pattern);
+      if (matches && matches.length > 0) {
+        const location = matches[0].trim();
+        if (location.includes('Wien') || 
+            location.includes('gasse') || 
+            location.includes('straße') || 
+            location.includes('platz')) {
+          return location.substring(0, 100); // Limit length
+        }
+      }
+    }
+
+    return 'Wien'; // Default fallback for Vienna listings
   }
 
   private extractImages($: cheerio.CheerioAPI): string[] {
@@ -700,5 +764,32 @@ export class StealthScraperService {
     if (clean.startsWith('66') || clean.startsWith('67') || clean.startsWith('68')) return clean.length >= 10;
     
     return clean.length >= 8 && clean.length <= 12;
+  }
+
+  private getLocationFromUrl(url: string): string {
+    // Extract location info from Willhaben URL structure
+    const urlPatterns = [
+      /wien-(\d{4})-([^\/]+)/i,  // wien-1070-neubau
+      /wien\/([^\/]+)/i,         // wien/bezirk-name
+      /niederoesterreich\/([^\/]+)/i  // niederoesterreich/region
+    ];
+
+    for (const pattern of urlPatterns) {
+      const match = url.match(pattern);
+      if (match) {
+        if (match[1] && match[2]) {
+          // Format: "1070 Wien, Neubau"
+          const postalCode = match[1];
+          const district = match[2].replace(/-/g, ' ').replace(/wien /gi, '');
+          return `${postalCode} Wien, ${district}`;
+        } else if (match[1]) {
+          // Format: "Wien, Bezirk"
+          const location = match[1].replace(/-/g, ' ').replace(/wien /gi, '');
+          return `Wien, ${location}`;
+        }
+      }
+    }
+
+    return 'Wien'; // Default fallback
   }
 }
