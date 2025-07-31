@@ -346,7 +346,8 @@ export class StealthScraperService {
         onProgress(`💎 PRIVATE HIT: "${privateReason}"`);
         
         const price = this.extractPrice($);
-        const area = this.extractArea($);
+        const areaString = this.extractArea($);
+        const area = areaString ? parseInt(areaString) : 0;
         const location = this.extractLocation($);
         const phoneNumber = this.extractPhoneNumber(bodyText);
         
@@ -356,18 +357,20 @@ export class StealthScraperService {
           const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
           const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
 
+          const images = this.extractImages($);
+          
           const listingData = {
             title,
             price,
-            area: area > 0 ? area.toString() : null,
+            area: areaString || null,
             location,
             url,
-            images: [],
+            images,
             description,
             phone_number: phoneNumber,
             category: listingCategory,
             region,
-            eur_per_m2: eur_per_m2 > 0 ? eur_per_m2.toString() : null,
+            eur_per_m2: area > 0 ? Math.round(price / area).toString() : null,
             akquise_erledigt: false
           };
 
@@ -482,23 +485,56 @@ export class StealthScraperService {
     return 0;
   }
 
-  private extractArea($: cheerio.CheerioAPI): number {
+  private extractArea($: cheerio.CheerioAPI): string {
+    // Method 1: Search in body text for m² patterns
+    const bodyText = $('body').text();
+    
+    // Look for area patterns like "57 m²", "57m²", "57 Quadratmeter"
+    const areaPatterns = [
+      /(\d{1,4})\s*m²/gi,
+      /(\d{1,4})\s*qm/gi,
+      /(\d{1,4})\s*quadratmeter/gi,
+      /wohnfläche[:\s]*(\d{1,4})/gi,
+      /nutzfläche[:\s]*(\d{1,4})/gi
+    ];
+    
+    for (const pattern of areaPatterns) {
+      const matches = bodyText.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          const areaMatch = match.match(/(\d{1,4})/);
+          if (areaMatch) {
+            const area = parseInt(areaMatch[1]);
+            if (area >= 15 && area <= 500) { // Realistic apartment sizes
+              return area.toString();
+            }
+          }
+        }
+      }
+    }
+
+    // Method 2: Look in specific selectors
     const selectors = [
       '[data-testid="ad-detail-ad-properties"]',
       '.AdDetailProperties',
-      '.property-info'
+      '.property-info',
+      '[class*="properties"]',
+      '[class*="detail"]'
     ];
 
     for (const selector of selectors) {
       const element = $(selector);
       const text = element.text();
-      const areaMatch = text.match(/(\d+)[\s]*m²/i);
+      const areaMatch = text.match(/(\d{1,4})\s*m²/i);
       if (areaMatch) {
-        return parseInt(areaMatch[1]);
+        const area = parseInt(areaMatch[1]);
+        if (area >= 15 && area <= 500) {
+          return area.toString();
+        }
       }
     }
 
-    return 0;
+    return '';
   }
 
   private extractLocation($: cheerio.CheerioAPI): string {
@@ -516,6 +552,31 @@ export class StealthScraperService {
     }
 
     return 'Unknown Location';
+  }
+
+  private extractImages($: cheerio.CheerioAPI): string[] {
+    const images: string[] = [];
+    
+    // Common image selectors for Willhaben
+    const selectors = [
+      'img[src*="willhaben"]',
+      '[data-testid*="image"] img',
+      '.gallery img',
+      '.carousel img',
+      '.slider img',
+      'img[src*="cache.willhaben"]'
+    ];
+
+    for (const selector of selectors) {
+      $(selector).each((_, element) => {
+        const src = $(element).attr('src');
+        if (src && src.includes('willhaben') && !images.includes(src)) {
+          images.push(src);
+        }
+      });
+    }
+
+    return images.slice(0, 10); // Limit to 10 images
   }
 
   private extractPhoneNumber(text: string): string | null {

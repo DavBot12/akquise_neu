@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, ExternalLink, Check, Clock } from "lucide-react";
+import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone } from "lucide-react";
 
 import type { Listing } from "@shared/schema";
 
@@ -12,6 +13,18 @@ interface ListingCardProps {
 }
 
 export default function ListingCard({ listing, onMarkCompleted, isMarkingCompleted }: ListingCardProps) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  const hasImages = listing.images && listing.images.length > 0;
+  const images = hasImages ? listing.images : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300"];
+  
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
+  
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('de-AT', {
       style: 'currency',
@@ -63,27 +76,41 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
     }
   };
 
-  const displayImage = listing.images && listing.images.length > 0 
-    ? listing.images[0] 
-    : "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300";
-
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <div className="relative">
         <img 
-          src={displayImage} 
+          src={images[currentImageIndex]} 
           alt={listing.title}
           className="w-full h-48 object-cover"
         />
         <div className="absolute top-3 left-3">
           {getPriceEvaluationBadge(listing.price_evaluation || "im_schnitt")}
         </div>
-        {listing.images && listing.images.length > 1 && (
-          <div className="absolute top-3 right-3">
-            <span className="bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
-              1/{listing.images.length}
-            </span>
-          </div>
+        {images.length > 1 && (
+          <>
+            <div className="absolute top-3 right-3">
+              <span className="bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
+                {currentImageIndex + 1}/{images.length}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-1 h-8 w-8"
+              onClick={prevImage}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"  
+              size="sm"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-1 h-8 w-8"
+              onClick={nextImage}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </>
         )}
       </div>
       
@@ -109,6 +136,18 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           <span className="text-sm">{listing.location}</span>
         </div>
         
+        {listing.phone_number && (
+          <div className="flex items-center text-gray-600 mb-3">
+            <Phone className="mr-2 h-4 w-4 text-gray-400" />
+            <a 
+              href={`tel:${listing.phone_number}`}
+              className="text-sm text-primary hover:underline"
+            >
+              {listing.phone_number}
+            </a>
+          </div>
+        )}
+        
         <p className="text-gray-600 text-sm mb-4 line-clamp-3">
           {listing.description || "Keine Beschreibung verfügbar"}
         </p>
@@ -125,12 +164,13 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
             disabled={isMarkingCompleted}
           >
             <Check className="mr-1 h-4 w-4" />
-            Akquise erledigt
+            {listing.akquise_erledigt ? "Erledigt" : "Akquise erledigt"}
           </Button>
           <Button 
             variant="outline" 
             size="sm"
             onClick={() => window.open(listing.url, '_blank')}
+            title="Original-Anzeige öffnen"
           >
             <ExternalLink className="h-4 w-4" />
           </Button>

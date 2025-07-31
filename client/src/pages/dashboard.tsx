@@ -40,7 +40,8 @@ export default function Dashboard() {
       const params = new URLSearchParams();
       if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
       if (priceFilter !== "Alle Preise") params.append("price_evaluation", priceFilter);
-      params.append("akquise_erledigt", "false");
+      // Show all listings by default - user can filter via dashboard controls
+      // params.append("akquise_erledigt", "false");
       
       const url = `/api/listings${params.toString() ? '?' + params.toString() : ''}`;
       const response = await fetch(url);
