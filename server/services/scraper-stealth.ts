@@ -11,15 +11,16 @@ interface StealthScrapingOptions {
 interface ListingData {
   title: string;
   price: number;
-  area: number;
+  area: string | null;
   location: string;
   url: string;
   images: string[];
   description: string;
-  phoneNumber: string | null;
+  phone_number: string | null;
   category: string;
   region: string;
-  eur_per_m2: number;
+  eur_per_m2: string | null;
+  akquise_erledigt: boolean;
 }
 
 export class StealthScraperService {
@@ -332,19 +333,25 @@ export class StealthScraperService {
           const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
           const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
 
-          return {
+          const listingData = {
             title,
             price,
-            area,
+            area: area > 0 ? area.toString() : null,
             location,
             url,
             images: [],
             description,
-            phoneNumber,
+            phone_number: phoneNumber,
             category: listingCategory,
             region,
-            eur_per_m2
+            eur_per_m2: eur_per_m2 > 0 ? eur_per_m2.toString() : null,
+            akquise_erledigt: false
           };
+
+          onProgress(`🔧 DEBUG: Preis=${price}, Area=${area}, Title="${title}"`);
+          return listingData;
+        } else {
+          onProgress(`❌ SKIP: Kein Preis gefunden (${price}) für ${title || url}`);
         }
       }
 
@@ -394,13 +401,19 @@ export class StealthScraperService {
   }
 
   private extractPrice($: cheerio.CheerioAPI): number {
+    // Ultra-aggressive price extraction with multiple methods
     const selectors = [
       '[data-testid="ad-detail-ad-price"] span',
       '.AdDetailPrice',
       '.price-value',
-      '.AdPrice'
+      '.AdPrice',
+      '[class*="price"]',
+      '[class*="Price"]',
+      'span:contains("€")',
+      'div:contains("€")'
     ];
 
+    // Method 1: Standard selectors
     for (const selector of selectors) {
       const element = $(selector);
       if (element.length > 0) {
@@ -408,6 +421,25 @@ export class StealthScraperService {
         const price = parseInt(priceText);
         if (price > 0) return price;
       }
+    }
+
+    // Method 2: Search entire body for €X,XXX patterns
+    const bodyText = $('body').text();
+    const priceMatches = bodyText.match(/€\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/g);
+    if (priceMatches) {
+      for (const match of priceMatches) {
+        const priceText = match.replace(/[^\d]/g, '');
+        const price = parseInt(priceText);
+        if (price > 10000) return price; // Minimum realistic property price
+      }
+    }
+
+    // Method 3: Look for price in meta tags or JSON-LD
+    const priceFromMeta = $('meta[property="product:price:amount"]').attr('content') ||
+                          $('meta[name="price"]').attr('content');
+    if (priceFromMeta) {
+      const price = parseInt(priceFromMeta.replace(/[^\d]/g, ''));
+      if (price > 0) return price;
     }
 
     return 0;
