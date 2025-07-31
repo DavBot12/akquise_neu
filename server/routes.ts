@@ -185,6 +185,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Logout endpoint to end session
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      if (sessionId) {
+        await storage.endUserSession(sessionId);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ error: "Logout failed" });
+    }
+  });
+
   // Scraper routes
   app.post("/api/scraper/start", async (req, res) => {
     try {
@@ -460,14 +474,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simple authentication routes
+  // Authentication routes with real tracking
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
       const user = await storage.getUserByUsername(username);
       
       if (user && user.password === password) {
-        res.json({ success: true, user: { id: user.id, username: user.username, is_admin: user.is_admin } });
+        // Create user session for tracking
+        const userAgent = req.headers['user-agent'];
+        const ipAddress = req.ip || req.connection.remoteAddress;
+        const session = await storage.createUserSession(user.id, ipAddress, userAgent);
+        
+        // Update login statistics
+        await storage.updateLoginStats(user.id);
+
+        res.json({ success: true, user: { id: user.id, username: user.username, is_admin: user.is_admin }, sessionId: session.id });
       } else {
         res.status(401).json({ error: "Invalid credentials" });
       }

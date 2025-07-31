@@ -4,16 +4,19 @@ import {
   listing_contacts,
   users,
   acquisitions,
+  user_sessions,
   type Listing, 
   type Contact, 
   type ListingContact,
   type User,
   type Acquisition,
+  type UserSession,
   type InsertListing, 
   type InsertContact, 
   type InsertListingContact,
   type InsertUser,
-  type InsertAcquisition
+  type InsertAcquisition,
+  type InsertUserSession
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -78,6 +81,11 @@ export interface IStorage {
   // User statistics for sidebar
   getPersonalStats(userId: number): Promise<any>;
   getAllUserStats(): Promise<any[]>;
+  
+  // Real login tracking
+  createUserSession(userId: number, ipAddress?: string, userAgent?: string): Promise<UserSession>;
+  endUserSession(sessionId: number): Promise<void>;
+  updateLoginStats(userId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -402,7 +410,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // Personal statistics for sidebar
+  // Personal statistics with real data
   async getPersonalStats(userId: number): Promise<any> {
     // Get user's acquisition stats
     const acquisitionStats = await this.getAcquisitionStats(userId);
@@ -411,29 +419,101 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) return null;
 
-    // Calculate streak days (mock for now)
-    const streakDays = Math.floor(Math.random() * 15) + 1;
-    
-    // Mock session duration (in minutes)
-    const avgSessionDuration = Math.floor(Math.random() * 120) + 30;
+    // Get real session data from database
+    const sessions = await db
+      .select()
+      .from(user_sessions)
+      .where(eq(user_sessions.user_id, userId))
+      .orderBy(desc(user_sessions.login_time));
 
-    // Generate monthly login data (last 12 months)
-    const monthlyLogins = Array.from({ length: 12 }, () => Math.floor(Math.random() * 25) + 5);
+    const totalLogins = user.total_logins || 0;
+    const lastLogin = user.last_login?.toISOString() || null;
     
-    // Generate daily activity for last 30 days
-    const dailyActivity = Array.from({ length: 30 }, (_, i) => {
+    // Calculate average session duration from real data
+    const completedSessions = sessions.filter(s => s.session_duration);
+    const avgSessionDuration = completedSessions.length > 0 
+      ? Math.round(completedSessions.reduce((sum, s) => sum + (s.session_duration || 0), 0) / completedSessions.length)
+      : 0;
+
+    // Calculate streak days from last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentSessions = sessions.filter(s => 
+      new Date(s.login_time) > thirtyDaysAgo
+    );
+
+    // Group sessions by date for streak calculation
+    const loginDates = [...new Set(recentSessions.map(s => 
+      new Date(s.login_time).toDateString()
+    ))].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+    let streakDays = 0;
+    let currentDate = new Date();
+    for (const dateStr of loginDates) {
+      const loginDate = new Date(dateStr);
+      const diffDays = Math.floor((currentDate.getTime() - loginDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays <= streakDays + 1) {
+        streakDays++;
+        currentDate = loginDate;
+      } else {
+        break;
+      }
+    }
+
+    // Generate monthly login data (real data from sessions)
+    const monthlyLogins = [];
+    for (let i = 11; i >= 0; i--) {
+      const monthStart = new Date();
+      monthStart.setMonth(monthStart.getMonth() - i);
+      monthStart.setDate(1);
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      
+      const monthSessions = sessions.filter(s => {
+        const sessionDate = new Date(s.login_time);
+        return sessionDate >= monthStart && sessionDate < monthEnd;
+      });
+      
+      monthlyLogins.push(monthSessions.length);
+    }
+    
+    // Generate daily activity for last 30 days (real data)
+    const dailyActivity = [];
+    for (let i = 29; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      return {
-        date: date.toISOString().split('T')[0],
-        logins: Math.floor(Math.random() * 5),
-        acquisitions: Math.floor(Math.random() * 3)
-      };
-    });
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const daySessions = sessions.filter(s => {
+        const sessionDate = new Date(s.login_time);
+        return sessionDate >= dayStart && sessionDate <= dayEnd;
+      });
+      
+      const dayAcquisitions = await db
+        .select()
+        .from(acquisitions)
+        .where(and(
+          eq(acquisitions.user_id, userId),
+          sql`DATE(${acquisitions.contacted_at}) = ${dateStr}`
+        ));
+      
+      dailyActivity.push({
+        date: dateStr,
+        logins: daySessions.length,
+        acquisitions: dayAcquisitions.length
+      });
+    }
 
     return {
-      totalLogins: Math.floor(Math.random() * 50) + 10,
-      lastLogin: new Date().toISOString(),
+      totalLogins,
+      lastLogin,
       totalAcquisitions: acquisitionStats.total,
       successfulAcquisitions: acquisitionStats.erfolg,
       successRate: Math.round(acquisitionStats.erfolgsrate),
@@ -444,7 +524,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // All user statistics for admin view
+  // All user statistics with real data
   async getAllUserStats(): Promise<any[]> {
     const allUsers = await db.select().from(users);
     const userStats = [];
@@ -452,40 +532,135 @@ export class DatabaseStorage implements IStorage {
     for (const user of allUsers) {
       const acquisitionStats = await this.getAcquisitionStats(user.id);
       
-      // Generate login history for last 30 days
-      const loginHistory = Array.from({ length: 15 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        return {
-          date: date.toISOString(),
-          duration: Math.floor(Math.random() * 180) + 30
-        };
-      });
+      // Get real session data
+      const sessions = await db
+        .select()
+        .from(user_sessions)
+        .where(eq(user_sessions.user_id, user.id))
+        .orderBy(desc(user_sessions.login_time))
+        .limit(30);
 
-      // Generate recent actions
+      // Calculate if user is online (active session in last 30 minutes)
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const isOnline = sessions.some(s => 
+        !s.logout_time && new Date(s.login_time) > thirtyMinutesAgo
+      );
+
+      // Get login history (last 15 sessions)
+      const loginHistory = sessions.slice(0, 15).map(s => ({
+        date: s.login_time.toISOString(),
+        duration: s.session_duration || 0
+      }));
+
+      // Get recent acquisitions for recent actions
+      const recentAcquisitions = await db
+        .select()
+        .from(acquisitions)
+        .where(eq(acquisitions.user_id, user.id))
+        .orderBy(desc(acquisitions.contacted_at))
+        .limit(5);
+
       const recentActions = [
-        { action: "Akquise erstellt", timestamp: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(), details: "Listing #276 kontaktiert" },
-        { action: "Login", timestamp: new Date(Date.now() - Math.random() * 48 * 60 * 60 * 1000).toISOString(), details: "Session gestartet" },
-        { action: "Kontakt erstellt", timestamp: new Date(Date.now() - Math.random() * 72 * 60 * 60 * 1000).toISOString(), details: "Neuer Kontakt hinzugefügt" }
-      ];
+        ...recentAcquisitions.map(acq => ({
+          action: "Akquise erstellt",
+          timestamp: acq.contacted_at.toISOString(),
+          details: `Listing #${acq.listing_id} kontaktiert`
+        })),
+        ...sessions.slice(0, 3).map(session => ({
+          action: "Login",
+          timestamp: session.login_time.toISOString(),
+          details: `Session gestartet`
+        }))
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+
+      // Calculate average session duration
+      const completedSessions = sessions.filter(s => s.session_duration);
+      const avgSessionDuration = completedSessions.length > 0 
+        ? Math.round(completedSessions.reduce((sum, s) => sum + (s.session_duration || 0), 0) / completedSessions.length)
+        : 0;
+
+      // Monthly logins (real data)
+      const monthlyLogins = [];
+      for (let i = 11; i >= 0; i--) {
+        const monthStart = new Date();
+        monthStart.setMonth(monthStart.getMonth() - i);
+        monthStart.setDate(1);
+        const monthEnd = new Date(monthStart);
+        monthEnd.setMonth(monthEnd.getMonth() + 1);
+        
+        const monthSessions = sessions.filter(s => {
+          const sessionDate = new Date(s.login_time);
+          return sessionDate >= monthStart && sessionDate < monthEnd;
+        });
+        
+        monthlyLogins.push(monthSessions.length);
+      }
       
       userStats.push({
         userId: user.id,
         username: user.username,
-        totalLogins: Math.floor(Math.random() * 100) + 5,
-        lastLogin: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        totalLogins: user.total_logins || 0,
+        lastLogin: user.last_login?.toISOString() || new Date().toISOString(),
         totalAcquisitions: acquisitionStats.total,
         successfulAcquisitions: acquisitionStats.erfolg,
         successRate: Math.round(acquisitionStats.erfolgsrate),
-        avgSessionDuration: Math.floor(Math.random() * 180) + 20,
-        isOnline: Math.random() > 0.7, // 30% chance to be online
-        monthlyLogins: Array.from({ length: 12 }, () => Math.floor(Math.random() * 25) + 5),
+        avgSessionDuration,
+        isOnline,
+        monthlyLogins,
         loginHistory,
         recentActions
       });
     }
 
     return userStats;
+  }
+
+  // Create user session
+  async createUserSession(userId: number, ipAddress?: string, userAgent?: string): Promise<UserSession> {
+    const [session] = await db
+      .insert(user_sessions)
+      .values({
+        user_id: userId,
+        ip_address: ipAddress,
+        user_agent: userAgent
+      })
+      .returning();
+    
+    return session;
+  }
+
+  // End user session
+  async endUserSession(sessionId: number): Promise<void> {
+    const session = await db
+      .select()
+      .from(user_sessions)
+      .where(eq(user_sessions.id, sessionId))
+      .limit(1);
+
+    if (session.length > 0) {
+      const loginTime = new Date(session[0].login_time);
+      const logoutTime = new Date();
+      const duration = Math.round((logoutTime.getTime() - loginTime.getTime()) / (1000 * 60)); // minutes
+
+      await db
+        .update(user_sessions)
+        .set({
+          logout_time: logoutTime,
+          session_duration: duration
+        })
+        .where(eq(user_sessions.id, sessionId));
+    }
+  }
+
+  // Update user login statistics
+  async updateLoginStats(userId: number): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        last_login: new Date(),
+        total_logins: sql`${users.total_logins} + 1`
+      })
+      .where(eq(users.id, userId));
   }
 }
 

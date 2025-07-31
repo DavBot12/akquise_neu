@@ -85,6 +85,21 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   is_admin: boolean("is_admin").default(false).notNull(),
+  last_login: timestamp("last_login"),
+  total_logins: integer("total_logins").default(0),
+  total_session_time: integer("total_session_time").default(0), // in minutes
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// User sessions tracking table for real statistics
+export const user_sessions = pgTable("user_sessions", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  login_time: timestamp("login_time").defaultNow().notNull(),
+  logout_time: timestamp("logout_time"),
+  session_duration: integer("session_duration"), // in minutes
+  ip_address: text("ip_address"),
+  user_agent: text("user_agent"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -119,6 +134,14 @@ export const acquisitionsRelations = relations(acquisitions, ({ one }) => ({
 
 export const usersRelations = relations(users, ({ many }) => ({
   acquisitions: many(acquisitions),
+  sessions: many(user_sessions),
+}));
+
+export const userSessionsRelations = relations(user_sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [user_sessions.user_id],
+    references: [users.id],
+  }),
 }));
 
 export const insertAcquisitionSchema = createInsertSchema(acquisitions).omit({
@@ -128,3 +151,11 @@ export const insertAcquisitionSchema = createInsertSchema(acquisitions).omit({
 
 export type InsertAcquisition = z.infer<typeof insertAcquisitionSchema>;
 export type Acquisition = typeof acquisitions.$inferSelect;
+
+export const insertUserSessionSchema = createInsertSchema(user_sessions).omit({
+  id: true,
+  login_time: true,
+});
+
+export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
+export type UserSession = typeof user_sessions.$inferSelect;
