@@ -86,6 +86,8 @@ Preferred communication style: Simple, everyday language.
 ✓ PERFEKTER URL-FIX: SELLER_TYPE=PRIVAT + keyword=privatverkauf Parameter implementiert
 ✓ DOPPELMARKLER-System operational für maximum private seller detection
 ✓ Enhanced HTTP scraper mit aggressiver URL-Extraktion für alle Selektoren
+✓ VOLLSTÄNDIGE URL-PARAMETER: sfId + isNavigation Parameter für perfekte Privatfilterung
+✓ IDENTISCHE LAPTOP-KONFIGURATION: Exakt dieselbe URL wie im Browser verwendet
 
 ## System Architecture
 

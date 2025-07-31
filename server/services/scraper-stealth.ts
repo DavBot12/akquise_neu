@@ -35,12 +35,12 @@ export class StealthScraperService {
   ];
 
   private baseUrls: Record<string, string> = {
-    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&keyword=privatverkauf',
-    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&keyword=privatverkauf',
-    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&keyword=privatverkauf',
-    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&keyword=privatverkauf',
-    'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&keyword=privatverkauf',
-    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&keyword=privatverkauf'
+    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&sfId=24be9764-9795-47ba-8ddc-216aa619fd6d&isNavigation=true&keyword=privatverkauf',
+    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&sfId=24be9764-9795-47ba-8ddc-216aa619fd6d&isNavigation=true&keyword=privatverkauf',
+    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&sfId=24be9764-9795-47ba-8ddc-216aa619fd6d&isNavigation=true&keyword=privatverkauf',
+    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&sfId=24be9764-9795-47ba-8ddc-216aa619fd6d&isNavigation=true&keyword=privatverkauf',
+    'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&sfId=24be9764-9795-47ba-8ddc-216aa619fd6d&isNavigation=true&keyword=privatverkauf',
+    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&sfId=24be9764-9795-47ba-8ddc-216aa619fd6d&isNavigation=true&keyword=privatverkauf'
   };
 
   constructor() {
