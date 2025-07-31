@@ -437,48 +437,57 @@ export class StealthScraperService {
   }
 
   private extractPrice($: cheerio.CheerioAPI): number {
-    // Method 1: Search for realistic price patterns in body text
+    // Method 1: Look for Willhaben-specific price displays (from real HTML structure)
+    const priceSelectors = [
+      'span:contains("€")',  // Direct span containing €
+      'div:contains("Kaufpreis")',  // Kaufpreis section
+      '[class*="price"]',
+      '[data-testid*="price"]'
+    ];
+
+    for (const selector of priceSelectors) {
+      const elements = $(selector);
+      let result = 0;
+      elements.each((_, element) => {
+        const text = $(element).text();
+        // Look for "€ 379.000" or "Kaufpreis€ 379.000" format
+        const priceMatch = text.match(/€\s*(\d{1,3})\.(\d{3})/);
+        if (priceMatch) {
+          const price = parseInt(priceMatch[1] + priceMatch[2]);
+          if (price >= 50000 && price <= 999999) {
+            result = price;
+            return false; // Break out of each loop
+          }
+        }
+      });
+      if (result > 0) return result;
+    }
+
+    // Method 2: Enhanced search in body text for specific Willhaben patterns
     const bodyText = $('body').text();
     
-    // Look for price patterns like "€ 199.000" or "€199.000"
+    // Willhaben-specific price patterns based on real content
     const pricePatterns = [
-      /€\s*(\d{2,3})\.(\d{3})/g,  // €199.000 format
-      /€\s*(\d{3,7})[^\d]/g,      // €199000 format  
-      /(\d{2,3})\.(\d{3})\s*€/g,  // 199.000 € format
-      /(\d{3,7})\s*€/g            // 199000 € format
+      /Kaufpreis€\s*(\d{1,3})\.(\d{3})/gi,  // "Kaufpreis€ 379.000"
+      /€\s*(\d{1,3})\.(\d{3})/gi,           // "€ 379.000"
+      /(\d{1,3})\.(\d{3})\s*€/gi,           // "379.000 €"
+      /preis[:\s]*€?\s*(\d{1,3})\.(\d{3})/gi  // "Preis: € 379.000"
     ];
     
     for (const pattern of pricePatterns) {
       const matches = bodyText.match(pattern);
       if (matches) {
         for (const match of matches) {
-          // Extract only digits and take max 6 digits to avoid huge numbers
-          const digits = match.replace(/[^\d]/g, '').substring(0, 6);
-          const price = parseInt(digits);
-          
-          // Realistic Austrian property price range
-          if (price >= 50000 && price <= 999999) {
-            return price;
+          // Extract price from format like "379.000"
+          const digits = match.replace(/[^\d]/g, '');
+          if (digits.length >= 5) { // At least 5 digits for realistic price
+            const price = parseInt(digits);
+            // Realistic Austrian property price range
+            if (price >= 50000 && price <= 999999) {
+              return price;
+            }
           }
         }
-      }
-    }
-    
-    // Method 2: Look in specific price selectors
-    const selectors = [
-      '[data-testid="ad-detail-ad-price"]',
-      '.AdDetailPrice',
-      '.price-value',
-      '[class*="price"]'
-    ];
-
-    for (const selector of selectors) {
-      const element = $(selector);
-      if (element.length > 0) {
-        const text = element.text();
-        const digits = text.replace(/[^\d]/g, '').substring(0, 6);
-        const price = parseInt(digits);
-        if (price >= 50000 && price <= 999999) return price;
       }
     }
 
@@ -486,50 +495,54 @@ export class StealthScraperService {
   }
 
   private extractArea($: cheerio.CheerioAPI): string {
-    // Method 1: Search in body text for m² patterns
+    // Method 1: Look for Willhaben-specific area display (from real HTML structure)
+    const areaSelectors = [
+      'span:contains("m²")',  // Direct span containing m²
+      'div:contains("Wohnfläche")',  // Wohnfläche section
+      '[class*="area"]',
+      '[class*="size"]'
+    ];
+
+    for (const selector of areaSelectors) {
+      const elements = $(selector);
+      let result = '';
+      elements.each((_, element) => {
+        const text = $(element).text();
+        const areaMatch = text.match(/(\d{1,4})\s*m²/i);
+        if (areaMatch) {
+          const area = parseInt(areaMatch[1]);
+          if (area >= 15 && area <= 500) { // Realistic apartment sizes
+            result = area.toString();
+            return false; // Break out of each loop
+          }
+        }
+      });
+      if (result) return result;
+    }
+
+    // Method 2: Search in complete body text for area patterns
     const bodyText = $('body').text();
     
-    // Look for area patterns like "57 m²", "57m²", "57 Quadratmeter"
+    // Enhanced patterns based on real Willhaben content
     const areaPatterns = [
-      /(\d{1,4})\s*m²/gi,
-      /(\d{1,4})\s*qm/gi,
-      /(\d{1,4})\s*quadratmeter/gi,
-      /wohnfläche[:\s]*(\d{1,4})/gi,
-      /nutzfläche[:\s]*(\d{1,4})/gi
+      /(\d{1,3})\s*m²/gi,  // "43 m²" format
+      /wohnfläche[:\s]*(\d{1,3})\s*m²/gi,  // "Wohnfläche: 43 m²"
+      /(\d{1,3})\s*qm/gi,  // "43 qm" format
+      /fläche[:\s]*(\d{1,3})/gi,  // "Fläche: 43"
+      /(\d{1,3})\s*quadratmeter/gi
     ];
     
     for (const pattern of areaPatterns) {
       const matches = bodyText.match(pattern);
       if (matches) {
         for (const match of matches) {
-          const areaMatch = match.match(/(\d{1,4})/);
+          const areaMatch = match.match(/(\d{1,3})/);
           if (areaMatch) {
             const area = parseInt(areaMatch[1]);
             if (area >= 15 && area <= 500) { // Realistic apartment sizes
               return area.toString();
             }
           }
-        }
-      }
-    }
-
-    // Method 2: Look in specific selectors
-    const selectors = [
-      '[data-testid="ad-detail-ad-properties"]',
-      '.AdDetailProperties',
-      '.property-info',
-      '[class*="properties"]',
-      '[class*="detail"]'
-    ];
-
-    for (const selector of selectors) {
-      const element = $(selector);
-      const text = element.text();
-      const areaMatch = text.match(/(\d{1,4})\s*m²/i);
-      if (areaMatch) {
-        const area = parseInt(areaMatch[1]);
-        if (area >= 15 && area <= 500) {
-          return area.toString();
         }
       }
     }
@@ -557,26 +570,40 @@ export class StealthScraperService {
   private extractImages($: cheerio.CheerioAPI): string[] {
     const images: string[] = [];
     
-    // Common image selectors for Willhaben
+    // Willhaben-specific image selectors based on real HTML structure
     const selectors = [
-      'img[src*="willhaben"]',
-      '[data-testid*="image"] img',
-      '.gallery img',
-      '.carousel img',
-      '.slider img',
-      'img[src*="cache.willhaben"]'
+      'img[src*="cache.willhaben.at"]',  // Main cache images
+      'img[alt*="Bild"][src*="willhaben"]', // Images with "Bild X von Y" alt text
+      'img[alt*="Grundriss"][src*="willhaben"]', // Floor plan images
+      '[class*="gallery"] img[src*="willhaben"]',
+      '[class*="carousel"] img[src*="willhaben"]',
+      '[class*="slider"] img[src*="willhaben"]'
     ];
 
     for (const selector of selectors) {
       $(selector).each((_, element) => {
         const src = $(element).attr('src');
-        if (src && src.includes('willhaben') && !images.includes(src)) {
+        if (src && 
+            src.includes('cache.willhaben.at') && 
+            !src.includes('_thumb') && // Exclude thumbnail versions
+            !images.includes(src)) {
           images.push(src);
         }
       });
     }
 
-    return images.slice(0, 10); // Limit to 10 images
+    // Also check for high-quality image URLs in the text content
+    const bodyText = $('body').text();
+    const imageMatches = bodyText.match(/https:\/\/cache\.willhaben\.at\/[^\s"']+(?:\.jpg|\.jpeg|\.png)/gi);
+    if (imageMatches) {
+      imageMatches.forEach(url => {
+        if (!url.includes('_thumb') && !images.includes(url)) {
+          images.push(url);
+        }
+      });
+    }
+
+    return images.slice(0, 15); // Limit to 15 images like Willhaben shows
   }
 
   private extractPhoneNumber(text: string): string | null {

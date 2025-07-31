@@ -16,7 +16,7 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const hasImages = listing.images && listing.images.length > 0;
-  const images = hasImages ? listing.images : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300"];
+  const images = hasImages ? listing.images! : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300"];
   
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
