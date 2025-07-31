@@ -25,7 +25,7 @@ export class DelayTesterService {
   async findMinimumDelay(onProgress: (msg: string) => void): Promise<number> {
     // Test verschiedene Delays in aufsteigender Reihenfolge
     const delaysToTest = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 10000, 12000, 15000];
-    const testUrl = 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&rows=25&page=1';
+    const testUrl = 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&rows=25&SELLER_TYPE=PRIVATE&page=1';
     
     onProgress('🔬 DELAY-TEST STARTET - Finde minimum Rate-Limit-Schwelle');
     
@@ -120,7 +120,7 @@ export class DelayTesterService {
 
   // Schneller Test mit nur 2 Requests
   async quickDelayTest(delay: number, onProgress: (msg: string) => void): Promise<boolean> {
-    const testUrl = 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&rows=25&page=1';
+    const testUrl = 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&rows=25&SELLER_TYPE=PRIVATE&page=1';
     
     try {
       onProgress(`⚡ QUICK-TEST: ${delay}ms`);
