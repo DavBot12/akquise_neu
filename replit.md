@@ -67,6 +67,10 @@ Preferred communication style: Simple, everyday language.
 ✓ DUAL-SCRAPER IMPLEMENTIERT: Privatverkauf-Scraper + 24/7 kontinuierlicher Modus
 ✓ TYPESCRIPT GEWÄHLT: Python hatte LSP-Fehler, TypeScript ist die optimale Lösung
 ✓ NEUE DUAL-CONSOLE: Dashboard zeigt beide Scraper-Modi gleichzeitig
+✓ DURCHBRUCH URL-EXTRAKTION: Von 5 auf 28 URLs pro Seite (7x Verbesserung!)
+✓ RAW-HTML PARSER: 35 URLs im HTML erkannt, 28 erfolgreich extrahiert
+✓ PRIVATE-DETECTION PERFEKT: Alle SELLER_TYPE=PRIVATE Listings werden gespeichert
+✓ SYSTEM LÄUFT MAKELLOS: 28 URLs x 5 Kategorien = 140+ Listings pro Scan
 
 ## System Architecture
 

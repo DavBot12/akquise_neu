@@ -222,26 +222,38 @@ export class StealthScraperService {
     const $ = cheerio.load(response.data);
     const urls: string[] = [];
 
-    // Extract listing URLs with aggressive selectors
-    const selectors = [
-      'a[href*="/iad/immobilien/d/"]',
-      'a[data-testid*="result-item"]',
-      '.result-item a',
-      '[data-testid="search-result-item"] a',
-      '[data-testid*="result"] a',
-      '.search-result a',
-      '[class*="result"] a',
-      '[class*="listing"] a'
-    ];
+    // DEBUG: Check raw HTML content
+    const rawHtml = response.data;
+    const directMatches = rawHtml.match(/\/iad\/immobilien\/d\/[^"'\s>]*/g);
+    onProgress(`🔍 RAW HTML: ${directMatches ? directMatches.length : 0} direct URL matches found`);
 
-    selectors.forEach(selector => {
-      $(selector).each((_, element) => {
-        const href = $(element).attr('href');
-        if (href && href.includes('/iad/immobilien/d/')) {
-          const fullUrl = href.startsWith('http') ? href : `https://www.willhaben.at${href}`;
-          urls.push(fullUrl);
-        }
+    // Method 1: Direct regex on raw HTML (most reliable)
+    if (directMatches) {
+      directMatches.forEach((match: string) => {
+        const fullUrl = `https://www.willhaben.at${match}`;
+        urls.push(fullUrl);
       });
+    }
+
+    // Method 2: Cheerio parsing als backup
+    $('a').each((_, element) => {
+      const href = $(element).attr('href');
+      if (href && href.includes('/iad/immobilien/d/')) {
+        const fullUrl = href.startsWith('http') ? href : `https://www.willhaben.at${href}`;
+        urls.push(fullUrl);
+      }
+    });
+
+    // Method 3: Look for onclick handlers or data attributes
+    $('[onclick*="/iad/immobilien/d/"], [data-href*="/iad/immobilien/d/"]').each((_, element) => {
+      const onclick = $(element).attr('onclick') || '';
+      const dataHref = $(element).attr('data-href') || '';
+      
+      const urlMatch = (onclick + dataHref).match(/\/iad\/immobilien\/d\/[^"'\s)]*/);
+      if (urlMatch) {
+        const fullUrl = `https://www.willhaben.at${urlMatch[0]}`;
+        urls.push(fullUrl);
+      }
     });
 
     return Array.from(new Set(urls)); // Remove duplicates
