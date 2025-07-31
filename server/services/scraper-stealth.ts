@@ -34,12 +34,12 @@ export class StealthScraperService {
   ];
 
   private baseUrls: Record<string, string> = {
-    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE&keyword=Privatverkauf',
-    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE&keyword=Privatverkauf',
-    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE&keyword=Privatverkauf',
-    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE&keyword=Privatverkauf',
-    'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE&keyword=Privatverkauf',
-    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE&keyword=Privatverkauf'
+    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE',
+    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE',
+    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE',
+    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE',
+    'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE',
+    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE'
   };
 
   constructor() {
