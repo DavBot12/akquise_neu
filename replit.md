@@ -93,6 +93,10 @@ Preferred communication style: Simple, everyday language.
 ✓ FOTO-NAVIGATION IMPLEMENTIERT: Pfeiltasten für Bilderwechsel in Listing-Cards
 ✓ TELEFONNUMMER-ANZEIGE: Klickbare Telefonnummern für direkten Kontakt
 ✓ EXTERNAL-LINK BUTTON: Direkte Weiterleitung zur Original-Willhaben-Anzeige
+✓ DATENBANK RESET: Komplette Bereinigung für Neustart mit verbesserten Algorithmen
+✓ LOCATION-EXTRAKTION V2: URL-basierte Adresserkennung für Wiener Bezirke implementiert
+✓ BESCHREIBUNGS-ENGINE V2: Objektbeschreibung-Header und Paragraph-Suche optimiert
+✓ TELEFON-VALIDIERUNG V2: Österreichische Nummern mit Kontext-Filter gegen Fake-Numbers
 
 ## System Architecture
 
