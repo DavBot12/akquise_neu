@@ -348,8 +348,18 @@ export class StealthScraperService {
             akquise_erledigt: false
           };
 
-          onProgress(`🔧 DEBUG: Preis=${price}, Area=${area}, Title="${title}"`);
-          return listingData;
+          // FINAL PRICE CHECK - avoid database integer overflow
+        const finalPrice = price < 999999 ? price : parseInt(price.toString().substring(0, 6));
+        
+        const finalListingData = {
+          ...listingData,
+          price: finalPrice,
+          eur_per_m2: area > 0 ? Math.round(finalPrice / parseInt(area.toString())).toString() : null
+        };
+        
+        onProgress(`🔧 DEBUG: Preis=${finalPrice}, Area=${area}, Title="${title}"`);
+        onProgress(`💾 GESPEICHERT: ${title}`);
+        return finalListingData;
         } else {
           onProgress(`❌ SKIP: Kein Preis gefunden (${price}) für ${title || url}`);
         }
@@ -401,45 +411,49 @@ export class StealthScraperService {
   }
 
   private extractPrice($: cheerio.CheerioAPI): number {
-    // Ultra-aggressive price extraction with multiple methods
+    // Method 1: Search for realistic price patterns in body text
+    const bodyText = $('body').text();
+    
+    // Look for price patterns like "€ 199.000" or "€199.000"
+    const pricePatterns = [
+      /€\s*(\d{2,3})\.(\d{3})/g,  // €199.000 format
+      /€\s*(\d{3,7})[^\d]/g,      // €199000 format  
+      /(\d{2,3})\.(\d{3})\s*€/g,  // 199.000 € format
+      /(\d{3,7})\s*€/g            // 199000 € format
+    ];
+    
+    for (const pattern of pricePatterns) {
+      const matches = bodyText.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          // Extract only digits and take max 6 digits to avoid huge numbers
+          const digits = match.replace(/[^\d]/g, '').substring(0, 6);
+          const price = parseInt(digits);
+          
+          // Realistic Austrian property price range
+          if (price >= 50000 && price <= 999999) {
+            return price;
+          }
+        }
+      }
+    }
+    
+    // Method 2: Look in specific price selectors
     const selectors = [
-      '[data-testid="ad-detail-ad-price"] span',
+      '[data-testid="ad-detail-ad-price"]',
       '.AdDetailPrice',
       '.price-value',
-      '.AdPrice',
-      '[class*="price"]',
-      '[class*="Price"]',
-      'span:contains("€")',
-      'div:contains("€")'
+      '[class*="price"]'
     ];
 
-    // Method 1: Standard selectors
     for (const selector of selectors) {
       const element = $(selector);
       if (element.length > 0) {
-        const priceText = element.text().replace(/[^\d]/g, '');
-        const price = parseInt(priceText);
-        if (price > 0) return price;
+        const text = element.text();
+        const digits = text.replace(/[^\d]/g, '').substring(0, 6);
+        const price = parseInt(digits);
+        if (price >= 50000 && price <= 999999) return price;
       }
-    }
-
-    // Method 2: Search entire body for €X,XXX patterns
-    const bodyText = $('body').text();
-    const priceMatches = bodyText.match(/€\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/g);
-    if (priceMatches) {
-      for (const match of priceMatches) {
-        const priceText = match.replace(/[^\d]/g, '');
-        const price = parseInt(priceText);
-        if (price > 10000) return price; // Minimum realistic property price
-      }
-    }
-
-    // Method 3: Look for price in meta tags or JSON-LD
-    const priceFromMeta = $('meta[property="product:price:amount"]').attr('content') ||
-                          $('meta[name="price"]').attr('content');
-    if (priceFromMeta) {
-      const price = parseInt(priceFromMeta.replace(/[^\d]/g, ''));
-      if (price > 0) return price;
     }
 
     return 0;
