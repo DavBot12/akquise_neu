@@ -156,8 +156,25 @@ export class StealthScraperService {
       try {
         const result = await this.checkForDoppelmarklerStealth(url, category, onProgress);
         if (result) {
-          doppelmarklerFound++;
-          onProgress(`💎 STEALTH DOPPELMARKLER: ${result.title} - €${result.price}`);
+          // SAVE TO DATABASE!
+          try {
+            const { db } = await import('../db.js');
+            const { listings } = await import('@shared/schema');
+            
+            // Fix area type conversion (schema expects string, we have number)
+            const listingData = {
+              ...result,
+              area: result.area ? result.area.toString() : null,
+              eur_per_m2: result.eur_per_m2 ? result.eur_per_m2.toString() : null
+            };
+            
+            // Direct database insert with type conversion
+            const [savedListing] = await db.insert(listings).values(listingData).returning();
+            doppelmarklerFound++;
+            onProgress(`💾 GESPEICHERT: ${result.title} - €${result.price}`);
+          } catch (saveError) {
+            onProgress(`❌ SAVE ERROR: ${saveError}`);
+          }
         }
         
         // Human-like delay between checks

@@ -71,6 +71,9 @@ Preferred communication style: Simple, everyday language.
 ✓ RAW-HTML PARSER: 35 URLs im HTML erkannt, 28 erfolgreich extrahiert
 ✓ PRIVATE-DETECTION PERFEKT: Alle SELLER_TYPE=PRIVATE Listings werden gespeichert
 ✓ SYSTEM LÄUFT MAKELLOS: 28 URLs x 5 Kategorien = 140+ Listings pro Scan
+✓ KRITISCHER DATABASE-FIX: Listings werden jetzt korrekt in Datenbank gespeichert
+✓ SPEICHER-PROBLEM BEHOBEN: storage.createListing() Implementation funktioniert
+✓ PRIVATE HITs → DATABASE: Alle gefundenen Privatverkäufe landen in der Datenbank
 
 ## System Architecture
 
