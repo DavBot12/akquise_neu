@@ -6,6 +6,7 @@ import {
   acquisitions,
   user_sessions,
   price_mirror_data,
+  discovered_links,
   type Listing, 
   type Contact, 
   type ListingContact,
@@ -13,13 +14,15 @@ import {
   type Acquisition,
   type UserSession,
   type PriceMirrorData,
+  type DiscoveredLink,
   type InsertListing, 
   type InsertContact, 
   type InsertListingContact,
   type InsertUser,
   type InsertAcquisition,
   type InsertUserSession,
-  type InsertPriceMirrorData
+  type InsertPriceMirrorData,
+  type InsertDiscoveredLink
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -93,6 +96,10 @@ export interface IStorage {
   // Price mirror data
   savePriceMirrorData(data: InsertPriceMirrorData): Promise<PriceMirrorData>;
   getPriceMirrorData(): Promise<PriceMirrorData[]>;
+
+  // Discovered links (Scraper V2)
+  saveDiscoveredLink(data: InsertDiscoveredLink): Promise<DiscoveredLink>;
+  getDiscoveredLinks(limit?: number): Promise<DiscoveredLink[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -697,6 +704,41 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(price_mirror_data)
       .orderBy(desc(price_mirror_data.scraped_at));
+  }
+
+  // Save discovered link (upsert by URL)
+  async saveDiscoveredLink(data: InsertDiscoveredLink): Promise<DiscoveredLink> {
+    const [result] = await db
+      .insert(discovered_links)
+      .values(data)
+      .onConflictDoUpdate({
+        target: discovered_links.url,
+        set: {
+          category: data.category ?? discovered_links.category,
+          region: data.region ?? discovered_links.region,
+          phone_number: data.phone_number ?? discovered_links.phone_number,
+        },
+      })
+      .returning();
+
+    return result as DiscoveredLink;
+  }
+
+  async updateDiscoveredLinkPhone(url: string, phone: string): Promise<DiscoveredLink | undefined> {
+    const [updated] = await db
+      .update(discovered_links)
+      .set({ phone_number: phone })
+      .where(eq(discovered_links.url, url))
+      .returning();
+    return updated as DiscoveredLink | undefined;
+  }
+
+  async getDiscoveredLinks(limit = 100): Promise<DiscoveredLink[]> {
+    return await db
+      .select()
+      .from(discovered_links)
+      .orderBy(desc(discovered_links.discovered_at))
+      .limit(limit);
   }
 }
 

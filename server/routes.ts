@@ -7,6 +7,8 @@ import { insertListingSchema, insertContactSchema, insertListingContactSchema } 
 import { ScraperService } from "./services/scraper";
 
 import { PriceEvaluator } from "./services/priceEvaluator";
+import { ScraperV2Service } from "./services/scraper-v2";
+import { ScraperV3Service } from "./services/scraper-v3";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const scraperService = new ScraperService();
@@ -40,6 +42,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(listings);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch listings" });
+    }
+  });
+
+  // Fetch recent discovered links (Scraper V2)
+  app.get("/api/scraper/v2/links", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 200;
+      const links = await storage.getDiscoveredLinks(Math.min(limit, 1000));
+      res.json(links);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch discovered links" });
     }
   });
 
@@ -226,114 +239,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Scraper routes
+  // Scraper routes mapped to V3 (stealth-based) to keep UI compatible
   app.post("/api/scraper/start", async (req, res) => {
     try {
-      const { categories = [], maxPages = 10, delay = 1000 } = req.body;
+      const { categories: rawCategories = [], maxPages = 10, delay = 1000 } = req.body;
       
-      // Broadcast scraping started
+      // Normalize UI inputs into proper categories and regions
+      const { categories, regions } = normalizeInputs(rawCategories, []);
+      
+      if (categories.length === 0) {
+        categories.push('eigentumswohnung', 'grundstueck');
+      }
+
+      const v3 = new ScraperV3Service();
+
+      // broadcast status
       wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: 'scraperStatus', status: 'Läuft' }));
+          client.send(JSON.stringify({ type: 'scraperStatus', status: 'Läuft (V2)' }));
         }
       });
 
-      // Try Playwright scraper first, fallback to HTTP scraper
-      const scraperOptions = {
-        categories,
-        maxPages,
-        delay,
-        onProgress: (message: string) => {
-          console.log(`[SCRAPER] ${message}`);
-          
-          // Broadcast to WebSocket clients mit besseren Updates
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({ 
-                type: 'log', 
-                message, 
-                timestamp: new Date().toISOString() 
-              }));
-            }
-          });
-        },
-        onListingFound: async (listingData: any) => {
-          try {
-            // Evaluate price
-            const priceEvaluation = await priceEvaluator.evaluateListing(
-              listingData.eur_per_m2,
-              listingData.region
-            );
-            
-            // Save to database
-            const listing = await storage.createListing({
-              ...listingData,
-              price_evaluation: priceEvaluation
-            });
-            
-            // Broadcast new listing UND aktuelle Statistiken
+      (async () => {
+        await v3.start({
+          categories,
+          regions,
+          maxPages,
+          delayMs: Math.max(400, Number(delay) || 800),
+          jitterMs: 600,
+          onLog: (message) => {
             wss.clients.forEach(client => {
               if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'newListing', listing }));
-                
-                // Auch sofort aktuelle Statistiken senden
-                storage.getListings({}).then(allListings => {
-                  const stats = {
-                    activeListings: allListings.filter(l => !l.akquise_erledigt).length,
-                    completedListings: allListings.filter(l => l.akquise_erledigt).length,
-                    totalListings: allListings.length,
-                    newListings: allListings.filter(l => {
-                      const today = new Date();
-                      const listingDate = new Date(l.scraped_at);
-                      return listingDate.toDateString() === today.toDateString();
-                    }).length
-                  };
-                  
-                  client.send(JSON.stringify({ 
-                    type: 'statsUpdate', 
-                    stats 
-                  }));
-                }).catch(err => console.error('Stats update error:', err));
+                client.send(JSON.stringify({ type: 'scraperUpdate', message }));
               }
             });
-          } catch (error) {
-            console.error('Error saving listing:', error);
-          }
-        }
-      };
-
-      // STEALTH DOPPELMARKLER-SCANNER: Advanced Session Management
-      scraperOptions.onProgress('🥷 STEALTH DOPPELMARKLER-SCANNER aktiviert - Session-basiert!');
-      
-      // Sequenziell für jeden Kategorie den STEALTH Scan durchführen
-      for (const category of categories) {
-        try {
-          await stealthScraperService.stealthDoppelmarklerScan({
-            category,
-            maxPages,
-            delay: Math.max(delay, 2000), // Optimiert: Nur 2 Sekunden nach Test
-            onProgress: (message) => {
-              console.log(message);
+          },
+          onDiscoveredLink: async ({ url, category, region }) => {
+            try {
+              const saved = await storage.saveDiscoveredLink({ url, category, region });
               wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                  client.send(JSON.stringify({ type: 'scraperUpdate', message }));
+                  client.send(JSON.stringify({ type: 'discoveredLink', link: saved }));
                 }
               });
+            } catch (e) {
+              console.error('saveDiscoveredLink error', e);
             }
-          });
-          
-          scraperOptions.onProgress(`✅ STEALTH-COMPLETE ${category}: Session erfolgreich!`);
-        } catch (error) {
-          console.error(`STEALTH Error ${category}:`, error);
-          scraperOptions.onProgress(`❌ STEALTH-ERROR ${category}: ${error}`);
-        }
-      }
-      
-      scraperOptions.onProgress('🏆 STEALTH SCAN KOMPLETT - Session-Management erfolgreich!');
+          },
+          onPhoneFound: async ({ url, phone }) => {
+            try {
+              const updated = await storage.updateDiscoveredLinkPhone(url, phone);
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'phoneFound', link: updated || { url, phone_number: phone } }));
+                }
+              });
+            } catch (e) {
+              console.error('updateDiscoveredLinkPhone error', e);
+            }
+          },
+          onListingFound: async (listingData: any) => {
+            try {
+              // sanitize payload for DB schema
+              const { scraped_at: _omitScrapedAt, ...rest } = listingData || {};
+              const safe: any = { ...rest };
+              if (!safe.location || String(safe.location).trim().length === 0) {
+                safe.location = safe.region === 'wien' ? 'Wien' : 'Niederösterreich';
+              }
+              if (typeof safe.area === 'number') safe.area = String(safe.area);
+              if (typeof safe.eur_per_m2 === 'number') safe.eur_per_m2 = String(safe.eur_per_m2);
 
-      res.json({ success: true, message: "Neuer V2 Scraper gestartet" });
+              const priceEvaluation = await priceEvaluator.evaluateListing(
+                Number(safe.eur_per_m2 || 0),
+                safe.region
+              );
+              const listing = await storage.createListing({
+                ...safe,
+                price_evaluation: priceEvaluation,
+              });
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'newListing', listing }));
+                }
+              });
+              // push stats update
+              const allListings = await storage.getListings({});
+              const stats = {
+                activeListings: allListings.filter(l => !l.akquise_erledigt).length,
+                completedListings: allListings.filter(l => l.akquise_erledigt).length,
+                totalListings: allListings.length,
+                newListings: allListings.filter(l => {
+                  const today = new Date();
+                  const listingDate = new Date(l.scraped_at);
+                  return listingDate.toDateString() === today.toDateString();
+                }).length,
+              };
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'statsUpdate', stats }));
+                }
+              });
+            } catch (error) {
+              console.error('Error saving V3 listing:', error);
+            }
+          },
+        });
+      })();
+
+      res.json({ success: true, message: "V2 Scraper gestartet" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to start scraping" });
+      res.status(500).json({ message: "Failed to start scraping (V2)" });
     }
   });
 
@@ -418,8 +433,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Send initial connection confirmation
     ws.send(JSON.stringify({ type: 'connected', message: 'WebSocket connected' }));
   });
+  
 
-
+  
+  // Helpers to normalize UI inputs to willhaben slugs
+  const normalizeCategory = (c: string) => {
+    const s = c.toLowerCase();
+    if (s.includes('eigentumswohn')) return 'eigentumswohnung';
+    if (s.includes('grundst')) return 'grundstuecke';
+    if (s.includes('haus')) return 'haus';
+    return s.replace(/\s+/g, '-');
+  };
+  const normalizeRegion = (r: string) => {
+    const s = r.toLowerCase();
+    if (s.includes('wien')) return 'wien';
+    if (s.includes('niederö') || s.includes('niederoe') || s.includes('niederoe') || s.includes('niederoester')) return 'niederoesterreich';
+    if (s.includes('oberö') || s.includes('oberoe') || s.includes('oberoester')) return 'oberoesterreich';
+    if (s.includes('salzburg')) return 'salzburg';
+    if (s.includes('tirol')) return 'tirol';
+    if (s.includes('vorarlberg')) return 'vorarlberg';
+    if (s.includes('kärnten') || s.includes('kaernten')) return 'kaernten';
+    if (s.includes('steiermark')) return 'steiermark';
+    if (s.includes('burgenland')) return 'burgenland';
+    return s.replace(/\s+/g, '-');
+  };
+  const normalizeInputs = (rawCategories: string[], rawRegions: string[]) => {
+    const catSet = new Set<string>();
+    const regSet = new Set<string>(rawRegions.map(normalizeRegion));
+    for (const raw of rawCategories) {
+      const s = raw.toLowerCase();
+      if (s.includes('-wien') || s.includes('-nö') || s.includes('-noe') || s.includes('-niederoe') || s.includes('-niederoester')) {
+        const parts = s.split('-');
+        // try to extract region suffix from the end
+        const maybeRegion = parts.slice(-1)[0];
+        const region = normalizeRegion(maybeRegion);
+        if (region) regSet.add(region);
+        const cat = normalizeCategory(parts[0]);
+        catSet.add(cat);
+      } else {
+        catSet.add(normalizeCategory(s));
+      }
+    }
+    // default regions if empty
+    if (regSet.size === 0) {
+      regSet.add('wien');
+      regSet.add('niederoesterreich');
+    }
+    return { categories: Array.from(catSet), regions: Array.from(regSet) };
+  };
 
   // Authentication routes with real tracking
   app.get("/api/auth/user", async (req, res) => {
@@ -528,6 +589,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching users stats:", error);
       res.status(500).json({ error: "Failed to fetch users stats" });
+    }
+  });
+
+  // SCRAPER V2: Immediate link persistence and live WS logs
+  app.post("/api/scraper/v2/start", async (req, res) => {
+    try {
+      const {
+        categories = ["eigentumswohnung", "grundstueck"],
+        regions = ["wien", "niederoesterreich"],
+        maxPages = 3,
+        baseDelayMs = 800,
+        jitterMs = 700,
+      } = req.body || {};
+
+      const v2 = new ScraperV2Service();
+
+      // Fire and forget; respond immediately
+      (async () => {
+        await v2.start({
+          categories,
+          regions,
+          maxPages,
+          baseDelayMs,
+          jitterMs,
+          onLog: (message) => {
+            // Broadcast log updates
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'scraperUpdate', message }));
+              }
+            });
+          },
+          onDiscoveredLink: async ({ url, category, region }) => {
+            try {
+              const saved = await storage.saveDiscoveredLink({ url, category, region });
+              console.log('[V2] Discovered link saved:', saved.url);
+              // Broadcast discovered link immediately
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'discoveredLink', link: saved }));
+                }
+              });
+            } catch (e) {
+              console.error('saveDiscoveredLink error', e);
+            }
+          },
+          onPhoneFound: async ({ url, phone }) => {
+            try {
+              const updated = await storage.updateDiscoveredLinkPhone(url, phone);
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'phoneFound', link: updated || { url, phone_number: phone } }));
+                }
+              });
+            } catch (e) {
+              console.error('updateDiscoveredLinkPhone error', e);
+            }
+          },
+          onListingFound: async (listingData: any) => {
+            try {
+              const priceEvaluation = await priceEvaluator.evaluateListing(
+                Number(listingData.eur_per_m2 || 0),
+                listingData.region
+              );
+              const listing = await storage.createListing({
+                ...listingData,
+                price_evaluation: priceEvaluation,
+              });
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'newListing', listing }));
+                }
+              });
+            } catch (error) {
+              console.error('Error saving V2 listing:', error);
+            }
+          },
+        });
+      })();
+
+      res.json({ success: true, message: "Scraper V2 gestartet" });
+    } catch (error) {
+      console.error("Scraper V2 start error:", error);
+      res.status(500).json({ message: "Failed to start Scraper V2" });
     }
   });
 

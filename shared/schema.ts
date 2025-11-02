@@ -181,3 +181,21 @@ export const insertPriceMirrorSchema = createInsertSchema(price_mirror_data).omi
 
 export type InsertPriceMirrorData = z.infer<typeof insertPriceMirrorSchema>;
 export type PriceMirrorData = typeof price_mirror_data.$inferSelect;
+
+// Discovered links for Scraper V2 (immediate persistence of found URLs)
+export const discovered_links = pgTable("discovered_links", {
+  id: serial("id").primaryKey(),
+  url: text("url").notNull().unique(),
+  category: text("category"),
+  region: text("region"),
+  phone_number: text("phone_number"),
+  discovered_at: timestamp("discovered_at").defaultNow().notNull(),
+});
+
+export const insertDiscoveredLinkSchema = createInsertSchema(discovered_links).omit({
+  id: true,
+  discovered_at: true,
+});
+
+export type InsertDiscoveredLink = z.infer<typeof insertDiscoveredLinkSchema>;
+export type DiscoveredLink = typeof discovered_links.$inferSelect;
