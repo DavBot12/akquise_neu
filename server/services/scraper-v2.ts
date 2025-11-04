@@ -236,13 +236,22 @@ export class ScraperV2Service {
     // 2) Österreichische Nummern: beginnen oft mit 0 oder +43, enthalten Leerzeichen/Trennzeichen.
     // 3) Wir normalisieren auf Ziffern, behalten führendes + bei.
 
+    // Skript-/Style-Inhalte entfernen, damit keine Nummern aus __NEXT_DATA__ o.ä. JSON gezogen werden
+    const htmlNoScripts = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
     // Engere Regex für Kandidaten (inkl. +43 oder 0, mind. 8 Ziffern):
     const candidateRegex = /(?:\+43|0)[\s\-/()]*\d(?:[\s\-/()]*\d){7,12}/g;
-    const candidates = html.match(candidateRegex) || [];
+    const candidates = htmlNoScripts.match(candidateRegex) || [];
     if (candidates.length === 0) return null;
 
     const normalize = (s: string) => s.replace(/[^+\d]/g, '');
     // bevorzugt +43… oder mobil (06…)
+    const blocked = ['0606891308','0667891221','0674400169','078354969801','4378354969801','+4378354969801','43667891221','+43667891221'];
+    const isBlocked = (n: string) => {
+      const d = n.replace(/[^+\d]/g, '');
+      const alt = d.replace(/^\+43/, '0').replace(/^43/, '0');
+      const bare = d.replace(/^\+/, '');
+      return blocked.includes(d) || blocked.includes(alt) || blocked.includes(bare);
+    };
     const scored = candidates.map(c => {
       const n = normalize(c);
       let score = 0;
@@ -250,7 +259,7 @@ export class ScraperV2Service {
       if (n.startsWith('06')) score += 2; // Mobilfunk
       if (n.length >= 10) score += 1; // plausibel
       return { raw: c, norm: n, score };
-    }).sort((a,b)=>b.score - a.score);
+    }).filter(x => !isBlocked(x.norm)).sort((a,b)=>b.score - a.score);
 
     return scored[0]?.norm || null;
   }

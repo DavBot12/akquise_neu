@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import axios from "axios";
 import { storage } from "./storage";
-import { insertListingSchema, insertContactSchema, insertListingContactSchema } from "@shared/schema";
+import { insertListingSchema, insertContactSchema, insertListingContactSchema, listings, discovered_links } from "@shared/schema";
+import { db } from "./db";
 import { ScraperService } from "./services/scraper";
 
 import { PriceEvaluator } from "./services/priceEvaluator";
@@ -589,6 +590,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching users stats:", error);
       res.status(500).json({ error: "Failed to fetch users stats" });
+    }
+  });
+
+  app.post("/api/admin/clear-listings", async (req, res) => {
+    try {
+      await db.delete(listings);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to clear listings" });
+    }
+  });
+
+  app.post("/api/admin/clear-discovered-links", async (req, res) => {
+    try {
+      await db.delete(discovered_links);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to clear discovered_links" });
     }
   });
 

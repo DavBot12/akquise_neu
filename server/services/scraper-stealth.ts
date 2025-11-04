@@ -348,8 +348,12 @@ export class StealthScraperService {
         const price = this.extractPrice($);
         const areaString = this.extractArea($);
         const area = areaString ? parseInt(areaString) : 0;
-        const location = this.extractLocation($) || this.getLocationFromUrl(url);
-        const phoneNumber = this.extractPhoneNumber(bodyText + ' ' + description);
+        const locJson = this.extractLocationFromJson($.html());
+        const location = locJson || this.extractLocation($) || this.getLocationFromUrl(url);
+        // 1) Try DOM-based extraction first (revealed phone link)
+        const phoneFromDom = this.extractPhoneFromDom($);
+        // 2) Fallback to text-based extraction
+        const phoneNumber = phoneFromDom || this.extractPhoneNumber(bodyText + ' ' + description);
         
         // Nur speichern wenn Preis verfügbar
         if (price > 0) {
@@ -702,6 +706,23 @@ export class StealthScraperService {
     return images.slice(0, 15); // Limit to 15 images like Willhaben shows
   }
 
+  private extractLocationFromJson(html: string): string | '' {
+    try {
+      const streetMatch = html.match(/"street"\s*:\s*"([^"]{3,80})"/i);
+      const postalMatch = html.match(/"postalCode"\s*:\s*"(\d{4})"/i);
+      const cityMatch = html.match(/"postalName"\s*:\s*"([^"]{3,80})"/i);
+      if (postalMatch && (streetMatch || cityMatch)) {
+        const street = streetMatch ? streetMatch[1] : '';
+        const city = cityMatch ? cityMatch[1] : '';
+        const formatted = `${postalMatch[1]} ${city}${street ? ", " + street : ''}`.trim();
+        if (formatted.length > 6) return formatted;
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  }
+
   private extractPhoneNumber(text: string): string | null {
     // ERWEITERTE FAKE-NUMMER FILTERUNG: Mehr bekannte problematische Nummern
     const fakeNumbers = [
@@ -743,6 +764,16 @@ export class StealthScraperService {
       }
     }
 
+    // Block specific fake numbers first (normalization-aware)
+    const norm = (s: string) => s.replace(/[^+\d]/g, '');
+    const blockList = ['0606891308', '0667891221', '078354969801', '4378354969801', '+4378354969801', '43667891221', '+43667891221'];
+    const tnorm = norm(text);
+    for (const b of blockList) {
+      const bn = norm(b);
+      const variants = [bn, bn.replace(/^\+43/, '0').replace(/^43/, '0'), bn.replace(/^\+/, '')];
+      for (let i = 0; i < variants.length; i++) { if (tnorm.includes(variants[i])) return null; }
+    }
+
     // Specific Austrian phone patterns - more restrictive
     const austrianPatterns = [
       /(\+43|0043)[\s\-]?[1-9]\d{2,4}[\s\-]?\d{4,8}/g,  // International format
@@ -772,6 +803,45 @@ export class StealthScraperService {
 
     console.log(`📞 NO VALID PHONE in: ${text.substring(0, 80)}...`);
     return null;
+  }
+
+  private extractPhoneFromDom($: cheerio.CheerioAPI): string | null {
+    try {
+      const normalize = (s: string) => s.replace(/[^+\d]/g, '');
+      const candidates: string[] = [];
+      const blocked = new Set(['0606891308', '0667891221', '078354969801', '4378354969801', '+4378354969801', '43667891221', '+43667891221']);
+      const isBlocked = (n: string) => {
+        const d = n.replace(/[^+\d]/g, '');
+        const alt = d.replace(/^\+43/, '0').replace(/^43/, '0');
+        const bare = d.replace(/^\+/, '');
+        return blocked.has(d) || blocked.has(alt) || blocked.has(bare);
+      };
+
+      // Direct tel: links and their visible text
+      $('a[href^="tel:"]').each((_, el) => {
+        const href = $(el).attr('href') || '';
+        const txt = $(el).text() || '';
+        if (href) candidates.push(href.replace(/^tel:/i, ''));
+        if (txt) candidates.push(txt);
+      });
+
+      // Willhaben virtual phone element after click reveal
+      $('[data-testid="top-contact-box-phone-number-virtual"], [data-testid="contact-box-phone-number-virtual"]').each((_, el) => {
+        const txt = $(el).text();
+        if (txt) candidates.push(txt);
+      });
+
+      const cleaned = candidates.map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
+      if (cleaned.length === 0) return null;
+
+      const score = (n: string) => (n.startsWith('+43') ? 3 : 0) + (n.startsWith('06') ? 2 : 0) + (n.length >= 10 ? 1 : 0);
+      const best = cleaned
+        .map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) }))
+        .sort((a, b) => b.s - a.s)[0];
+      return best?.n || null;
+    } catch {
+      return null;
+    }
   }
 
   private formatPhoneNumber(phone: string): string {

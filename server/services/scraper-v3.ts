@@ -148,9 +148,9 @@ export class ScraperV3Service {
         const baseUrl = this.baseUrls[key];
         if (!baseUrl) { onLog?.(`[V3] skip unknown combo: ${key}`); continue; }
         onLog?.(`[V3] start ${key}`);
-        let startPage = (state[key] ?? 0) + 1;
-        if (startPage < 1) startPage = 1;
-        if (startPage > maxPages) startPage = 1; // wrap if exceeded
+        // State stores the NEXT page to start from. Default 1.
+        let startPage = state[key] ?? 1;
+        if (startPage < 1 || startPage > maxPages) startPage = 1;
         onLog?.(`[V3] resume from page ${startPage}`);
 
         for (let page = startPage; page < startPage + maxPages; page++) {
@@ -205,8 +205,10 @@ export class ScraperV3Service {
             onLog?.(`[V3] error page ${logicalPage}: ${e?.message || e}`);
           }
           await sleep(withJitter(delayMs, jitterMs));
-          state[key] = logicalPage;
+          const nextPage = ((logicalPage) % maxPages) + 1;
+          state[key] = nextPage;
           await this.saveState(state);
+          onLog?.(`[V3] saved state ${key} -> next page ${nextPage}`);
         }
       }
     }
@@ -272,7 +274,10 @@ export class ScraperV3Service {
     const region = key.includes('wien') ? 'wien' : 'niederoesterreich';
     const category = key.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
 
-    const location = this.extractLocation($, url) || (key.includes('wien') ? 'Wien' : 'Niederösterreich');
+    const locJson = this.extractLocationFromJson(html);
+    const location = locJson || this.extractLocation($, url) || (key.includes('wien') ? 'Wien' : 'Niederösterreich');
+    // Try to extract phone directly from the same HTML so listing includes it
+    const phoneDirect = this.extractPhone(html);
     return {
       listing: {
       title,
@@ -282,7 +287,7 @@ export class ScraperV3Service {
       url,
       images,
       description,
-      phone_number: null,
+      phone_number: phoneDirect || null,
       category,
       region,
       eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
@@ -294,16 +299,36 @@ export class ScraperV3Service {
 
   private extractDescription($: ReturnType<typeof load>): string {
     const t = $('[data-testid="ad-detail-ad-description"], [data-testid="object-description-text"]').text().trim();
-    if (t && t.length > 30) return t.substring(0, 1000);
+    if (t && t.length > 30 && !t.includes('{"props"')) return t.substring(0, 1000);
     const all = $('body').text();
     const m = all.match(/Objektbeschreibung[\s\S]{0,50}([\s\S]{30,1200})/i);
-    return m?.[1]?.trim() || '';
+    const desc = m?.[1]?.trim() || '';
+    if (desc.includes('{"props"')) return '';
+    return desc;
   }
 
   private extractTitle($: ReturnType<typeof load>): string {
     const sel = ['[data-testid="ad-detail-ad-title"] h1','h1'];
     for (const s of sel) { const el = $(s); if (el.length) return el.text().trim(); }
     return '';
+  }
+
+  private extractLocationFromJson(html: string): string | '' {
+    try {
+      // Look for address_location object fields commonly present in Willhaben pageProps
+      const streetMatch = html.match(/"street"\s*:\s*"([^"]{3,80})"/i);
+      const postalMatch = html.match(/"postalCode"\s*:\s*"(\d{4})"/i);
+      const cityMatch = html.match(/"postalName"\s*:\s*"([^"]{3,80})"/i);
+      if (postalMatch && (streetMatch || cityMatch)) {
+        const street = streetMatch ? streetMatch[1] : '';
+        const city = cityMatch ? cityMatch[1] : '';
+        const formatted = `${postalMatch[1]} ${city}${street ? ", " + street : ''}`.trim();
+        if (formatted.length > 6) return formatted;
+      }
+      return '';
+    } catch {
+      return '';
+    }
   }
 
   private extractPrice($: ReturnType<typeof load>, bodyText: string): number {
@@ -332,10 +357,27 @@ export class ScraperV3Service {
   }
 
   private extractLocation($: ReturnType<typeof load>, url: string): string {
+    // Primary selector
     const el = $('[data-testid="ad-detail-ad-location"]').text().trim();
     if (el && el.length>5) return el;
+
+    // Willhaben header/label fallback like "Objektstandort"
+    const header = $('h2:contains("Objektstandort"), div:contains("Objektstandort")').first();
+    if (header.length) {
+      const next = header.next();
+      const txt = (next.text() || header.parent().text() || '').trim();
+      if (txt && txt.length > 5) return txt.replace(/\s+/g,' ');
+    }
+
+    // URL-based fallback for Vienna district slugs
     const m = url.match(/wien-(\d{4})-([^\/]+)/i);
     if (m) return `${m[1]} Wien, ${m[2].replace(/-/g,' ')}`;
+
+    // Body text heuristic for addresses/streets
+    const body = $('body').text();
+    const street = body.match(/\b([A-ZÄÖÜ][a-zäöüß]+(?:gasse|straße|strasse|platz|allee|ring))\b[^\n,]*/);
+    if (street) return street[0].trim().substring(0, 100);
+
     return '';
   }
 
@@ -345,6 +387,22 @@ export class ScraperV3Service {
     // 0) Direct tel: links and known testids
     const normalize = (s: string) => s.replace(/[^+\d]/g, '');
     const score = (n: string) => (n.startsWith('+43') ? 3 : 0) + (n.startsWith('06') ? 2 : 0) + (n.length >= 10 ? 1 : 0);
+    const blocked = new Set([
+      '0606891308',
+      '0667891221',
+      '0674400169',
+      '078354969801',
+      '4378354969801',
+      '+4378354969801',
+      '43667891221',
+      '+43667891221'
+    ]);
+    const isBlocked = (n: string) => {
+      const d = n.replace(/[^+\d]/g, '');
+      const alt = d.replace(/^\+43/, '0').replace(/^43/, '0');
+      const bare = d.replace(/^\+/, '');
+      return blocked.has(d) || blocked.has(alt) || blocked.has(bare);
+    };
 
     const directNums: string[] = [];
     $('a[href^="tel:"]').each((_, a) => {
@@ -357,7 +415,7 @@ export class ScraperV3Service {
       const t = $(el).text();
       if (t) directNums.push(t);
     });
-    const normalizedDirect = directNums.map(normalize).filter(n => n.length >= 8);
+    const normalizedDirect = directNums.map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
     if (normalizedDirect.length > 0) {
       const best = normalizedDirect.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
       if (best?.n) return best.n;
@@ -388,9 +446,11 @@ export class ScraperV3Service {
       if (n.length >= 8) return n.startsWith('43') ? `+${n}` : n;
     }
 
-    // 2) Fallback regex across HTML
-    const candidateRegex = /(?:\+43|0043|43|0)[\s\-/()]*\d(?:[\s\-/()]*\d){7,12}/g;
-    const candidates = (html.match(candidateRegex) || []).map(normalize).filter(n => n.length >= 8);
+    // 2) Fallback regex across HTML (strip script/style to avoid __NEXT_DATA__ JSON phones)
+    const htmlNoScripts = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
+    // Austrian mobile only: 0650-0699 (accept +43/0043/43/0 prefixes)
+    const candidateRegex = /(?:(?:\+43|0043|43|0)\s*)6[5-9]\s*[\d\s\-/()]{7,12}/g;
+    const candidates = (htmlNoScripts.match(candidateRegex) || []).map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
     if (candidates.length === 0) return null;
     const best = candidates.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
     return best?.n || null;

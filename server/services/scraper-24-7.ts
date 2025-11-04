@@ -1,5 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 interface ContinuousScrapingOptions {
   onProgress: (message: string) => void;
@@ -11,6 +13,8 @@ export class ContinuousScraper247Service {
   private sessionCookies: string = '';
   private isRunning = false;
   private currentCycle = 0;
+  private statePath = path.join(process.cwd(), 'server', 'data', 'continuous_state.json');
+  private pageState: Record<string, number> = {};
   
   private userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -27,10 +31,11 @@ export class ContinuousScraper247Service {
   ];
 
   private baseUrls: Record<string, string> = {
-    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE',
-    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE',
-    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVATE',
-    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstueck/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVATE'
+    // Align with other scrapers: filter for private sellers and keyword privatverkauf
+    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&isNavigation=true&keyword=privatverkauf',
+    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&isNavigation=true&keyword=privatverkauf',
+    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&isNavigation=true&keyword=privatverkauf',
+    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&isNavigation=true&keyword=privatverkauf'
   };
 
   constructor() {
@@ -77,6 +82,8 @@ export class ContinuousScraper247Service {
         
         // Session etablieren
         await this.establishSession(options.onProgress);
+        // Load state once per cycle
+        await this.loadStateSafe();
         
         // Zufällige Kategorie-Reihenfolge für natürliches Verhalten
         const shuffledCategories = [...this.categories].sort(() => Math.random() - 0.5);
@@ -86,15 +93,29 @@ export class ContinuousScraper247Service {
           
           await this.scanSingleCategory(category, options);
           
-          // Pause zwischen Kategorien (5-15 Minuten)
-          const categoryDelay = 300000 + Math.random() * 600000; // 5-15 Min
-          options.onProgress(`⏰ 24/7 Pause: ${Math.round(categoryDelay/60000)}min bis nächste Kategorie`);
+          // Pause zwischen Kategorien (env/NODE_ENV gesteuert)
+          const dev = (process.env.NODE_ENV || '').toLowerCase() === 'development';
+          const envDelay = Number(process.env.SCRAPER_247_CATEGORY_DELAY_MS || '0');
+          const categoryDelay = envDelay > 0
+            ? envDelay
+            : dev
+              ? 10000 + Math.random() * 10000 // 10-20s in Entwicklung
+              : 300000 + Math.random() * 600000; // 5-15 Min in Prod
+          const categoryDelayHuman = dev ? `${Math.round(categoryDelay/1000)}s` : `${Math.round(categoryDelay/60000)}min`;
+          options.onProgress(`⏰ 24/7 Pause: ${categoryDelayHuman} bis nächste Kategorie`);
           await this.sleep(categoryDelay);
         }
         
-        // Lange Pause zwischen Zyklen (30-60 Minuten)
-        const cycleDelay = 1800000 + Math.random() * 1800000; // 30-60 Min
-        options.onProgress(`💤 24/7 CYCLE COMPLETE - Pause ${Math.round(cycleDelay/60000)}min bis nächster Zyklus`);
+        // Lange Pause zwischen Zyklen (env/NODE_ENV gesteuert)
+        const dev = (process.env.NODE_ENV || '').toLowerCase() === 'development';
+        const envCycle = Number(process.env.SCRAPER_247_CYCLE_DELAY_MS || '0');
+        const cycleDelay = envCycle > 0
+          ? envCycle
+          : dev
+            ? 30000 + Math.random() * 30000 // 30-60s in Entwicklung
+            : 1800000 + Math.random() * 1800000; // 30-60 Min in Prod
+        const cycleDelayHuman = dev ? `${Math.round(cycleDelay/1000)}s` : `${Math.round(cycleDelay/60000)}min`;
+        options.onProgress(`💤 24/7 CYCLE COMPLETE - Pause ${cycleDelayHuman} bis nächster Zyklus`);
         await this.sleep(cycleDelay);
         
       } catch (error) {
@@ -109,29 +130,33 @@ export class ContinuousScraper247Service {
   }
 
   private async scanSingleCategory(category: string, options: ContinuousScrapingOptions): Promise<void> {
-    options.onProgress(`🔍 24/7 SCAN: ${category}`);
-    
+    const maxPages = Math.max(1, Number(process.env.SCRAPER_247_MAX_PAGES || '20'));
+    const current = this.pageState[category] ?? 1;
+    options.onProgress(`🔍 24/7 SCAN: ${category} (page=${current}/${maxPages})`);
+
     try {
-      // Nur erste Seite scannen für kontinuierlichen Betrieb
-      const urls = await this.getPageUrls(category, 1);
-      options.onProgress(`📄 24/7: ${urls.length} URLs in ${category}`);
-      
-      // Verarbeite URLs mit sanften Delays
+      const urls = await this.getPageUrls(category, current);
+      options.onProgress(`📄 24/7: ${urls.length} URLs in ${category} (page=${current})`);
+
       for (const url of urls) {
         if (!this.isRunning) break;
-        
         const listing = await this.processListing(url, category, options.onProgress);
         if (listing) {
           options.onListingFound(listing);
           options.onProgress(`💎 24/7 FUND: ${listing.title} - €${listing.price}`);
         }
-        
-        // Sanftes Delay zwischen Detail-Checks
         await this.sleep(8000 + Math.random() * 7000); // 8-15s
       }
-      
-    } catch (error) {
+
+      // advance page (wrap)
+      this.pageState[category] = ((current) % maxPages) + 1;
+      await this.saveStateSafe();
+
+    } catch (error: any) {
       options.onProgress(`❌ 24/7 Category Error ${category}: ${error}`);
+      // on error, try next page next time to avoid getting stuck, but keep within bounds
+      this.pageState[category] = ((current) % maxPages) + 1;
+      await this.saveStateSafe();
     }
   }
 
@@ -146,8 +171,13 @@ export class ContinuousScraper247Service {
         'User-Agent': this.getRandomUserAgent(),
         'Cookie': this.sessionCookies,
         'Referer': 'https://www.willhaben.at/'
-      }
+      },
+      validateStatus: (s) => s >= 200 && s < 500
     });
+
+    if (response.status >= 400) {
+      return [];
+    }
 
     const $ = cheerio.load(response.data);
     const urls: string[] = [];
@@ -217,7 +247,7 @@ export class ContinuousScraper247Service {
           url,
           images: [],
           description: this.extractDescription($),
-          phoneNumber,
+          phone_number: phoneNumber || null,
           category: listingCategory,
           region,
           eur_per_m2
@@ -305,6 +335,14 @@ export class ContinuousScraper247Service {
   }
 
   private extractPhoneNumber(text: string): string | null {
+    const norm = (s: string) => s.replace(/[^+\d]/g, '');
+    const tnorm = norm(text);
+    const blockList = ['0606891308', '0667891221', '43667891221', '+43667891221'];
+    for (const b of blockList) {
+      const bn = norm(b);
+      const variants = [bn, bn.replace(/^\+43/, '0').replace(/^43/, '0'), bn.replace(/^\+/, '')];
+      for (let i = 0; i < variants.length; i++) { if (tnorm.includes(variants[i])) return null; }
+    }
     const phonePatterns = [
       /(\+43|0043)[\s\-]?[1-9]\d{1,4}[\s\-]?\d{3,8}/g,
       /0[1-9]\d{1,4}[\s\-]?\d{3,8}/g
@@ -317,5 +355,30 @@ export class ContinuousScraper247Service {
       }
     }
     return null;
+  }
+
+  private async loadStateSafe(): Promise<void> {
+    try {
+      const dir = path.dirname(this.statePath);
+      await fs.mkdir(dir, { recursive: true });
+      const raw = await fs.readFile(this.statePath, 'utf8').catch(() => '{}');
+      const parsed = JSON.parse(raw || '{}');
+      this.pageState = typeof parsed === 'object' && parsed ? parsed : {};
+      // Ensure all categories have an initial page
+      for (const cat of this.categories) {
+        if (!this.pageState[cat] || this.pageState[cat] < 1) this.pageState[cat] = 1;
+      }
+    } catch {
+      this.pageState = {};
+      for (const cat of this.categories) this.pageState[cat] = 1;
+    }
+  }
+
+  private async saveStateSafe(): Promise<void> {
+    try {
+      const dir = path.dirname(this.statePath);
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(this.statePath, JSON.stringify(this.pageState, null, 2), 'utf8');
+    } catch {}
   }
 }
