@@ -1,7 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { storage } from '../storage';
 
 interface ContinuousScrapingOptions {
   onProgress: (message: string) => void;
@@ -13,25 +12,19 @@ export class ContinuousScraper247Service {
   private sessionCookies: string = '';
   private isRunning = false;
   private currentCycle = 0;
-  private statePath = path.join(process.cwd(), 'server', 'data', 'continuous_state.json');
   private pageState: Record<string, number> = {};
-  
+
   private userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
   ];
 
-  // Alle verfügbaren Kategorien und Regionen
   private categories = [
-    'eigentumswohnung-wien',
-    'eigentumswohnung-niederoesterreich', 
-    'grundstueck-wien',
-    'grundstueck-niederoesterreich'
+    'eigentumswohnung-wien'
   ];
 
   private baseUrls: Record<string, string> = {
-    // Align with other scrapers: filter for private sellers and keyword privatverkauf
     'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&isNavigation=true&keyword=privatverkauf',
     'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25&SELLER_TYPE=PRIVAT&isNavigation=true&keyword=privatverkauf',
     'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25&SELLER_TYPE=PRIVAT&isNavigation=true&keyword=privatverkauf',
@@ -82,7 +75,7 @@ export class ContinuousScraper247Service {
         
         // Session etablieren
         await this.establishSession(options.onProgress);
-        // Load state once per cycle
+        // Load state once per cycle from DB
         await this.loadStateSafe();
         
         // Zufällige Kategorie-Reihenfolge für natürliches Verhalten
@@ -148,14 +141,14 @@ export class ContinuousScraper247Service {
         await this.sleep(8000 + Math.random() * 7000); // 8-15s
       }
 
-      // advance page (wrap)
-      this.pageState[category] = ((current) % maxPages) + 1;
+      // advance page (linear)
+      this.pageState[category] = current + 1;
       await this.saveStateSafe();
 
     } catch (error: any) {
       options.onProgress(`❌ 24/7 Category Error ${category}: ${error}`);
-      // on error, try next page next time to avoid getting stuck, but keep within bounds
-      this.pageState[category] = ((current) % maxPages) + 1;
+      // on error, try next page next time to avoid getting stuck
+      this.pageState[category] = current + 1;
       await this.saveStateSafe();
     }
   }
@@ -170,7 +163,9 @@ export class ContinuousScraper247Service {
       headers: {
         'User-Agent': this.getRandomUserAgent(),
         'Cookie': this.sessionCookies,
-        'Referer': 'https://www.willhaben.at/'
+        'Referer': 'https://www.willhaben.at/',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8'
       },
       validateStatus: (s) => s >= 200 && s < 500
     });
@@ -179,7 +174,8 @@ export class ContinuousScraper247Service {
       return [];
     }
 
-    const $ = cheerio.load(response.data);
+    const html = response.data as string;
+    const $ = cheerio.load(html);
     const urls: string[] = [];
 
     // URL-Extraktion mit mehreren Selektoren
@@ -199,6 +195,15 @@ export class ContinuousScraper247Service {
       });
     });
 
+    // Regex fallback like V3 for robustness
+    const direct = html.match(/"(\/iad\/immobilien\/d\/[^"\s>]+)"/g) || [];
+    for (const m of direct) {
+      const p = m.replace(/\"/g, '"').replace(/\"/g,'');
+      const path = m.replace(/\"/g,'').replace(/"/g,'');
+      const full = `https://www.willhaben.at${path}`;
+      urls.push(full);
+    }
+
     return Array.from(new Set(urls));
   }
 
@@ -212,16 +217,17 @@ export class ContinuousScraper247Service {
         }
       });
 
-      const $ = cheerio.load(response.data);
+      const html = response.data as string;
+      const $ = cheerio.load(html);
       const bodyText = $('body').text().toLowerCase();
       
-      // Private Verkäufer Keywords
+      const commercial = [
+        'neubauprojekt','erstbezug','bauträger','anleger','wohnprojekt','immobilienmakler','provisionsaufschlag','fertigstellung','projektentwicklung','immobilienvertrieb','immobilienbüro'
+      ];
+      if (commercial.some(k => bodyText.includes(k))) return null;
+
       const privateKeywords = [
-        'privatverkauf',
-        'privat verkauf',
-        'von privat',
-        'privater verkäufer',
-        'doppelmarkler'
+        'privatverkauf','privat verkauf','von privat','privater verkäufer','privater anbieter','ohne makler','verkaufe privat','privat zu verkaufen','eigenheim verkauf','private anzeige'
       ];
 
       const foundPrivate = privateKeywords.find(keyword => 
@@ -230,14 +236,16 @@ export class ContinuousScraper247Service {
 
       if (foundPrivate) {
         const title = this.extractTitle($);
-        const price = this.extractPrice($);
+        const price = this.extractPrice($, bodyText);
         const area = this.extractArea($);
-        const location = this.extractLocation($);
+        const locJson = this.extractLocationFromJson(html);
+        const location = locJson || this.extractLocation($);
         const phoneNumber = this.extractPhoneNumber(bodyText);
         
         const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
         const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
-        const eur_per_m2 = area > 0 ? Math.round(price / area) : 0;
+        if (price <= 0) return null;
+        const eurPerM2 = area > 0 ? Math.round(price / area) : 0;
 
         return {
           title,
@@ -250,7 +258,7 @@ export class ContinuousScraper247Service {
           phone_number: phoneNumber || null,
           category: listingCategory,
           region,
-          eur_per_m2
+          eur_per_m2: eurPerM2 ? String(eurPerM2) : null
         };
       }
 
@@ -292,17 +300,14 @@ export class ContinuousScraper247Service {
     return 'Unknown Title';
   }
 
-  private extractPrice($: cheerio.CheerioAPI): number {
-    const selectors = ['[data-testid="ad-detail-ad-price"] span', '.AdDetailPrice', '.price-value'];
-    for (const selector of selectors) {
-      const element = $(selector);
-      if (element.length > 0) {
-        const priceText = element.text().replace(/[^\d]/g, '');
-        const price = parseInt(priceText);
-        if (price > 0) return price;
-      }
-    }
-    return 0;
+  private extractPrice($: cheerio.CheerioAPI, bodyText: string): number {
+    const cand = $('span:contains("€"), div:contains("Kaufpreis"), [data-testid*="price"]').text();
+    const m1 = cand.match(/€\s*(\d{1,3})\.(\d{3})/);
+    if (m1) { const v = parseInt(m1[1] + m1[2]); if (v >= 50000 && v <= 9999999) return v; }
+    const m2 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
+    if (m2) { const v = parseInt(m2[1] + m2[2]); if (v >= 50000 && v <= 9999999) return v; }
+    const digits = (bodyText.match(/(\d{3}\.\d{3})/g) || []).map(x => parseInt(x.replace('.', ''))).find(v => v >= 50000 && v <= 9999999);
+    return digits || 0;
   }
 
   private extractArea($: cheerio.CheerioAPI): number {
@@ -323,6 +328,23 @@ export class ContinuousScraper247Service {
       if (element.length > 0) return element.text().trim();
     }
     return 'Unknown Location';
+  }
+
+  private extractLocationFromJson(html: string): string | '' {
+    try {
+      const streetMatch = html.match(/"street"\s*:\s*"([^"]{3,80})"/i);
+      const postalMatch = html.match(/"postalCode"\s*:\s*"(\d{4})"/i);
+      const cityMatch = html.match(/"postalName"\s*:\s*"([^"]{3,80})"/i);
+      if (postalMatch && (streetMatch || cityMatch)) {
+        const street = streetMatch ? streetMatch[1] : '';
+        const city = cityMatch ? cityMatch[1] : '';
+        const formatted = `${postalMatch[1]} ${city}${street ? ", " + street : ''}`.trim();
+        if (formatted.length > 6) return formatted;
+      }
+      return '';
+    } catch {
+      return '';
+    }
   }
 
   private extractDescription($: cheerio.CheerioAPI): string {
@@ -358,27 +380,19 @@ export class ContinuousScraper247Service {
   }
 
   private async loadStateSafe(): Promise<void> {
-    try {
-      const dir = path.dirname(this.statePath);
-      await fs.mkdir(dir, { recursive: true });
-      const raw = await fs.readFile(this.statePath, 'utf8').catch(() => '{}');
-      const parsed = JSON.parse(raw || '{}');
-      this.pageState = typeof parsed === 'object' && parsed ? parsed : {};
-      // Ensure all categories have an initial page
-      for (const cat of this.categories) {
-        if (!this.pageState[cat] || this.pageState[cat] < 1) this.pageState[cat] = 1;
-      }
-    } catch {
-      this.pageState = {};
-      for (const cat of this.categories) this.pageState[cat] = 1;
+    const map = await storage.getAllScraperState();
+    this.pageState = {};
+    for (const cat of this.categories) {
+      const key = cat; // use category as key
+      const next = map[key] ?? 1;
+      this.pageState[cat] = next >= 1 ? next : 1;
     }
   }
 
   private async saveStateSafe(): Promise<void> {
-    try {
-      const dir = path.dirname(this.statePath);
-      await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(this.statePath, JSON.stringify(this.pageState, null, 2), 'utf8');
-    } catch {}
+    const entries = Object.entries(this.pageState);
+    for (const [cat, next] of entries) {
+      await storage.setScraperNextPage(cat, next);
+    }
   }
 }

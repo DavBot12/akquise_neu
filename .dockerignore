@@ -1,0 +1,29 @@
+# VCS
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+
+# Build outputs
+build
+dist
+.vite
+.esbuild
+coverage
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea
+.vscode
+
+# Misc
+*.local
+.env.local
+.env.*.local

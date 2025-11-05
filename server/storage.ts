@@ -7,6 +7,7 @@ import {
   user_sessions,
   price_mirror_data,
   discovered_links,
+  scraper_state,
   type Listing, 
   type Contact, 
   type ListingContact,
@@ -15,6 +16,8 @@ import {
   type UserSession,
   type PriceMirrorData,
   type DiscoveredLink,
+  type ScraperState,
+  type InsertScraperState,
   type InsertListing, 
   type InsertContact, 
   type InsertListingContact,
@@ -100,6 +103,11 @@ export interface IStorage {
   // Discovered links (Scraper V2)
   saveDiscoveredLink(data: InsertDiscoveredLink): Promise<DiscoveredLink>;
   getDiscoveredLinks(limit?: number): Promise<DiscoveredLink[]>;
+
+  // Scraper state (page counters)
+  getAllScraperState(): Promise<Record<string, number>>;
+  getScraperNextPage(stateKey: string, fallback?: number): Promise<number>;
+  setScraperNextPage(stateKey: string, nextPage: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -739,6 +747,32 @@ export class DatabaseStorage implements IStorage {
       .from(discovered_links)
       .orderBy(desc(discovered_links.discovered_at))
       .limit(limit);
+  }
+
+  async getAllScraperState(): Promise<Record<string, number>> {
+    const rows = await db.select().from(scraper_state);
+    const map: Record<string, number> = {};
+    for (const r of rows as ScraperState[]) {
+      map[r.state_key] = r.next_page ?? 1;
+    }
+    return map;
+  }
+
+  async getScraperNextPage(stateKey: string, fallback = 1): Promise<number> {
+    const [row] = await db.select().from(scraper_state).where(eq(scraper_state.state_key, stateKey));
+    if (!row) return fallback;
+    const s = row as ScraperState;
+    return s.next_page ?? fallback;
+  }
+
+  async setScraperNextPage(stateKey: string, nextPage: number): Promise<void> {
+    await db
+      .insert(scraper_state)
+      .values({ state_key: stateKey, next_page: nextPage } as InsertScraperState)
+      .onConflictDoUpdate({
+        target: scraper_state.state_key,
+        set: { next_page: nextPage, updated_at: new Date() }
+      });
   }
 }
 

@@ -1,8 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { load } from 'cheerio';
 import { chromium } from 'playwright-core';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { storage } from '../storage';
 
 export type ScraperV3Options = {
   categories: string[]; // e.g. ['eigentumswohnung','grundstueck']
@@ -24,7 +23,6 @@ function withJitter(base = 800, jitter = 700) { return base + Math.floor(Math.ra
 export class ScraperV3Service {
   private axiosInstance: AxiosInstance;
   private sessionCookies = '';
-  private statePath = path.join(process.cwd(), 'server', 'data', 'scraper_state.json');
 
   // Robust PRIVAT-gefilteter Katalog wie im Stealth-Scraper
   private baseUrls: Record<string, string> = {
@@ -116,31 +114,12 @@ export class ScraperV3Service {
     }
   }
 
-  private async loadState(onLog?: (m:string)=>void): Promise<Record<string, number>> {
-    try {
-      const dir = path.dirname(this.statePath);
-      await fs.mkdir(dir, { recursive: true });
-      const raw = await fs.readFile(this.statePath, 'utf8').catch(() => '{}');
-      const parsed = JSON.parse(raw || '{}');
-      return typeof parsed === 'object' && parsed ? parsed : {};
-    } catch {
-      onLog?.('[V3] state load failed; starting fresh');
-      return {};
-    }
-  }
-
-  private async saveState(state: Record<string, number>) {
-    await fs.writeFile(this.statePath, JSON.stringify(state, null, 2), 'utf8');
-  }
-
   async start(options: ScraperV3Options) {
     const { categories, regions, maxPages, delayMs = 800, jitterMs = 700, onLog, onListingFound, onDiscoveredLink, onPhoneFound, usePlaywrightPhone = true, maxPhoneFallbackPerRun = 5 } = options;
 
     await this.establishSession(onLog);
 
     let phoneFallbackBudget = maxPhoneFallbackPerRun;
-
-    const state = await this.loadState(onLog);
 
     for (const category of categories) {
       for (const region of regions) {
@@ -149,13 +128,12 @@ export class ScraperV3Service {
         if (!baseUrl) { onLog?.(`[V3] skip unknown combo: ${key}`); continue; }
         onLog?.(`[V3] start ${key}`);
         // State stores the NEXT page to start from. Default 1.
-        let startPage = state[key] ?? 1;
-        if (startPage < 1 || startPage > maxPages) startPage = 1;
+        let startPage = await storage.getScraperNextPage(key, 1);
+        if (startPage < 1) startPage = 1;
         onLog?.(`[V3] resume from page ${startPage}`);
 
         for (let page = startPage; page < startPage + maxPages; page++) {
-          const logicalPage = ((page - 1) % maxPages) + 1; // stay within range for willhaben
-          const url = `${baseUrl}&page=${logicalPage}`;
+          const url = `${baseUrl}&page=${page}`;
           try {
             const headers = {
               'User-Agent': this.getUA(),
@@ -169,7 +147,7 @@ export class ScraperV3Service {
 
             // Discover detail URLs (regex + cheerio fallback)
             const urls = this.extractDetailUrls(html);
-            onLog?.(`[V3] page ${logicalPage}: ${urls.length} urls`);
+            onLog?.(`[V3] page ${page}: ${urls.length} urls`);
 
             // Broadcast/save discovered links
             for (const u of urls) {
@@ -202,12 +180,11 @@ export class ScraperV3Service {
               await sleep(withJitter(60, 120));
             }
           } catch (e: any) {
-            onLog?.(`[V3] error page ${logicalPage}: ${e?.message || e}`);
+            onLog?.(`[V3] error page ${page}: ${e?.message || e}`);
           }
           await sleep(withJitter(delayMs, jitterMs));
-          const nextPage = ((logicalPage) % maxPages) + 1;
-          state[key] = nextPage;
-          await this.saveState(state);
+          const nextPage = page + 1;
+          await storage.setScraperNextPage(key, nextPage);
           onLog?.(`[V3] saved state ${key} -> next page ${nextPage}`);
         }
       }

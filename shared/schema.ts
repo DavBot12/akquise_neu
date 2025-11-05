@@ -199,3 +199,18 @@ export const insertDiscoveredLinkSchema = createInsertSchema(discovered_links).o
 
 export type InsertDiscoveredLink = z.infer<typeof insertDiscoveredLinkSchema>;
 export type DiscoveredLink = typeof discovered_links.$inferSelect;
+
+export const scraper_state = pgTable("scraper_state", {
+  id: serial("id").primaryKey(),
+  state_key: text("state_key").notNull().unique(),
+  next_page: integer("next_page").notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertScraperStateSchema = createInsertSchema(scraper_state).omit({
+  id: true,
+  updated_at: true,
+});
+
+export type InsertScraperState = z.infer<typeof insertScraperStateSchema>;
+export type ScraperState = typeof scraper_state.$inferSelect;
