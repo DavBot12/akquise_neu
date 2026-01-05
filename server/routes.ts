@@ -264,6 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           delayMs: Math.max(400, Number(delay) || 800),
           jitterMs: 600,
           onLog: (message) => {
+            console.log('[V3-SCRAPER]', message);
             wss.clients.forEach(client => {
               if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ type: 'scraperUpdate', message }));
@@ -342,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       })();
 
-      res.json({ success: true, message: "V2 Scraper gestartet" });
+      res.json({ success: true, message: "V3 Scraper gestartet" });
     } catch (error) {
       res.status(500).json({ message: "Failed to start scraping (V2)" });
     }
