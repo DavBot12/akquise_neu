@@ -5,22 +5,17 @@ import axios from "axios";
 import { storage } from "./storage";
 import { insertListingSchema, insertContactSchema, insertListingContactSchema, listings, discovered_links } from "@shared/schema";
 import { db } from "./db";
-import { ScraperService } from "./services/scraper";
 
 import { PriceEvaluator } from "./services/priceEvaluator";
-import { ScraperV2Service } from "./services/scraper-v2";
 import { ScraperV3Service } from "./services/scraper-v3";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const scraperService = new ScraperService();
   const priceEvaluator = new PriceEvaluator();
-  // Import remaining scraper services
-  const { StealthScraperService } = await import('./services/scraper-stealth');
+  // Import scraper services (ONLY V3 and 24/7 - old scrapers removed!)
   const { ContinuousScraper247Service } = await import('./services/scraper-24-7');
-  const { PriceMirrorScraperService } = await import('./services/price-mirror-scraper');
-  const stealthScraperService = new StealthScraperService();
+  // const { PriceMirrorScraperService } = await import('./services/price-mirror-scraper'); // DISABLED
   const continuousScraper = new ContinuousScraper247Service();
-  const priceMirrorService = new PriceMirrorScraperService();
+  // const priceMirrorService = new PriceMirrorScraperService(); // DISABLED
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
@@ -207,38 +202,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Price mirror scraper routes
-  app.post("/api/scraper/price-mirror", async (req, res) => {
-    try {
-      console.log("🚀 PRICE MIRROR SCRAPER API TRIGGERED");
-      
-      // Start daily price mirror scraping with detailed logging
-      priceMirrorService.startDailyPriceMirrorScrape()
-        .then(() => {
-          console.log("✅ PRICE MIRROR SCRAPER COMPLETED SUCCESSFULLY");
-        })
-        .catch((error: any) => {
-          console.error("❌ PRICE MIRROR SCRAPER FAILED:", error);
-        });
-      
-      res.json({ success: true, message: "Preisspiegel-Scraper gestartet" });
-    } catch (error: any) {
-      console.error("❌ Price mirror scraper API error:", error);
-      res.status(500).json({ error: "Failed to start price mirror scraper", details: error.message });
-    }
-  });
+  // DISABLED: Price mirror scraper routes - will be improved later with per-district pricing
+  // app.post("/api/scraper/price-mirror", async (req, res) => {
+  //   try {
+  //     console.log("🚀 PRICE MIRROR SCRAPER API TRIGGERED");
+  //
+  //     // Start daily price mirror scraping with detailed logging
+  //     priceMirrorService.startDailyPriceMirrorScrape()
+  //       .then(() => {
+  //         console.log("✅ PRICE MIRROR SCRAPER COMPLETED SUCCESSFULLY");
+  //       })
+  //       .catch((error: any) => {
+  //         console.error("❌ PRICE MIRROR SCRAPER FAILED:", error);
+  //       });
+  //
+  //     res.json({ success: true, message: "Preisspiegel-Scraper gestartet" });
+  //   } catch (error: any) {
+  //     console.error("❌ Price mirror scraper API error:", error);
+  //     res.status(500).json({ error: "Failed to start price mirror scraper", details: error.message });
+  //   }
+  // });
 
-  app.get("/api/price-mirror-data", async (req, res) => {
-    try {
-      console.log("📊 FETCHING PRICE MIRROR DATA");
-      const data = await storage.getPriceMirrorData();
-      console.log(`📈 FOUND ${data.length} PRICE MIRROR RECORDS`);
-      res.json(data);
-    } catch (error: any) {
-      console.error("❌ Price mirror data error:", error);
-      res.status(500).json({ error: "Failed to fetch price mirror data", details: error.message });
-    }
-  });
+  // app.get("/api/price-mirror-data", async (req, res) => {
+  //   try {
+  //     console.log("📊 FETCHING PRICE MIRROR DATA");
+  //     const data = await storage.getPriceMirrorData();
+  //     console.log(`📈 FOUND ${data.length} PRICE MIRROR RECORDS`);
+  //     res.json(data);
+  //   } catch (error: any) {
+  //     console.error("❌ Price mirror data error:", error);
+  //     res.status(500).json({ error: "Failed to fetch price mirror data", details: error.message });
+  //   }
+  // });
 
   // Scraper routes mapped to V3 (stealth-based) to keep UI compatible
   app.post("/api/scraper/start", async (req, res) => {
@@ -611,89 +606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SCRAPER V2: Immediate link persistence and live WS logs
-  app.post("/api/scraper/v2/start", async (req, res) => {
-    try {
-      const {
-        categories = ["eigentumswohnung", "grundstueck"],
-        regions = ["wien", "niederoesterreich"],
-        maxPages = 3,
-        baseDelayMs = 800,
-        jitterMs = 700,
-      } = req.body || {};
-
-      const v2 = new ScraperV2Service();
-
-      // Fire and forget; respond immediately
-      (async () => {
-        await v2.start({
-          categories,
-          regions,
-          maxPages,
-          baseDelayMs,
-          jitterMs,
-          onLog: (message) => {
-            // Broadcast log updates
-            wss.clients.forEach(client => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'scraperUpdate', message }));
-              }
-            });
-          },
-          onDiscoveredLink: async ({ url, category, region }) => {
-            try {
-              const saved = await storage.saveDiscoveredLink({ url, category, region });
-              console.log('[V2] Discovered link saved:', saved.url);
-              // Broadcast discovered link immediately
-              wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                  client.send(JSON.stringify({ type: 'discoveredLink', link: saved }));
-                }
-              });
-            } catch (e) {
-              console.error('saveDiscoveredLink error', e);
-            }
-          },
-          onPhoneFound: async ({ url, phone }) => {
-            try {
-              const updated = await storage.updateDiscoveredLinkPhone(url, phone);
-              wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                  client.send(JSON.stringify({ type: 'phoneFound', link: updated || { url, phone_number: phone } }));
-                }
-              });
-            } catch (e) {
-              console.error('updateDiscoveredLinkPhone error', e);
-            }
-          },
-          onListingFound: async (listingData: any) => {
-            try {
-              const priceEvaluation = await priceEvaluator.evaluateListing(
-                Number(listingData.eur_per_m2 || 0),
-                listingData.region
-              );
-              const listing = await storage.createListing({
-                ...listingData,
-                price_evaluation: priceEvaluation,
-              });
-              wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                  client.send(JSON.stringify({ type: 'newListing', listing }));
-                }
-              });
-            } catch (error) {
-              console.error('Error saving V2 listing:', error);
-            }
-          },
-        });
-      })();
-
-      res.json({ success: true, message: "Scraper V2 gestartet" });
-    } catch (error) {
-      console.error("Scraper V2 start error:", error);
-      res.status(500).json({ message: "Failed to start Scraper V2" });
-    }
-  });
+  // REMOVED: Scraper V2 endpoint - use V3 at /api/scraper/start instead
 
   return httpServer;
 }
