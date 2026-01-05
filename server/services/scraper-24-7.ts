@@ -239,48 +239,40 @@ export class ContinuousScraper247Service {
       const html = response.data as string;
       const $ = cheerio.load(html);
       const bodyText = $('body').text().toLowerCase();
-      
+
+      // 24/7 Scraper: Nur Commercial-Filter, KEIN Private-Filter!
       const commercial = [
         'neubauprojekt','erstbezug','bauträger','anleger','wohnprojekt','immobilienmakler','provisionsaufschlag','fertigstellung','projektentwicklung','immobilienvertrieb','immobilienbüro'
       ];
       if (commercial.some(k => bodyText.includes(k))) return null;
 
-      const privateKeywords = [
-        'privatverkauf','privat verkauf','von privat','privater verkäufer','privater anbieter','ohne makler','verkaufe privat','privat zu verkaufen','eigenheim verkauf','private anzeige'
-      ];
+      // Extrahiere ALLE Listings (nicht nur private)
+      const title = this.extractTitle($);
+      const price = this.extractPrice($, bodyText);
+      const area = this.extractArea($);
+      const locJson = this.extractLocationFromJson(html);
+      const location = locJson || this.extractLocation($, url);
+      const phoneNumber = this.extractPhoneNumber(html, $);
+      const images = this.extractImages($, html);
 
-      const foundPrivate = privateKeywords.find(keyword => 
-        bodyText.includes(keyword.toLowerCase())
-      );
+      const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
+      const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
+      if (price <= 0) return null;
+      const eurPerM2 = area > 0 ? Math.round(price / area) : 0;
 
-      if (foundPrivate) {
-        const title = this.extractTitle($);
-        const price = this.extractPrice($, bodyText);
-        const area = this.extractArea($);
-        const locJson = this.extractLocationFromJson(html);
-        const location = locJson || this.extractLocation($, url);
-        const phoneNumber = this.extractPhoneNumber(html, $);
-        const images = this.extractImages($, html);
-
-        const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
-        const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
-        if (price <= 0) return null;
-        const eurPerM2 = area > 0 ? Math.round(price / area) : 0;
-
-        return {
-          title,
-          price,
-          area,
-          location,
-          url,
-          images,
-          description: this.extractDescription($),
-          phone_number: phoneNumber || null,
-          category: listingCategory,
-          region,
-          eur_per_m2: eurPerM2 ? String(eurPerM2) : null
-        };
-      }
+      return {
+        title,
+        price,
+        area,
+        location,
+        url,
+        images,
+        description: this.extractDescription($),
+        phone_number: phoneNumber || null,
+        category: listingCategory,
+        region,
+        eur_per_m2: eurPerM2 ? String(eurPerM2) : null
+      };
 
       return null;
 

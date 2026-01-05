@@ -238,11 +238,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Scraper routes mapped to V3 (stealth-based) to keep UI compatible
   app.post("/api/scraper/start", async (req, res) => {
     try {
-      const { categories: rawCategories = [], maxPages = 10, delay = 1000 } = req.body;
-      
+      const { categories: rawCategories = [], maxPages = 10, delay = 1000, keyword } = req.body;
+
       // Normalize UI inputs into proper categories and regions
       const { categories, regions } = normalizeInputs(rawCategories, []);
-      
+
       if (categories.length === 0) {
         categories.push('eigentumswohnung', 'grundstueck');
       }
@@ -252,7 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // broadcast status
       wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: 'scraperStatus', status: 'Läuft (V2)' }));
+          client.send(JSON.stringify({ type: 'scraperStatus', status: 'Läuft (V3)' }));
         }
       });
 
@@ -263,6 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           maxPages,
           delayMs: Math.max(400, Number(delay) || 800),
           jitterMs: 600,
+          keyword: keyword || 'privat', // Default: 'privat', kann vom UI überschrieben werden
           onLog: (message) => {
             console.log('[V3-SCRAPER]', message);
             wss.clients.forEach(client => {

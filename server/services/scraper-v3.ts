@@ -9,6 +9,7 @@ export type ScraperV3Options = {
   maxPages: number;
   delayMs?: number;
   jitterMs?: number;
+  keyword?: string;     // default: 'privat' - wird zur URL hinzugefügt
   onLog?: (msg: string) => void;
   onListingFound?: (listing: any) => Promise<void>;
   onDiscoveredLink?: (payload: { url: string; category: string; region: string }) => void;
@@ -116,7 +117,7 @@ export class ScraperV3Service {
   }
 
   async start(options: ScraperV3Options) {
-    const { categories, regions, maxPages, delayMs = 800, jitterMs = 700, onLog, onListingFound, onDiscoveredLink, onPhoneFound, usePlaywrightPhone = true, maxPhoneFallbackPerRun = 5 } = options;
+    const { categories, regions, maxPages, delayMs = 800, jitterMs = 700, keyword = 'privat', onLog, onListingFound, onDiscoveredLink, onPhoneFound, usePlaywrightPhone = true, maxPhoneFallbackPerRun = 5 } = options;
 
     await this.establishSession(onLog);
 
@@ -127,14 +128,18 @@ export class ScraperV3Service {
         const key = `${category}-${region}`;
         const baseUrl = this.baseUrls[key];
         if (!baseUrl) { onLog?.(`[V3] skip unknown combo: ${key}`); continue; }
-        onLog?.(`[V3] start ${key}`);
+
+        // Füge keyword zur URL hinzu wenn gesetzt
+        const urlWithKeyword = keyword ? `${baseUrl}&keyword=${encodeURIComponent(keyword)}` : baseUrl;
+
+        onLog?.(`[V3] start ${key}${keyword ? ` (keyword: ${keyword})` : ''}`);
         // State stores the NEXT page to start from. Default 1.
         let startPage = await storage.getScraperNextPage(key, 1);
         if (startPage < 1) startPage = 1;
         onLog?.(`[V3] resume from page ${startPage}`);
 
         for (let page = startPage; page < startPage + maxPages; page++) {
-          const url = `${baseUrl}&page=${page}`;
+          const url = `${urlWithKeyword}&page=${page}`;
           try {
             const headers = {
               'User-Agent': this.getUA(),
