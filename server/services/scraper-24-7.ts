@@ -20,8 +20,12 @@ export class ContinuousScraper247Service {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
   ];
 
+  // ALL CATEGORIES - Scrape everything!
   private categories = [
-    'eigentumswohnung-wien'
+    'eigentumswohnung-wien',
+    'eigentumswohnung-niederoesterreich',
+    'grundstueck-wien',
+    'grundstueck-niederoesterreich'
   ];
 
   private baseUrls: Record<string, string> = {
@@ -127,29 +131,43 @@ export class ContinuousScraper247Service {
     const current = this.pageState[category] ?? 1;
     options.onProgress(`🔍 24/7 SCAN: ${category} (page=${current}/${maxPages})`);
 
-    try {
-      const urls = await this.getPageUrls(category, current);
-      options.onProgress(`📄 24/7: ${urls.length} URLs in ${category} (page=${current})`);
+    // Retry logic with exponential backoff
+    let retries = 3;
+    let success = false;
 
-      for (const url of urls) {
-        if (!this.isRunning) break;
-        const listing = await this.processListing(url, category, options.onProgress);
-        if (listing) {
-          options.onListingFound(listing);
-          options.onProgress(`💎 24/7 FUND: ${listing.title} - €${listing.price}`);
+    while (retries > 0 && !success) {
+      try {
+        const urls = await this.getPageUrls(category, current);
+        options.onProgress(`📄 24/7: ${urls.length} URLs in ${category} (page=${current})`);
+
+        for (const url of urls) {
+          if (!this.isRunning) break;
+          const listing = await this.processListing(url, category, options.onProgress);
+          if (listing) {
+            options.onListingFound(listing);
+            options.onProgress(`💎 24/7 FUND: ${listing.title} - €${listing.price}`);
+          }
+          await this.sleep(8000 + Math.random() * 7000); // 8-15s
         }
-        await this.sleep(8000 + Math.random() * 7000); // 8-15s
+
+        // advance page (linear)
+        this.pageState[category] = current + 1;
+        await this.saveStateSafe();
+        success = true;
+
+      } catch (error: any) {
+        retries--;
+        if (retries > 0) {
+          const backoff = (4 - retries) * 10000; // 10s, 20s, 30s
+          options.onProgress(`⚠️ 24/7 Error ${category}: ${error?.message || error} - Retry in ${backoff/1000}s (${retries} left)`);
+          await this.sleep(backoff);
+        } else {
+          options.onProgress(`❌ 24/7 FATAL ${category}: ${error?.message || error} - Skipping page ${current}`);
+          // Only skip page after all retries exhausted
+          this.pageState[category] = current + 1;
+          await this.saveStateSafe();
+        }
       }
-
-      // advance page (linear)
-      this.pageState[category] = current + 1;
-      await this.saveStateSafe();
-
-    } catch (error: any) {
-      options.onProgress(`❌ 24/7 Category Error ${category}: ${error}`);
-      // on error, try next page next time to avoid getting stuck
-      this.pageState[category] = current + 1;
-      await this.saveStateSafe();
     }
   }
 
@@ -239,9 +257,10 @@ export class ContinuousScraper247Service {
         const price = this.extractPrice($, bodyText);
         const area = this.extractArea($);
         const locJson = this.extractLocationFromJson(html);
-        const location = locJson || this.extractLocation($);
-        const phoneNumber = this.extractPhoneNumber(bodyText);
-        
+        const location = locJson || this.extractLocation($, url);
+        const phoneNumber = this.extractPhoneNumber(html, $);
+        const images = this.extractImages($, html);
+
         const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
         const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
         if (price <= 0) return null;
@@ -253,7 +272,7 @@ export class ContinuousScraper247Service {
           area,
           location,
           url,
-          images: [],
+          images,
           description: this.extractDescription($),
           phone_number: phoneNumber || null,
           category: listingCategory,
@@ -321,13 +340,30 @@ export class ContinuousScraper247Service {
     return 0;
   }
 
-  private extractLocation($: cheerio.CheerioAPI): string {
-    const selectors = ['[data-testid="ad-detail-ad-location"]', '.AdDetailLocation'];
-    for (const selector of selectors) {
-      const element = $(selector);
-      if (element.length > 0) return element.text().trim();
+  // V3 Location Extraction with Multiple Fallbacks
+  private extractLocation($: cheerio.CheerioAPI, url: string): string {
+    // Primary selector
+    const el = $('[data-testid="ad-detail-ad-location"]').text().trim();
+    if (el && el.length > 5) return el;
+
+    // Willhaben header/label fallback like "Objektstandort"
+    const header = $('h2:contains("Objektstandort"), div:contains("Objektstandort")').first();
+    if (header.length) {
+      const next = header.next();
+      const txt = (next.text() || header.parent().text() || '').trim();
+      if (txt && txt.length > 5) return txt.replace(/\s+/g, ' ');
     }
-    return 'Unknown Location';
+
+    // URL-based fallback for Vienna district slugs
+    const m = url.match(/wien-(\d{4})-([^\/]+)/i);
+    if (m) return `${m[1]} Wien, ${m[2].replace(/-/g, ' ')}`;
+
+    // Body text heuristic for addresses/streets
+    const body = $('body').text();
+    const street = body.match(/\b([A-ZÄÖÜ][a-zäöüß]+(?:gasse|straße|strasse|platz|allee|ring))\b[^\n,]*/);
+    if (street) return street[0].trim().substring(0, 100);
+
+    return '';
   }
 
   private extractLocationFromJson(html: string): string | '' {
@@ -347,36 +383,104 @@ export class ContinuousScraper247Service {
     }
   }
 
+  // V3 Description Extraction with Fallback
   private extractDescription($: cheerio.CheerioAPI): string {
-    const selectors = ['[data-testid="ad-detail-ad-description"] p', '.AdDescription-description'];
-    for (const selector of selectors) {
-      const element = $(selector);
-      if (element.length > 0) return element.text().trim();
-    }
-    return '';
+    const t = $('[data-testid="ad-detail-ad-description"], [data-testid="object-description-text"]').text().trim();
+    if (t && t.length > 30 && !t.includes('{"props"')) return t.substring(0, 1000);
+    const all = $('body').text();
+    // FIX: Don't skip first characters! Look for text after "Objektbeschreibung:" or newline
+    const m = all.match(/Objektbeschreibung[\s:]*\n?\s*([\s\S]{30,1200})/i);
+    const desc = m?.[1]?.trim() || '';
+    if (desc.includes('{"props"')) return '';
+    return desc;
   }
 
-  private extractPhoneNumber(text: string): string | null {
-    const norm = (s: string) => s.replace(/[^+\d]/g, '');
-    const tnorm = norm(text);
-    const blockList = ['0606891308', '0667891221', '43667891221', '+43667891221'];
-    for (const b of blockList) {
-      const bn = norm(b);
-      const variants = [bn, bn.replace(/^\+43/, '0').replace(/^43/, '0'), bn.replace(/^\+/, '')];
-      for (let i = 0; i < variants.length; i++) { if (tnorm.includes(variants[i])) return null; }
-    }
-    const phonePatterns = [
-      /(\+43|0043)[\s\-]?[1-9]\d{1,4}[\s\-]?\d{3,8}/g,
-      /0[1-9]\d{1,4}[\s\-]?\d{3,8}/g
-    ];
+  // V3 Images Extraction
+  private extractImages($: cheerio.CheerioAPI, html: string): string[] {
+    const images: string[] = [];
+    $('img[src*="cache.willhaben.at"]').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && !src.includes('_thumb')) images.push(src);
+    });
+    // Regex fallback
+    (html.match(/https:\/\/cache\.willhaben\.at\/mmo\/[^"'\s]+\.jpg/gi) || []).forEach(u => {
+      if (!u.includes('_thumb')) images.push(u);
+    });
+    return Array.from(new Set(images)).slice(0, 10);
+  }
 
-    for (const pattern of phonePatterns) {
-      const matches = text.match(pattern);
-      if (matches && matches.length > 0) {
-        return matches[0].replace(/[\s\-]/g, '');
-      }
+  // V3 Multi-Layer Phone Extraction (BEST METHOD!)
+  private extractPhoneNumber(html: string, $: cheerio.CheerioAPI): string | null {
+    // 0) Direct tel: links and known testids
+    const normalize = (s: string) => s.replace(/[^+\d]/g, '');
+    const score = (n: string) => (n.startsWith('+43') ? 3 : 0) + (n.startsWith('06') ? 2 : 0) + (n.length >= 10 ? 1 : 0);
+    const blocked = new Set([
+      '0606891308',
+      '0667891221',
+      '0674400169',
+      '078354969801',
+      '4378354969801',
+      '+4378354969801',
+      '43667891221',
+      '+43667891221'
+    ]);
+    const isBlocked = (n: string) => {
+      const d = n.replace(/[^+\d]/g, '');
+      const alt = d.replace(/^\+43/, '0').replace(/^43/, '0');
+      const bare = d.replace(/^\+/, '');
+      return blocked.has(d) || blocked.has(alt) || blocked.has(bare);
+    };
+
+    const directNums: string[] = [];
+    $('a[href^="tel:"]').each((_, a) => {
+      const href = $(a).attr('href') || '';
+      const txt = $(a).text() || '';
+      if (href) directNums.push(href.replace(/^tel:/i, ''));
+      if (txt) directNums.push(txt);
+    });
+    $('[data-testid="top-contact-box-phone-number-virtual"], [data-testid="contact-box-phone-number-virtual"]').each((_, el) => {
+      const t = $(el).text();
+      if (t) directNums.push(t);
+    });
+    const normalizedDirect = directNums.map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
+    if (normalizedDirect.length > 0) {
+      const best = normalizedDirect.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
+      if (best?.n) return best.n;
     }
-    return null;
+
+    // 1) DOM-near extraction: look for elements containing 'Telefon' and read adjacent text
+    let domNumber: string | null = null;
+    $('*:contains("Telefon")').each((_, el) => {
+      const text = $(el).text().trim();
+      if (!/^Telefon/i.test(text)) return;
+      // try same element
+      const matchSame = text.match(/Telefon\s*([+\d\s\-()\/]{8,20})/i);
+      if (matchSame && matchSame[1]) {
+        domNumber = matchSame[1];
+        return false as any;
+      }
+      // try next siblings
+      const nextText = ($(el).next().text() || '') + ' ' + ($(el).parent().text() || '');
+      const matchNext = nextText.match(/([+\d\s\-()\/]{8,20})/);
+      if (matchNext && matchNext[1]) {
+        domNumber = matchNext[1];
+        return false as any;
+      }
+    });
+
+    if (domNumber) {
+      const n = normalize(domNumber);
+      if (n.length >= 8) return n.startsWith('43') ? `+${n}` : n;
+    }
+
+    // 2) Fallback regex across HTML (strip script/style to avoid __NEXT_DATA__ JSON phones)
+    const htmlNoScripts = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
+    // Austrian mobile only: 0650-0699 (accept +43/0043/43/0 prefixes)
+    const candidateRegex = /(?:(?:\+43|0043|43|0)\s*)6[5-9]\s*[\d\s\-/()]{7,12}/g;
+    const candidates = (htmlNoScripts.match(candidateRegex) || []).map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
+    if (candidates.length === 0) return null;
+    const best = candidates.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
+    return best?.n || null;
   }
 
   private async loadStateSafe(): Promise<void> {

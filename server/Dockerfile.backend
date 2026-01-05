@@ -1,0 +1,35 @@
+# ----------- Backend Build Phase -----------
+FROM node:20-alpine AS backend-builder
+
+WORKDIR /app
+
+# Kopiere nur package.json und package-lock.json zuerst
+COPY package*.json ./
+
+# Installiere alle Abhängigkeiten
+RUN npm install --legacy-peer-deps
+
+# Kopiere den Rest des Projekts
+COPY . .
+
+# Führe den Build-Prozess für das Backend aus
+RUN npm run build
+
+# ----------- Runtime Phase -----------
+FROM node:20-alpine
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Kopiere nur die Backend-Dependencies und den Build-Output
+COPY --from=backend-builder /app/package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Kopiere nur dist/index.js (NICHT vite.js - nur für development)
+COPY --from=backend-builder /app/dist/index.js ./dist/
+
+# Exponiere den Port 5000 für das Backend
+EXPOSE 5000
+
+# Startbefehl für den Backend-Server
+CMD ["node", "dist/index.js"]

@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "cross-env vite build && cross-env esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "cross-env vite build && cross-env esbuild server/index.ts --platform=node --packages=external --external:./vite.js --bundle --format=esm --outdir=dist && cross-env esbuild server/vite.ts --platform=node --packages=external --format=esm --outfile=dist/vite.js",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "cross-env tsc",
     "db:push": "drizzle-kit push"
@@ -68,7 +68,6 @@
     "passport-local": "^1.0.0",
     "playwright": "^1.54.1",
     "playwright-core": "^1.54.1",
-    "psql": "^0.0.1",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",

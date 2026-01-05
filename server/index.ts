@@ -1,8 +1,18 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { PriceMirrorScraperService } from "./services/price-mirror-scraper";
-import { setupVite, serveStatic, log } from "./vite";
+// import { PriceMirrorScraperService } from "./services/price-mirror-scraper"; // DISABLED: Focus on scraper first
+
+// Simple log function (extracted from vite.ts to avoid import issues in production)
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
 
 const app = express();
 app.use(express.json());
@@ -49,13 +59,19 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Only setup vite in development for local development
+  // In production, frontend is served by separate Nginx container
   if (app.get("env") === "development") {
-    await setupVite(app, server);
+    try {
+      const { setupVite } = await import("./vite.js");
+      await setupVite(app, server);
+    } catch (error) {
+      log("Warning: Could not load vite module (expected in production)");
+    }
   } else {
-    serveStatic(app);
+    // In production (Docker), backend only serves API
+    // Frontend is served by separate Nginx container
+    log("Production mode: Backend serving API only (Frontend in separate container)");
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
@@ -68,9 +84,9 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
-    
-    // Start daily price mirror scraper schedule
-    const priceMirrorService = new PriceMirrorScraperService();
-    priceMirrorService.startDailySchedule();
+
+    // DISABLED: Price mirror - will be improved later with per-district pricing
+    // const priceMirrorService = new PriceMirrorScraperService();
+    // priceMirrorService.startDailySchedule();
   });
 })();

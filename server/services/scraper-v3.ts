@@ -23,6 +23,7 @@ function withJitter(base = 800, jitter = 700) { return base + Math.floor(Math.ra
 export class ScraperV3Service {
   private axiosInstance: AxiosInstance;
   private sessionCookies = '';
+  private requestCount = 0;
 
   // Robust PRIVAT-gefilteter Katalog wie im Stealth-Scraper
   private baseUrls: Record<string, string> = {
@@ -209,6 +210,12 @@ export class ScraperV3Service {
   }
 
   private async fetchDetail(url: string): Promise<string> {
+    // Refresh session every 50 requests to avoid stale cookies
+    this.requestCount++;
+    if (this.requestCount % 50 === 0) {
+      await this.establishSession();
+    }
+
     const headers = {
       'User-Agent': this.getUA(),
       'Referer': 'https://www.willhaben.at/iad/immobilien/',
@@ -278,7 +285,8 @@ export class ScraperV3Service {
     const t = $('[data-testid="ad-detail-ad-description"], [data-testid="object-description-text"]').text().trim();
     if (t && t.length > 30 && !t.includes('{"props"')) return t.substring(0, 1000);
     const all = $('body').text();
-    const m = all.match(/Objektbeschreibung[\s\S]{0,50}([\s\S]{30,1200})/i);
+    // FIX: Don't skip first characters! Look for text after "Objektbeschreibung:" or newline
+    const m = all.match(/Objektbeschreibung[\s:]*\n?\s*([\s\S]{30,1200})/i);
     const desc = m?.[1]?.trim() || '';
     if (desc.includes('{"props"')) return '';
     return desc;
@@ -310,11 +318,12 @@ export class ScraperV3Service {
 
   private extractPrice($: ReturnType<typeof load>, bodyText: string): number {
     const cand = $('span:contains("€"), div:contains("Kaufpreis"), [data-testid*="price"]').text();
+    // Support prices up to 10M (9.999.999)
     const m1 = cand.match(/€\s*(\d{1,3})\.(\d{3})/);
-    if (m1) { const v = parseInt(m1[1] + m1[2]); if (v>=50000 && v<=999999) return v; }
+    if (m1) { const v = parseInt(m1[1] + m1[2]); if (v>=50000 && v<=9999999) return v; }
     const m2 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
-    if (m2) { const v = parseInt(m2[1] + m2[2]); if (v>=50000 && v<=999999) return v; }
-    const digits = (bodyText.match(/(\d{3}\.\d{3})/g)||[]).map(x=>parseInt(x.replace('.',''))).find(v=>v>=50000 && v<=999999);
+    if (m2) { const v = parseInt(m2[1] + m2[2]); if (v>=50000 && v<=9999999) return v; }
+    const digits = (bodyText.match(/(\d{3}\.\d{3})/g)||[]).map(x=>parseInt(x.replace('.',''))).find(v=>v>=50000 && v<=9999999);
     return digits || 0;
   }
 
