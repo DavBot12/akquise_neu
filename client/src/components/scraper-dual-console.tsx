@@ -21,8 +21,9 @@ export default function ScraperDualConsole() {
   ]);
   const [maxPages, setMaxPages] = useState(3);
   const [delay, setDelay] = useState(2000);
+  const [keyword, setKeyword] = useState("privat");
   const [logs, setLogs] = useState<string[]>([
-    "[INFO] Dual-Scraper System bereit - Privatverkauf + 24/7 Mode",
+    "[INFO] Dual-Scraper System bereit - V3 (händisch) + 24/7 (automatisch)",
   ]);
   const [scraperStatus, setScraperStatus] = useState("Bereit");
   const [scraper247Status, setScraper247Status] = useState({
@@ -61,20 +62,21 @@ export default function ScraperDualConsole() {
     scrollToBottom();
   }, [logs]);
 
-  // Privatverkauf Scraper (manual)
+  // V3 Scraper (manual)
   const startPrivatScrapingMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/scraper/start", {
         categories: selectedCategories,
         maxPages,
         delay,
+        keyword,
       });
     },
     onSuccess: () => {
       setScraperStatus("Läuft");
       toast({
-        title: "Privatverkauf-Scraper gestartet",
-        description: "Scraper läuft mit keyword=Privatverkauf Filter.",
+        title: "V3 Scraper gestartet",
+        description: `Scraper läuft mit keyword="${keyword}"`,
       });
     },
     onError: () => {
@@ -183,10 +185,10 @@ export default function ScraperDualConsole() {
             </CardHeader>
             <CardContent className="space-y-6">
               
-              {/* Privatverkauf Scraper */}
+              {/* V3 Scraper */}
               <div className="border rounded-lg p-4 bg-blue-50">
-                <h4 className="font-semibold text-blue-800 mb-3">🎯 Privatverkauf-Scraper</h4>
-                
+                <h4 className="font-semibold text-blue-800 mb-3">🎯 V3 Scraper (Händisch)</h4>
+
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -198,7 +200,7 @@ export default function ScraperDualConsole() {
                           <Checkbox
                             id={category.id}
                             checked={selectedCategories.includes(category.id)}
-                            onCheckedChange={(checked) => 
+                            onCheckedChange={(checked) =>
                               handleCategoryChange(category.id, checked as boolean)
                             }
                           />
@@ -209,7 +211,7 @@ export default function ScraperDualConsole() {
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-sm font-medium">Max. Seiten</Label>
@@ -233,7 +235,18 @@ export default function ScraperDualConsole() {
                       />
                     </div>
                   </div>
-                  
+
+                  <div>
+                    <Label className="text-sm font-medium">Keyword-Filter</Label>
+                    <Input
+                      type="text"
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                      placeholder="privat"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+
                   <Button
                     className="w-full bg-blue-600 hover:bg-blue-700"
                     onClick={() => startPrivatScrapingMutation.mutate()}
@@ -247,13 +260,14 @@ export default function ScraperDualConsole() {
 
               {/* 24/7 Scraper */}
               <div className="border rounded-lg p-4 bg-green-50">
-                <h4 className="font-semibold text-green-800 mb-3">🚀 24/7 Kontinuierlich</h4>
-                
+                <h4 className="font-semibold text-green-800 mb-3">🚀 24/7 Automatisch (OHNE Filter)</h4>
+
                 <div className="space-y-3">
                   <div className="text-sm text-gray-600">
-                    • Läuft automatisch alle 30-60 Minuten<br/>
-                    • Scannt alle Kategorien kontinuierlich<br/>
-                    • Findet neue Listings im Hintergrund
+                    • Läuft kontinuierlich im Hintergrund<br/>
+                    • Sammelt ALLE Listings (nicht nur private)<br/>
+                    • Nur Commercial-Filter (Bauträger etc.)<br/>
+                    • Maximale Abdeckung für Analyse
                   </div>
                   
                   {scraper247Status.isRunning && (

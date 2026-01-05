@@ -22,6 +22,7 @@ export default function ScraperConsole() {
   ]);
   const [maxPages, setMaxPages] = useState(10);
   const [delay, setDelay] = useState(2000); // Optimierter Delay
+  const [keyword, setKeyword] = useState("privat"); // Keyword-Filter
   const [scraper247Status, setScraper247Status] = useState<{isRunning: boolean, currentCycle: number}>({isRunning: false, currentCycle: 0});
   const [logs, setLogs] = useState<string[]>([
     "[INFO] Scraper bereit zum Start...",
@@ -123,6 +124,7 @@ export default function ScraperConsole() {
         categories: selectedCategories,
         maxPages,
         delay,
+        keyword, // Keyword-Filter an Backend übergeben
       });
     },
     onSuccess: () => {
@@ -270,6 +272,22 @@ export default function ScraperConsole() {
                   max={5000}
                   step={500}
                 />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Keyword-Filter
+                </Label>
+                <Input
+                  type="text"
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  placeholder="z.B. privat, privatverkauf, provisionsfrei"
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Default: "privat" - findet private Listings
+                </p>
               </div>
             </CardContent>
           </Card>
