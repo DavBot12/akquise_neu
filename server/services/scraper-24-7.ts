@@ -25,7 +25,9 @@ export class ContinuousScraper247Service {
     'eigentumswohnung-wien',
     'eigentumswohnung-niederoesterreich',
     'grundstueck-wien',
-    'grundstueck-niederoesterreich'
+    'grundstueck-niederoesterreich',
+    'haus-wien',
+    'haus-niederoesterreich'
   ];
 
   // Allgemeine URLs OHNE Vorfilter - wir filtern selbst nach Keywords!
@@ -33,7 +35,9 @@ export class ContinuousScraper247Service {
     'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25',
     'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/niederoesterreich?rows=25',
     'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25',
-    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=25'
+    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=25',
+    'haus-wien': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/wien?rows=25',
+    'haus-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/niederoesterreich?rows=25'
   };
 
   constructor() {
@@ -282,7 +286,11 @@ export class ContinuousScraper247Service {
       const images = this.extractImages($, html);
 
       const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
-      const listingCategory = category.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
+      const listingCategory = category.includes('eigentumswohnung')
+        ? 'eigentumswohnung'
+        : category.includes('haus')
+          ? 'haus'
+          : 'grundstueck';
       if (price <= 0) return null;
       const eurPerM2 = area > 0 ? Math.round(price / area) : 0;
 

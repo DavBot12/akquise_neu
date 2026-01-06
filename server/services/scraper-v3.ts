@@ -33,7 +33,9 @@ export class ScraperV3Service {
     'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25',
     'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=25',
     'grundstuecke-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25',
-    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=25'
+    'grundstuecke-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=25',
+    'haus-wien': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/wien?rows=25',
+    'haus-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/niederoesterreich?rows=25'
   };
 
   constructor() {
@@ -261,7 +263,11 @@ export class ScraperV3Service {
     const images = this.extractImages($);
 
     const region = key.includes('wien') ? 'wien' : 'niederoesterreich';
-    const category = key.includes('eigentumswohnung') ? 'eigentumswohnung' : 'grundstueck';
+    const category = key.includes('eigentumswohnung')
+      ? 'eigentumswohnung'
+      : key.includes('haus')
+        ? 'haus'
+        : 'grundstueck';
 
     const locJson = this.extractLocationFromJson(html);
     const location = locJson || this.extractLocation($, url) || (key.includes('wien') ? 'Wien' : 'Niederösterreich');

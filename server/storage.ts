@@ -42,6 +42,10 @@ export interface IStorage {
     region?: string;
     price_evaluation?: string;
     is_deleted?: boolean;
+    category?: string;
+    has_phone?: boolean;
+    min_price?: number;
+    max_price?: number;
   }): Promise<Listing[]>;
   getListingById(id: number): Promise<Listing | undefined>;
   getListingByUrl(url: string): Promise<Listing | undefined>;
@@ -139,6 +143,10 @@ export class DatabaseStorage implements IStorage {
     region?: string;
     price_evaluation?: string;
     is_deleted?: boolean;
+    category?: string;
+    has_phone?: boolean;
+    min_price?: number;
+    max_price?: number;
   }): Promise<Listing[]> {
     let query = db.select().from(listings);
 
@@ -160,6 +168,21 @@ export class DatabaseStorage implements IStorage {
       }
       if (filters.price_evaluation) {
         conditions.push(eq(listings.price_evaluation, filters.price_evaluation as any));
+      }
+      if (filters.category) {
+        conditions.push(eq(listings.category, filters.category));
+      }
+      if (filters.has_phone === true) {
+        conditions.push(sql`${listings.phone_number} IS NOT NULL AND ${listings.phone_number} != ''`);
+      }
+      if (filters.has_phone === false) {
+        conditions.push(sql`${listings.phone_number} IS NULL OR ${listings.phone_number} = ''`);
+      }
+      if (filters.min_price !== undefined) {
+        conditions.push(sql`${listings.price} >= ${filters.min_price}`);
+      }
+      if (filters.max_price !== undefined) {
+        conditions.push(sql`${listings.price} <= ${filters.max_price}`);
       }
     }
 

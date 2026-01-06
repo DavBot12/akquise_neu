@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 
 import { Building, ChartLine, TrendingUp, LogOut, User } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,6 +24,9 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [regionFilter, setRegionFilter] = useState("Alle Regionen");
   const [priceFilter, setPriceFilter] = useState("Alle Preise");
+  const [categoryFilter, setCategoryFilter] = useState("Alle Kategorien");
+  const [phoneFilter, setPhoneFilter] = useState("Alle");
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]);
 
   const queryClient = useQueryClient();
 
@@ -38,11 +42,16 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
 
   // Fetch listings with proper query parameters - HIDE COMPLETED ACQUISITIONS
   const { data: listings = [], isLoading: listingsLoading } = useQuery<Listing[]>({
-    queryKey: ["/api/listings", regionFilter, priceFilter],
+    queryKey: ["/api/listings", regionFilter, priceFilter, categoryFilter, phoneFilter, priceRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
       if (priceFilter !== "Alle Preise") params.append("price_evaluation", priceFilter);
+      if (categoryFilter !== "Alle Kategorien") params.append("category", categoryFilter);
+      if (phoneFilter === "Nur mit Telefonnummer") params.append("has_phone", "true");
+      if (phoneFilter === "Nur ohne Telefonnummer") params.append("has_phone", "false");
+      if (priceRange[0] > 0) params.append("min_price", priceRange[0].toString());
+      if (priceRange[1] < 1000000) params.append("max_price", priceRange[1].toString());
       // WICHTIG: Verstecke erledigte Akquisen vom Dashboard
       params.append("akquise_erledigt", "false");
 
@@ -249,7 +258,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
                   <p className="text-gray-600 mt-1">Aktuelle Immobilien-Listings verwalten</p>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex flex-wrap gap-3">
                   <Select value={regionFilter} onValueChange={setRegionFilter}>
                     <SelectTrigger className="w-48">
                       <SelectValue />
@@ -260,17 +269,43 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       <SelectItem value="niederoesterreich">Niederösterreich</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={priceFilter} onValueChange={setPriceFilter}>
+
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-48">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Alle Preise">Alle Preise</SelectItem>
-                      <SelectItem value="Unter dem Schnitt">Unter dem Schnitt</SelectItem>
-                      <SelectItem value="Im Schnitt">Im Schnitt</SelectItem>
-                      <SelectItem value="Über dem Schnitt">Über dem Schnitt</SelectItem>
+                      <SelectItem value="Alle Kategorien">Alle Kategorien</SelectItem>
+                      <SelectItem value="eigentumswohnung">Eigentumswohnung</SelectItem>
+                      <SelectItem value="grundstueck">Grundstück</SelectItem>
+                      <SelectItem value="haus">Haus</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  <Select value={phoneFilter} onValueChange={setPhoneFilter}>
+                    <SelectTrigger className="w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Alle">Alle</SelectItem>
+                      <SelectItem value="Nur mit Telefonnummer">Nur mit Telefonnummer</SelectItem>
+                      <SelectItem value="Nur ohne Telefonnummer">Nur ohne Telefonnummer</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="w-64 flex flex-col justify-center">
+                    <label className="text-sm font-medium mb-2">
+                      Preis: €{priceRange[0].toLocaleString()} - €{priceRange[1].toLocaleString()}
+                    </label>
+                    <Slider
+                      value={priceRange}
+                      onValueChange={(value) => setPriceRange(value as [number, number])}
+                      min={0}
+                      max={1000000}
+                      step={10000}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

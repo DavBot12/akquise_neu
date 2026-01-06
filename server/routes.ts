@@ -20,7 +20,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Listings routes
   app.get("/api/listings", async (req, res) => {
     try {
-      const { region, price_evaluation, akquise_erledigt, is_deleted } = req.query;
+      const { region, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price } = req.query;
       const filters: any = {};
 
       if (region && region !== "Alle Regionen") filters.region = region;
@@ -34,6 +34,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (akquise_erledigt !== undefined) filters.akquise_erledigt = akquise_erledigt === "true";
       if (is_deleted !== undefined) filters.is_deleted = is_deleted === "true";
+      if (category && category !== "Alle Kategorien") filters.category = category;
+      if (has_phone !== undefined) filters.has_phone = has_phone === "true";
+      if (min_price) filters.min_price = parseInt(min_price as string);
+      if (max_price) filters.max_price = parseInt(max_price as string);
 
       const listings = await storage.getListings(filters);
       res.json(listings);

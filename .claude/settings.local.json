@@ -33,7 +33,8 @@
       "Bash(powershell -Command \"Stop-Process -Id 7620 -Force\")",
       "Bash(powershell:*)",
       "Bash(npx drizzle-kit generate)",
-      "Bash(npx drizzle-kit push:*)"
+      "Bash(npx drizzle-kit push:*)",
+      "Bash(git push:*)"
     ]
   }
 }

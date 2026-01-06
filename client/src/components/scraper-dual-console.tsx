@@ -16,8 +16,10 @@ export default function ScraperDualConsole() {
   const [selectedCategories, setSelectedCategories] = useState([
     "eigentumswohnung-wien",
     "grundstueck-wien",
+    "haus-wien",
     "eigentumswohnung-niederoesterreich",
-    "grundstueck-niederoesterreich"
+    "grundstueck-niederoesterreich",
+    "haus-niederoesterreich"
   ]);
   const [maxPages, setMaxPages] = useState(3);
   const [delay, setDelay] = useState(2000);
