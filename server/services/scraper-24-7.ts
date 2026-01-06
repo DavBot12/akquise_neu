@@ -31,9 +31,9 @@ export class ContinuousScraper247Service {
   // Allgemeine URLs OHNE Vorfilter - wir filtern selbst nach Keywords!
   private baseUrls: Record<string, string> = {
     'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25',
-    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=904&rows=25',
+    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/niederoesterreich?rows=25',
     'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25',
-    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=904&rows=25'
+    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=25'
   };
 
   constructor() {
@@ -49,13 +49,13 @@ export class ContinuousScraper247Service {
 
   async start247Scraping(options: ContinuousScrapingOptions): Promise<void> {
     if (this.isRunning) {
-      options.onProgress('⚠️ 24/7 Scraper läuft bereits!');
+      options.onProgress('[24/7] Scraper laeuft bereits!');
       return;
     }
 
     this.isRunning = true;
-    options.onProgress('🚀 24/7 SCRAPER GESTARTET - Kontinuierlicher Modus aktiviert!');
-    
+    options.onProgress('[24/7] SCRAPER GESTARTET - Kontinuierlicher Modus aktiviert!');
+
     // Startet die kontinuierliche Schleife
     this.continuousScanLoop(options);
   }
@@ -74,99 +74,113 @@ export class ContinuousScraper247Service {
   private async continuousScanLoop(options: ContinuousScrapingOptions): Promise<void> {
     while (this.isRunning) {
       this.currentCycle++;
-      
+
       try {
-        options.onProgress(`🔄 24/7 CYCLE ${this.currentCycle} - Scanne alle Kategorien...`);
-        
+        options.onProgress(`[24/7] CYCLE ${this.currentCycle} - Scanne ALLE 4 Kategorien PARALLEL!`);
+
         // Session etablieren
         await this.establishSession(options.onProgress);
         // Load state once per cycle from DB
         await this.loadStateSafe();
+
+        // PARALLEL: Alle 4 Kategorien gleichzeitig!
+        const categoryPromises = this.categories.map(category =>
+          this.scanSingleCategory(category, options)
+        );
+
+        // Warte bis ALLE Kategorien fertig sind
+        await Promise.all(categoryPromises);
+
+        options.onProgress(`[24/7] CYCLE ${this.currentCycle} COMPLETE - Alle 4 Kategorien fertig!`);
         
-        // Zufällige Kategorie-Reihenfolge für natürliches Verhalten
-        const shuffledCategories = [...this.categories].sort(() => Math.random() - 0.5);
-        
-        for (const category of shuffledCategories) {
-          if (!this.isRunning) break;
-          
-          await this.scanSingleCategory(category, options);
-          
-          // Pause zwischen Kategorien (env/NODE_ENV gesteuert)
-          const dev = (process.env.NODE_ENV || '').toLowerCase() === 'development';
-          const envDelay = Number(process.env.SCRAPER_247_CATEGORY_DELAY_MS || '0');
-          const categoryDelay = envDelay > 0
-            ? envDelay
-            : dev
-              ? 10000 + Math.random() * 10000 // 10-20s in Entwicklung
-              : 300000 + Math.random() * 600000; // 5-15 Min in Prod
-          const categoryDelayHuman = dev ? `${Math.round(categoryDelay/1000)}s` : `${Math.round(categoryDelay/60000)}min`;
-          options.onProgress(`⏰ 24/7 Pause: ${categoryDelayHuman} bis nächste Kategorie`);
-          await this.sleep(categoryDelay);
-        }
-        
-        // Lange Pause zwischen Zyklen (env/NODE_ENV gesteuert)
-        const dev = (process.env.NODE_ENV || '').toLowerCase() === 'development';
-        const envCycle = Number(process.env.SCRAPER_247_CYCLE_DELAY_MS || '0');
-        const cycleDelay = envCycle > 0
-          ? envCycle
-          : dev
-            ? 30000 + Math.random() * 30000 // 30-60s in Entwicklung
-            : 1800000 + Math.random() * 1800000; // 30-60 Min in Prod
-        const cycleDelayHuman = dev ? `${Math.round(cycleDelay/1000)}s` : `${Math.round(cycleDelay/60000)}min`;
-        options.onProgress(`💤 24/7 CYCLE COMPLETE - Pause ${cycleDelayHuman} bis nächster Zyklus`);
+        // Pause zwischen Zyklen
+        const cycleDelay = 60000 + Math.random() * 60000; // 1-2 Min
+        options.onProgress(`[24/7] CYCLE COMPLETE - Pause ${Math.round(cycleDelay/60000)}min bis naechster Zyklus`);
         await this.sleep(cycleDelay);
         
       } catch (error) {
-        options.onProgress(`❌ 24/7 ERROR Cycle ${this.currentCycle}: ${error}`);
-        
-        // Bei Fehler längere Pause
-        await this.sleep(600000); // 10 Minuten
+        options.onProgress(`[24/7] ERROR Cycle ${this.currentCycle}: ${error}`);
+
+        // Bei Fehler Pause
+        await this.sleep(120000); // 2 Minuten
       }
     }
-    
-    options.onProgress('🛑 24/7 SCRAPER GESTOPPT');
+
+    options.onProgress('[24/7] SCRAPER GESTOPPT');
   }
 
   private async scanSingleCategory(category: string, options: ContinuousScrapingOptions): Promise<void> {
-    const maxPages = Math.max(1, Number(process.env.SCRAPER_247_MAX_PAGES || '20'));
-    const current = this.pageState[category] ?? 1;
-    options.onProgress(`🔍 24/7 SCAN: ${category} (page=${current}/${maxPages})`);
+    const maxPages = Number(process.env.SCRAPER_247_MAX_PAGES || '999'); // UNBEGRENZT!
+    let current = this.pageState[category] ?? 1;
 
-    // Retry logic with exponential backoff
-    let retries = 3;
-    let success = false;
+    options.onProgress(`[24/7] START: ${category} ab Seite ${current}`);
 
-    while (retries > 0 && !success) {
-      try {
-        const urls = await this.getPageUrls(category, current);
-        options.onProgress(`📄 24/7: ${urls.length} URLs in ${category} (page=${current})`);
+    // Loop durch ALLE Seiten bis keine URLs mehr
+    let emptyPageCount = 0;
+    while (this.isRunning && emptyPageCount < 3) { // Stop nach 3 leeren Seiten
+      // Retry logic with exponential backoff
+      let retries = 3;
+      let success = false;
 
-        for (const url of urls) {
-          if (!this.isRunning) break;
-          const listing = await this.processListing(url, category, options.onProgress);
-          if (listing) {
-            options.onListingFound(listing);
-            options.onProgress(`💎 24/7 FUND: ${listing.title} - €${listing.price}`);
+      while (retries > 0 && !success) {
+        try {
+          const urls = await this.getPageUrls(category, current);
+
+          // Wenn keine URLs mehr -> wahrscheinlich am Ende
+          if (urls.length === 0) {
+            emptyPageCount++;
+            options.onProgress(`[24/7] ${category} Seite ${current}: Leer (${emptyPageCount}/3)`);
+            if (emptyPageCount >= 3) {
+              options.onProgress(`[24/7] ${category}: Ende erreicht - Reset auf Seite 1`);
+              this.pageState[category] = 1;
+              await this.saveStateSafe();
+              return;
+            }
+            current++;
+            success = true;
+            break;
           }
-          await this.sleep(8000 + Math.random() * 7000); // 8-15s
-        }
 
-        // advance page (linear)
-        this.pageState[category] = current + 1;
-        await this.saveStateSafe();
-        success = true;
+          emptyPageCount = 0; // Reset wenn URLs gefunden
+          options.onProgress(`[24/7] ${category} Seite ${current}: ${urls.length} URLs`);
 
-      } catch (error: any) {
-        retries--;
-        if (retries > 0) {
-          const backoff = (4 - retries) * 10000; // 10s, 20s, 30s
-          options.onProgress(`⚠️ 24/7 Error ${category}: ${error?.message || error} - Retry in ${backoff/1000}s (${retries} left)`);
-          await this.sleep(backoff);
-        } else {
-          options.onProgress(`❌ 24/7 FATAL ${category}: ${error?.message || error} - Skipping page ${current}`);
-          // Only skip page after all retries exhausted
-          this.pageState[category] = current + 1;
+          let foundCount = 0;
+          let skippedCount = 0;
+
+          for (const url of urls) {
+            if (!this.isRunning) break;
+            const listing = await this.processListing(url, category, options.onProgress);
+            if (listing) {
+              foundCount++;
+              options.onListingFound(listing);
+              options.onProgress(`[24/7] FUND #${foundCount}: ${listing.title} - EUR ${listing.price}`);
+            } else {
+              skippedCount++;
+            }
+            await this.sleep(1000 + Math.random() * 1000); // 1-2s - SCHNELL!
+          }
+
+          options.onProgress(`[24/7] ${category} Seite ${current}: ${foundCount} private, ${skippedCount} gefiltert`);
+
+          // Naechste Seite
+          current++;
+          this.pageState[category] = current;
           await this.saveStateSafe();
+          success = true;
+
+        } catch (error: any) {
+          retries--;
+          if (retries > 0) {
+            const backoff = (4 - retries) * 5000; // 5s, 10s, 15s
+            options.onProgress(`[24/7] Error ${category}: ${error?.message || error} - Retry in ${backoff/1000}s (${retries} left)`);
+            await this.sleep(backoff);
+          } else {
+            options.onProgress(`[24/7] FATAL ${category}: ${error?.message || error} - Skipping page ${current}`);
+            current++;
+            this.pageState[category] = current;
+            await this.saveStateSafe();
+            success = true; // Continue to next page
+          }
         }
       }
     }
@@ -240,16 +254,28 @@ export class ContinuousScraper247Service {
       const $ = cheerio.load(html);
       const bodyText = $('body').text().toLowerCase();
 
-      // 24/7 Scraper: Nur Commercial-Filter, KEIN Private-Filter!
+      // 24/7 Scraper: NUR PRIVATE LISTINGS!
+      // 1. Commercial-Filter (Bauträger, Projektentwickler etc.)
       const commercial = [
         'neubauprojekt','erstbezug','bauträger','anleger','wohnprojekt','immobilienmakler','provisionsaufschlag','fertigstellung','projektentwicklung','immobilienvertrieb','immobilienbüro'
       ];
       if (commercial.some(k => bodyText.includes(k))) return null;
 
-      // Extrahiere ALLE Listings (nicht nur private)
+      // 2. Private-Filter: NUR Listings mit Private-Keywords
+      const privateKeywords = [
+        'privatverkauf','privat verkauf','von privat','privater verkäufer','privater anbieter','ohne makler','verkaufe privat','privat zu verkaufen','eigenheim verkauf','private anzeige'
+      ];
+
+      const foundPrivate = privateKeywords.find(keyword =>
+        bodyText.includes(keyword.toLowerCase())
+      );
+
+      if (!foundPrivate) return null; // Kein Private-Keyword → Skip!
+
+      // Extrahiere Private Listings
       const title = this.extractTitle($);
       const price = this.extractPrice($, bodyText);
-      const area = this.extractArea($);
+      const area = this.extractArea($, bodyText);
       const locJson = this.extractLocationFromJson(html);
       const location = locJson || this.extractLocation($, url);
       const phoneNumber = this.extractPhoneNumber(html, $);
@@ -322,15 +348,12 @@ export class ContinuousScraper247Service {
     return digits || 0;
   }
 
-  private extractArea($: cheerio.CheerioAPI): number {
-    const selectors = ['[data-testid="ad-detail-ad-properties"]', '.AdDetailProperties'];
-    for (const selector of selectors) {
-      const element = $(selector);
-      const text = element.text();
-      const areaMatch = text.match(/(\d+)[\s]*m²/i);
-      if (areaMatch) return parseInt(areaMatch[1]);
-    }
-    return 0;
+  private extractArea($: cheerio.CheerioAPI, bodyText: string): number {
+    // V3 Method: Better extraction with multiple fallbacks
+    const m1 = $('span:contains("m²"), div:contains("Wohnfläche"), div:contains("Grundstücksfläche")').text().match(/(\d{1,4})\s*m²/i);
+    if (m1) return parseInt(m1[1]);
+    const m2 = bodyText.match(/(\d{1,3})\s*m²/i);
+    return m2 ? parseInt(m2[1]) : 0;
   }
 
   // V3 Location Extraction with Multiple Fallbacks

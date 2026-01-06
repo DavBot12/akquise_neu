@@ -25,7 +25,7 @@ export default function ScraperConsole() {
   const [keyword, setKeyword] = useState("privat"); // Keyword-Filter
   const [scraper247Status, setScraper247Status] = useState<{isRunning: boolean, currentCycle: number}>({isRunning: false, currentCycle: 0});
   const [logs, setLogs] = useState<string[]>([
-    "[INFO] Scraper bereit zum Start...",
+    "[INFO] V3 Scraper bereit - NUR Privatverkäufe!",
   ]);
   const [scraperStatus, setScraperStatus] = useState("Bereit");
   const [scraperStats, setScraperStats] = useState({

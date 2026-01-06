@@ -18,7 +18,22 @@
       "Bash(taskkill:*)",
       "Bash(npm audit:*)",
       "Bash(npm install)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd.exe /c \"taskkill /PID 7552 /F\")",
+      "Bash(powershell -Command \"Stop-Process -Id 7552 -Force\")",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 39648 -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Id 46932 -Force\")",
+      "Bash(powershell -Command \"Stop-Process -Id 17844 -Force\")",
+      "Bash(powershell -Command \"Get-Process | Where-Object {$_ProcessName -eq ''node''} | Select-Object Id, ProcessName\")",
+      "Bash(powershell -Command \"Stop-Process -Id 7620 -Force\")",
+      "Bash(powershell:*)",
+      "Bash(npx drizzle-kit generate)",
+      "Bash(npx drizzle-kit push:*)"
     ]
   }
 }

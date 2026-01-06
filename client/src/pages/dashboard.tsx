@@ -317,7 +317,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           </div>
         )}
 
-        {/* Price Spiegel Tab */}
+        {/* Price Spiegel Tab
         {activeTab === "preisspiegel" && (
           <div className="h-full">
             <div className="p-6 border-b border-gray-200 bg-white">
@@ -332,23 +332,23 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <PriceMirror />
             </div>
           </div>
-        )}
+        )} */}
 
-        {/* Statistics Tab */}
+        {/* Statistics Tab
         {activeTab === "statistiken" && (
           <div className="h-full">
             <Statistics user={user!} />
           </div>
-        )}
+        )} */}
 
-        {/* Price Scraper Tab - Admin only */}
+        {/* Price Scraper Tab - Admin only
         {user?.is_admin && activeTab === "price-scraper" && (
           <div className="h-full">
             <div className="p-6">
               <PriceMirrorControl />
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Deleted Listings Tab - Admin only */}
         {user?.is_admin && activeTab === "deleted" && (
