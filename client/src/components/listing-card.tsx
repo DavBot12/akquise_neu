@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AkquiseModal } from "@/components/akquise-modal";
-import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone } from "lucide-react";
+import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import type { Listing } from "@shared/schema";
@@ -12,10 +12,11 @@ interface ListingCardProps {
   listing: Listing;
   onMarkCompleted: (id: number) => void;
   isMarkingCompleted: boolean;
+  onDelete?: (id: number, reason?: string) => void;
   user?: { id: number; username: string };
 }
 
-export default function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, user }: ListingCardProps) {
+export default function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, user }: ListingCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAkquiseModal, setShowAkquiseModal] = useState(false);
   const { toast } = useToast();
@@ -171,22 +172,40 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
         </div>
         
         <div className="flex space-x-2">
-          <Button 
-            className="flex-1" 
+          <Button
+            className="flex-1"
             onClick={() => setShowAkquiseModal(true)}
             disabled={isMarkingCompleted}
           >
             <Check className="mr-1 h-4 w-4" />
             {listing.akquise_erledigt ? "Erledigt" : "Akquise erledigt"}
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => window.open(listing.url, '_blank')}
             title="Original-Anzeige öffnen"
           >
             <ExternalLink className="h-4 w-4" />
           </Button>
+          {onDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (window.confirm("Dieses Inserat als unattraktiv markieren und ausblenden?")) {
+                  onDelete(listing.id, "Unattraktiv");
+                  toast({
+                    title: "Inserat versteckt",
+                    description: "Das Inserat wurde als unattraktiv markiert",
+                  });
+                }
+              }}
+              title="Als unattraktiv markieren"
+            >
+              <Trash2 className="h-4 w-4 text-red-600" />
+            </Button>
+          )}
         </div>
       </CardContent>
       

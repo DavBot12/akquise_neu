@@ -3,11 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { Building, ChartLine, Users, TrendingUp, LogOut, User } from "lucide-react";
+import { Building, ChartLine, TrendingUp, LogOut, User } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ListingCard from "@/components/listing-card";
-import ContactCard from "@/components/contact-card";
-import ContactModal from "@/components/contact-modal";
 import ScraperConsole from "@/components/scraper-console";
 import ScraperDualConsole from "@/components/scraper-dual-console";
 import PriceMirror from "@/components/price-mirror";
@@ -25,8 +23,6 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [regionFilter, setRegionFilter] = useState("Alle Regionen");
   const [priceFilter, setPriceFilter] = useState("Alle Preise");
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -49,12 +45,27 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       if (priceFilter !== "Alle Preise") params.append("price_evaluation", priceFilter);
       // WICHTIG: Verstecke erledigte Akquisen vom Dashboard
       params.append("akquise_erledigt", "false");
-      
+
       const url = `/api/listings${params.toString() ? '?' + params.toString() : ''}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch listings');
       return response.json();
     },
+  });
+
+  // Fetch deleted listings for admin
+  const { data: deletedListings = [], isLoading: deletedLoading } = useQuery<Listing[]>({
+    queryKey: ["/api/listings", "deleted"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append("is_deleted", "true");
+
+      const url = `/api/listings?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch deleted listings');
+      return response.json();
+    },
+    enabled: user?.is_admin && activeTab === "deleted", // Only fetch when admin views the tab
   });
 
   // Fetch stats
@@ -64,11 +75,6 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     lastScrape: string | null;
   }>({
     queryKey: ["/api/listings/stats"],
-  });
-
-  // Fetch contacts
-  const { data: contacts = [] } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts"],
   });
 
   // Mark listing as completed
@@ -84,6 +90,21 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
 
   const handleMarkCompleted = (id: number) => {
     markCompletedMutation.mutate({ id, akquise_erledigt: true });
+  };
+
+  // Delete listing mutation
+  const deleteListingMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason?: string }) => {
+      await apiRequest("DELETE", `/api/listings/${id}`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/listings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/listings/stats"] });
+    },
+  });
+
+  const handleDeleteListing = (id: number, reason?: string) => {
+    deleteListingMutation.mutate({ id, reason });
   };
 
   const formatLastScrape = (lastScrape: string | null) => {
@@ -129,16 +150,8 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   className="w-full justify-start"
                   onClick={() => setActiveTab("scraper")}
                 >
-                  <Users className="mr-3 h-4 w-4" />
+                  <Building className="mr-3 h-4 w-4" />
                   Scraper Console
-                </Button>
-                <Button
-                  variant={activeTab === "contacts" ? "default" : "ghost"}
-                  className="w-full justify-start"
-                  onClick={() => setActiveTab("contacts")}
-                >
-                  <Users className="mr-3 h-4 w-4" />
-                  Kontakte
                 </Button>
                 <Button
                   variant={activeTab === "price-scraper" ? "default" : "ghost"}
@@ -166,6 +179,16 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <ChartLine className="mr-3 h-4 w-4" />
               Statistiken
             </Button>
+            {user?.is_admin && (
+              <Button
+                variant={activeTab === "deleted" ? "default" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => setActiveTab("deleted")}
+              >
+                <Building className="mr-3 h-4 w-4" />
+                Gelöschte Inserate
+              </Button>
+            )}
           </div>
         </nav>
 
@@ -277,6 +300,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       listing={listing}
                       onMarkCompleted={handleMarkCompleted}
                       isMarkingCompleted={markCompletedMutation.isPending}
+                      onDelete={handleDeleteListing}
                       user={user}
                     />
                   ))}
@@ -290,47 +314,6 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
         {user?.is_admin && activeTab === "scraper" && (
           <div className="h-full">
             <ScraperDualConsole />
-          </div>
-        )}
-
-        {/* Contacts Tab - Admin only */}
-        {user?.is_admin && activeTab === "contacts" && (
-          <div className="h-full">
-            <div className="p-6 border-b border-gray-200 bg-white">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">🏗️ Wichtige Kontakte</h2>
-                  <p className="text-gray-600 mt-1">Immobilienentwickler und Investoren verwalten</p>
-                </div>
-                <Button onClick={() => setIsContactModalOpen(true)}>
-                  Neuer Kontakt
-                </Button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {contacts.map((contact) => (
-                  <ContactCard
-                    key={contact.id}
-                    contact={contact}
-                    onEdit={(contact) => {
-                      setEditingContact(contact);
-                      setIsContactModalOpen(true);
-                    }}
-                  />
-                ))}
-                
-                {/* Add New Contact Card */}
-                <div 
-                  className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center text-gray-500 hover:border-primary hover:text-primary transition-colors cursor-pointer"
-                  onClick={() => setIsContactModalOpen(true)}
-                >
-                  <Building className="h-8 w-8 mb-3" />
-                  <span className="font-medium">Neuen Kontakt hinzufügen</span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -366,19 +349,56 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
             </div>
           </div>
         )}
-      </main>
 
-      {/* Contact Modal - Admin only */}
-      {user?.is_admin && (
-        <ContactModal
-          isOpen={isContactModalOpen}
-          onClose={() => {
-            setIsContactModalOpen(false);
-            setEditingContact(null);
-          }}
-          contact={editingContact}
-        />
-      )}
+        {/* Deleted Listings Tab - Admin only */}
+        {user?.is_admin && activeTab === "deleted" && (
+          <div className="h-full">
+            <div className="p-6 border-b border-gray-200 bg-white">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Gelöschte / Unattraktive Inserate</h2>
+                  <p className="text-gray-600 mt-1">Vom User als unattraktiv markierte Listings</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 h-full overflow-y-auto">
+              {deletedLoading ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 animate-pulse">
+                      <div className="h-48 bg-gray-200 rounded mb-4"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : deletedListings.length === 0 ? (
+                <div className="text-center py-12">
+                  <Building className="mx-auto h-12 w-12 mb-4 text-gray-400" />
+                  <p className="text-gray-500">Keine gelöschten Inserate</p>
+                  <p className="text-sm text-gray-400 mt-2">Inserate die als unattraktiv markiert wurden erscheinen hier</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="col-span-full mb-4">
+                    <p className="text-sm text-gray-600">{deletedListings.length} gelöschte Listing{deletedListings.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {deletedListings.map((listing) => (
+                    <ListingCard
+                      key={listing.id}
+                      listing={listing}
+                      onMarkCompleted={handleMarkCompleted}
+                      isMarkingCompleted={markCompletedMutation.isPending}
+                      user={user}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

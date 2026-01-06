@@ -37,14 +37,17 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   // Listing methods
-  getListings(filters?: { 
-    akquise_erledigt?: boolean; 
-    region?: string; 
+  getListings(filters?: {
+    akquise_erledigt?: boolean;
+    region?: string;
     price_evaluation?: string;
+    is_deleted?: boolean;
   }): Promise<Listing[]>;
   getListingById(id: number): Promise<Listing | undefined>;
+  getListingByUrl(url: string): Promise<Listing | undefined>;
   createListing(listing: InsertListing): Promise<Listing>;
   updateListingAkquiseStatus(id: number, akquise_erledigt: boolean): Promise<void>;
+  markListingAsDeleted(id: number, reason?: string): Promise<void>;
   getListingStats(): Promise<{
     activeListings: number;
     completedListings: number;
@@ -131,15 +134,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Listing methods
-  async getListings(filters?: { 
-    akquise_erledigt?: boolean; 
-    region?: string; 
+  async getListings(filters?: {
+    akquise_erledigt?: boolean;
+    region?: string;
     price_evaluation?: string;
+    is_deleted?: boolean;
   }): Promise<Listing[]> {
     let query = db.select().from(listings);
-    
+
+    const conditions = [];
+
+    // Standardmäßig nur nicht-gelöschte Listings anzeigen (außer explizit angefordert)
+    if (filters?.is_deleted !== undefined) {
+      conditions.push(eq(listings.is_deleted, filters.is_deleted));
+    } else {
+      conditions.push(eq(listings.is_deleted, false));
+    }
+
     if (filters) {
-      const conditions = [];
       if (filters.akquise_erledigt !== undefined) {
         conditions.push(eq(listings.akquise_erledigt, filters.akquise_erledigt));
       }
@@ -149,17 +161,22 @@ export class DatabaseStorage implements IStorage {
       if (filters.price_evaluation) {
         conditions.push(eq(listings.price_evaluation, filters.price_evaluation as any));
       }
-      
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions)) as any;
-      }
     }
-    
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
     return await query.orderBy(desc(listings.scraped_at));
   }
 
   async getListingById(id: number): Promise<Listing | undefined> {
     const [listing] = await db.select().from(listings).where(eq(listings.id, id));
+    return listing || undefined;
+  }
+
+  async getListingByUrl(url: string): Promise<Listing | undefined> {
+    const [listing] = await db.select().from(listings).where(eq(listings.url, url));
     return listing || undefined;
   }
 
@@ -175,6 +192,16 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(listings)
       .set({ akquise_erledigt })
+      .where(eq(listings.id, id));
+  }
+
+  async markListingAsDeleted(id: number, reason?: string): Promise<void> {
+    await db
+      .update(listings)
+      .set({
+        is_deleted: true,
+        deletion_reason: reason || "Vom User versteckt"
+      })
       .where(eq(listings.id, id));
   }
 

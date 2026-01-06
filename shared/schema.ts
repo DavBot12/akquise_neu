@@ -16,6 +16,8 @@ export const listings = pgTable("listings", {
   url: text("url").notNull().unique(),
   scraped_at: timestamp("scraped_at").defaultNow().notNull(),
   akquise_erledigt: boolean("akquise_erledigt").default(false).notNull(),
+  is_deleted: boolean("is_deleted").default(false).notNull(),
+  deletion_reason: text("deletion_reason"),
   price_evaluation: text("price_evaluation").$type<"unter_schnitt" | "im_schnitt" | "ueber_schnitt">(),
   category: text("category").notNull(), // eigentumswohnung or grundstueck
   region: text("region").notNull(), // wien or niederoesterreich

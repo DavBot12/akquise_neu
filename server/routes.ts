@@ -72,6 +72,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/listings/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      await storage.markListingAsDeleted(parseInt(id), reason);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete listing" });
+    }
+  });
+
   // Contacts routes
   app.get("/api/contacts", async (req, res) => {
     try {
@@ -366,18 +377,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         onListingFound: async (listingData: any) => {
           try {
+            // Check ob bereits in DB
+            const existing = await storage.getListingByUrl(listingData.url);
+            if (existing) {
+              console.log('[24/7-DB] Skip (bereits vorhanden):', listingData.title.substring(0, 50));
+              return;
+            }
+
+            console.log('[24/7-DB] Speichere Listing:', listingData.title, '-', listingData.price);
+
             // Price evaluation
             const priceEvaluation = await priceEvaluator.evaluateListing(
               listingData.eur_per_m2,
               listingData.region
             );
-            
+
             // Save to database
             const listing = await storage.createListing({
               ...listingData,
               price_evaluation: priceEvaluation
             });
-            
+
+            console.log('[24/7-DB] ✓ Gespeichert in DB:', listing.id);
+
             // Broadcast new listing
             wss.clients.forEach(client => {
               if (client.readyState === WebSocket.OPEN) {
@@ -385,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             });
           } catch (error) {
-            console.error('Error saving 24/7 listing:', error);
+            console.error('[24/7-DB] ✗ Fehler beim Speichern:', error);
           }
         }
       };

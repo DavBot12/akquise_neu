@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,16 +23,29 @@ export default function ScraperDualConsole() {
   const [delay, setDelay] = useState(2000);
   const [keyword, setKeyword] = useState("privat");
   const [logs, setLogs] = useState<string[]>([
-    "[INFO] Dual-Scraper System bereit - V3 (händisch) + 24/7 (automatisch)",
+    "[INFO] Dual-Scraper System bereit - Beide filtern NUR Privatverkäufe!",
   ]);
   const [scraperStatus, setScraperStatus] = useState("Bereit");
   const [scraper247Status, setScraper247Status] = useState({
-    isRunning: false, 
+    isRunning: false,
     currentCycle: 0
   });
 
   const logContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Fetch 24/7 scraper status on mount to restore state after reload
+  const { data: status247 } = useQuery<{ isRunning: boolean; currentCycle: number }>({
+    queryKey: ["/api/scraper/status-247"],
+    refetchInterval: 5000, // Poll every 5 seconds to keep status in sync
+  });
+
+  // Update scraper247Status when backend status changes
+  useEffect(() => {
+    if (status247) {
+      setScraper247Status(status247);
+    }
+  }, [status247]);
 
   // WebSocket for real-time scraper updates
   useWebSocket("/ws", {
@@ -41,6 +54,13 @@ export default function ScraperDualConsole() {
         const message = data.message || data.data;
         setLogs(prev => [...prev, message]);
         scrollToBottom();
+
+        // Extract cycle number from [24/7] CYCLE messages
+        const cycleMatch = message.match(/\[24\/7\]\s+CYCLE\s+(\d+)/i);
+        if (cycleMatch) {
+          const cycleNum = parseInt(cycleMatch[1]);
+          setScraper247Status(prev => ({ ...prev, currentCycle: cycleNum }));
+        }
       } else if (data.type === "scraperStatus") {
         setScraperStatus(data.status);
       } else if (data.type === "newListing") {
@@ -260,14 +280,14 @@ export default function ScraperDualConsole() {
 
               {/* 24/7 Scraper */}
               <div className="border rounded-lg p-4 bg-green-50">
-                <h4 className="font-semibold text-green-800 mb-3">🚀 24/7 Automatisch (OHNE Filter)</h4>
+                <h4 className="font-semibold text-green-800 mb-3">🚀 24/7 Automatisch (Private Only)</h4>
 
                 <div className="space-y-3">
                   <div className="text-sm text-gray-600">
                     • Läuft kontinuierlich im Hintergrund<br/>
-                    • Sammelt ALLE Listings (nicht nur private)<br/>
-                    • Nur Commercial-Filter (Bauträger etc.)<br/>
-                    • Maximale Abdeckung für Analyse
+                    • NUR Privatverkäufe (keine Makler!)<br/>
+                    • Commercial + Private-Filter aktiv<br/>
+                    • Perfekt für Akquise-Pipeline
                   </div>
                   
                   {scraper247Status.isRunning && (
