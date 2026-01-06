@@ -153,32 +153,35 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   <Building className="mr-3 h-4 w-4" />
                   Scraper Console
                 </Button>
-                <Button
+                {/* V10: Preisspiegel Scraper ausgeblendet */}
+                {/* <Button
                   variant={activeTab === "price-scraper" ? "default" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setActiveTab("price-scraper")}
                 >
                   <TrendingUp className="mr-3 h-4 w-4" />
                   Preisspiegel Scraper
-                </Button>
+                </Button> */}
               </>
             )}
-            <Button
+            {/* V10: Preisspiegel ausgeblendet */}
+            {/* <Button
               variant={activeTab === "preisspiegel" ? "default" : "ghost"}
               className="w-full justify-start"
               onClick={() => setActiveTab("preisspiegel")}
             >
               <TrendingUp className="mr-3 h-4 w-4" />
               Preisspiegel
-            </Button>
-            <Button
+            </Button> */}
+            {/* V10: Statistiken ausgeblendet */}
+            {/* <Button
               variant={activeTab === "statistiken" ? "default" : "ghost"}
               className="w-full justify-start"
               onClick={() => setActiveTab("statistiken")}
             >
               <ChartLine className="mr-3 h-4 w-4" />
               Statistiken
-            </Button>
+            </Button> */}
             {user?.is_admin && (
               <Button
                 variant={activeTab === "deleted" ? "default" : "ghost"}

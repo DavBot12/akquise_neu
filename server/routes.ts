@@ -20,19 +20,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Listings routes
   app.get("/api/listings", async (req, res) => {
     try {
-      const { region, price_evaluation, akquise_erledigt } = req.query;
+      const { region, price_evaluation, akquise_erledigt, is_deleted } = req.query;
       const filters: any = {};
-      
+
       if (region && region !== "Alle Regionen") filters.region = region;
       if (price_evaluation && price_evaluation !== "Alle Preise") {
         const mapping: { [key: string]: string } = {
           "Unter dem Schnitt": "unter_schnitt",
-          "Im Schnitt": "im_schnitt", 
+          "Im Schnitt": "im_schnitt",
           "Über dem Schnitt": "ueber_schnitt"
         };
         filters.price_evaluation = mapping[price_evaluation as string];
       }
       if (akquise_erledigt !== undefined) filters.akquise_erledigt = akquise_erledigt === "true";
+      if (is_deleted !== undefined) filters.is_deleted = is_deleted === "true";
 
       const listings = await storage.getListings(filters);
       res.json(listings);
