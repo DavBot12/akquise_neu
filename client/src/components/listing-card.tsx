@@ -85,14 +85,11 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <div className="relative">
-        <img 
-          src={images[currentImageIndex]} 
+        <img
+          src={images[currentImageIndex]}
           alt={listing.title}
           className="w-full h-48 object-cover"
         />
-        <div className="absolute top-3 left-3">
-          {getPriceEvaluationBadge(listing.price_evaluation || "im_schnitt")}
-        </div>
         {images.length > 1 && (
           <>
             <div className="absolute top-3 right-3">

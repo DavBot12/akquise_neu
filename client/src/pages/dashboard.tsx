@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,10 +23,10 @@ interface DashboardProps {
 export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [regionFilter, setRegionFilter] = useState("Alle Regionen");
-  const [priceFilter, setPriceFilter] = useState("Alle Preise");
+  const [bezirkFilter, setBezirkFilter] = useState("Alle Bezirke");
   const [categoryFilter, setCategoryFilter] = useState("Alle Kategorien");
   const [phoneFilter, setPhoneFilter] = useState("Alle");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500000]);
 
   const queryClient = useQueryClient();
 
@@ -40,18 +40,34 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     },
   });
 
+  // Invalidate queries when switching tabs to ensure fresh data
+  useEffect(() => {
+    if (activeTab === "successful") {
+      queryClient.invalidateQueries({ queryKey: ["/api/listings/successful"] });
+    } else if (activeTab === "deleted") {
+      queryClient.invalidateQueries({ queryKey: ["/api/listings/deleted-unsuccessful"] });
+    }
+  }, [activeTab, queryClient]);
+
+  // Reset Bezirk filter when region changes to non-Wien
+  useEffect(() => {
+    if (regionFilter !== "wien") {
+      setBezirkFilter("Alle Bezirke");
+    }
+  }, [regionFilter]);
+
   // Fetch listings with proper query parameters - HIDE COMPLETED ACQUISITIONS
   const { data: listings = [], isLoading: listingsLoading } = useQuery<Listing[]>({
-    queryKey: ["/api/listings", regionFilter, priceFilter, categoryFilter, phoneFilter, priceRange],
+    queryKey: ["/api/listings", regionFilter, bezirkFilter, categoryFilter, phoneFilter, priceRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
-      if (priceFilter !== "Alle Preise") params.append("price_evaluation", priceFilter);
+      if (bezirkFilter !== "Alle Bezirke") params.append("district", bezirkFilter);
       if (categoryFilter !== "Alle Kategorien") params.append("category", categoryFilter);
       if (phoneFilter === "Nur mit Telefonnummer") params.append("has_phone", "true");
       if (phoneFilter === "Nur ohne Telefonnummer") params.append("has_phone", "false");
       if (priceRange[0] > 0) params.append("min_price", priceRange[0].toString());
-      if (priceRange[1] < 1000000) params.append("max_price", priceRange[1].toString());
+      if (priceRange[1] < 1500000) params.append("max_price", priceRange[1].toString());
       // WICHTIG: Verstecke erledigte Akquisen vom Dashboard
       params.append("akquise_erledigt", "false");
 
@@ -62,19 +78,31 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     },
   });
 
-  // Fetch deleted listings for admin
-  const { data: deletedListings = [], isLoading: deletedLoading } = useQuery<Listing[]>({
-    queryKey: ["/api/listings", "deleted"],
+  // Fetch deleted + unsuccessful listings for admin
+  const { data: deletedListings = [], isLoading: deletedLoading } = useQuery<any[]>({
+    queryKey: ["/api/listings/deleted-unsuccessful"],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      params.append("is_deleted", "true");
-
-      const url = `/api/listings?${params.toString()}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch deleted listings');
+      const response = await fetch('/api/listings/deleted-unsuccessful');
+      if (!response.ok) throw new Error('Failed to fetch deleted/unsuccessful listings');
       return response.json();
     },
     enabled: user?.is_admin && activeTab === "deleted", // Only fetch when admin views the tab
+    refetchOnMount: 'always',
+  });
+
+  // Fetch successful acquisitions
+  const { data: successfulListings = [], isLoading: successfulLoading } = useQuery<any[]>({
+    queryKey: ["/api/listings/successful", user?.is_admin ? undefined : user?.id],
+    queryFn: async () => {
+      const url = user?.is_admin
+        ? '/api/listings/successful'
+        : `/api/listings/successful?userId=${user?.id}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch successful acquisitions');
+      return response.json();
+    },
+    enabled: activeTab === "successful",
+    refetchOnMount: 'always',
   });
 
   // Fetch stats
@@ -103,8 +131,8 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
 
   // Delete listing mutation
   const deleteListingMutation = useMutation({
-    mutationFn: async ({ id, reason }: { id: number; reason?: string }) => {
-      await apiRequest("DELETE", `/api/listings/${id}`, { reason });
+    mutationFn: async ({ id, reason, userId }: { id: number; reason?: string; userId?: number }) => {
+      await apiRequest("DELETE", `/api/listings/${id}`, { reason, userId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/listings"] });
@@ -113,7 +141,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   });
 
   const handleDeleteListing = (id: number, reason?: string) => {
-    deleteListingMutation.mutate({ id, reason });
+    deleteListingMutation.mutate({ id, reason, userId: user?.id });
   };
 
   const formatLastScrape = (lastScrape: string | null) => {
@@ -201,6 +229,14 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                 Gelöschte Inserate
               </Button>
             )}
+            <Button
+              variant={activeTab === "successful" ? "default" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setActiveTab("successful")}
+            >
+              <ChartLine className="mr-3 h-4 w-4" />
+              Erfolgreiche Akquisen
+            </Button>
           </div>
         </nav>
 
@@ -270,6 +306,40 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                     </SelectContent>
                   </Select>
 
+                  {regionFilter === "wien" && (
+                    <Select value={bezirkFilter} onValueChange={setBezirkFilter}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Alle Bezirke">Alle Bezirke</SelectItem>
+                        <SelectItem value="1">1. Innere Stadt</SelectItem>
+                        <SelectItem value="2">2. Leopoldstadt</SelectItem>
+                        <SelectItem value="3">3. Landstraße</SelectItem>
+                        <SelectItem value="4">4. Wieden</SelectItem>
+                        <SelectItem value="5">5. Margareten</SelectItem>
+                        <SelectItem value="6">6. Mariahilf</SelectItem>
+                        <SelectItem value="7">7. Neubau</SelectItem>
+                        <SelectItem value="8">8. Josefstadt</SelectItem>
+                        <SelectItem value="9">9. Alsergrund</SelectItem>
+                        <SelectItem value="10">10. Favoriten</SelectItem>
+                        <SelectItem value="11">11. Simmering</SelectItem>
+                        <SelectItem value="12">12. Meidling</SelectItem>
+                        <SelectItem value="13">13. Hietzing</SelectItem>
+                        <SelectItem value="14">14. Penzing</SelectItem>
+                        <SelectItem value="15">15. Rudolfsheim-Fünfhaus</SelectItem>
+                        <SelectItem value="16">16. Ottakring</SelectItem>
+                        <SelectItem value="17">17. Hernals</SelectItem>
+                        <SelectItem value="18">18. Währing</SelectItem>
+                        <SelectItem value="19">19. Döbling</SelectItem>
+                        <SelectItem value="20">20. Brigittenau</SelectItem>
+                        <SelectItem value="21">21. Floridsdorf</SelectItem>
+                        <SelectItem value="22">22. Donaustadt</SelectItem>
+                        <SelectItem value="23">23. Liesing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-48">
                       <SelectValue />
@@ -301,7 +371,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       value={priceRange}
                       onValueChange={(value) => setPriceRange(value as [number, number])}
                       min={0}
-                      max={1000000}
+                      max={1500000}
                       step={10000}
                       className="w-full"
                     />
@@ -423,13 +493,99 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                     <p className="text-sm text-gray-600">{deletedListings.length} gelöschte Listing{deletedListings.length !== 1 ? 's' : ''}</p>
                   </div>
                   {deletedListings.map((listing) => (
-                    <ListingCard
-                      key={listing.id}
-                      listing={listing}
-                      onMarkCompleted={handleMarkCompleted}
-                      isMarkingCompleted={markCompletedMutation.isPending}
-                      user={user}
-                    />
+                    <div key={listing.id} className="relative">
+                      <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${listing.source === 'deleted' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {listing.source === 'deleted' ? 'Gelöscht' : 'Nicht erfolgreich'}
+                        </span>
+                        {listing.username && (
+                          <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700">
+                            User: {listing.username}
+                          </span>
+                        )}
+                      </div>
+                      <ListingCard
+                        listing={listing}
+                        onMarkCompleted={handleMarkCompleted}
+                        isMarkingCompleted={markCompletedMutation.isPending}
+                        user={user}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Successful Acquisitions Tab */}
+        {activeTab === "successful" && (
+          <div className="h-full">
+            <div className="p-6 border-b border-gray-200 bg-white">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Erfolgreiche Akquisen</h2>
+                  <p className="text-gray-600 mt-1">
+                    {user?.is_admin ? 'Alle erfolgreichen Akquisitionen' : 'Ihre erfolgreichen Akquisitionen'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 h-full overflow-y-auto">
+              {successfulLoading ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 animate-pulse">
+                      <div className="h-48 bg-gray-200 rounded mb-4"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : successfulListings.length === 0 ? (
+                <div className="text-center py-12">
+                  <ChartLine className="mx-auto h-12 w-12 mb-4 text-gray-400" />
+                  <p className="text-gray-500">Keine erfolgreichen Akquisen</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    {user?.is_admin ? 'Noch keine erfolgreichen Akquisitionen' : 'Sie haben noch keine erfolgreichen Akquisitionen'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="col-span-full mb-4">
+                    <p className="text-sm text-gray-600">{successfulListings.length} erfolgreiche Akquise{successfulListings.length !== 1 ? 'n' : ''}</p>
+                  </div>
+                  {successfulListings.map((listing) => (
+                    <div key={listing.id} className="relative">
+                      <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+                        <span className="px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-700">
+                          Erfolgreich
+                        </span>
+                        {user?.is_admin && listing.username && (
+                          <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700">
+                            User: {listing.username}
+                          </span>
+                        )}
+                        {listing.contacted_at && (
+                          <span className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700">
+                            {new Date(listing.contacted_at).toLocaleDateString('de-DE')}
+                          </span>
+                        )}
+                      </div>
+                      <ListingCard
+                        listing={listing}
+                        onMarkCompleted={handleMarkCompleted}
+                        isMarkingCompleted={markCompletedMutation.isPending}
+                        user={user}
+                      />
+                      {listing.notes && (
+                        <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-600 font-medium mb-1">Notizen:</p>
+                          <p className="text-sm text-gray-700">{listing.notes}</p>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

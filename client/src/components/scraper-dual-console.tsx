@@ -159,8 +159,10 @@ export default function ScraperDualConsole() {
   const categories = [
     { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
     { id: "grundstueck-wien", label: "Grundstücke Wien" },
+    { id: "haus-wien", label: "Häuser Wien" },
     { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
     { id: "grundstueck-niederoesterreich", label: "Grundstücke NÖ" },
+    { id: "haus-niederoesterreich", label: "Häuser NÖ" },
   ];
 
   return (

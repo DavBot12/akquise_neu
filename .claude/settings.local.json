@@ -34,7 +34,9 @@
       "Bash(powershell:*)",
       "Bash(npx drizzle-kit generate)",
       "Bash(npx drizzle-kit push:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

@@ -40,6 +40,7 @@ export interface IStorage {
   getListings(filters?: {
     akquise_erledigt?: boolean;
     region?: string;
+    district?: string;
     price_evaluation?: string;
     is_deleted?: boolean;
     category?: string;
@@ -51,7 +52,9 @@ export interface IStorage {
   getListingByUrl(url: string): Promise<Listing | undefined>;
   createListing(listing: InsertListing): Promise<Listing>;
   updateListingAkquiseStatus(id: number, akquise_erledigt: boolean): Promise<void>;
-  markListingAsDeleted(id: number, reason?: string): Promise<void>;
+  markListingAsDeleted(id: number, userId: number, reason?: string): Promise<void>;
+  getDeletedAndUnsuccessful(): Promise<any[]>;
+  getSuccessfulAcquisitions(userId?: number): Promise<any[]>;
   getListingStats(): Promise<{
     activeListings: number;
     completedListings: number;
@@ -141,6 +144,7 @@ export class DatabaseStorage implements IStorage {
   async getListings(filters?: {
     akquise_erledigt?: boolean;
     region?: string;
+    district?: string;
     price_evaluation?: string;
     is_deleted?: boolean;
     category?: string;
@@ -165,6 +169,12 @@ export class DatabaseStorage implements IStorage {
       }
       if (filters.region) {
         conditions.push(eq(listings.region, filters.region));
+      }
+      if (filters.district) {
+        // Match only by PLZ to ensure exact district matching (e.g., 1030 for 3rd, not matching 1130 or 1230)
+        const bezirkNr = filters.district.padStart(2, '0');
+        const plz = '1' + bezirkNr + '0'; // e.g., "1030" for 3rd district, "1130" for 13th, "1230" for 23rd
+        conditions.push(sql`${listings.location} LIKE ${plz + '%'}`);
       }
       if (filters.price_evaluation) {
         conditions.push(eq(listings.price_evaluation, filters.price_evaluation as any));
@@ -218,14 +228,94 @@ export class DatabaseStorage implements IStorage {
       .where(eq(listings.id, id));
   }
 
-  async markListingAsDeleted(id: number, reason?: string): Promise<void> {
+  async markListingAsDeleted(id: number, userId: number, reason?: string): Promise<void> {
     await db
       .update(listings)
       .set({
         is_deleted: true,
-        deletion_reason: reason || "Vom User versteckt"
+        deletion_reason: reason || "Vom User versteckt",
+        deleted_by_user_id: userId
       })
       .where(eq(listings.id, id));
+  }
+
+  async getDeletedAndUnsuccessful(): Promise<any[]> {
+    // Hole gelöschte Listings mit User-Info
+    const deletedListings = await db
+      .select({
+        id: listings.id,
+        title: listings.title,
+        price: listings.price,
+        location: listings.location,
+        area: listings.area,
+        url: listings.url,
+        category: listings.category,
+        region: listings.region,
+        images: listings.images,
+        scraped_at: listings.scraped_at,
+        deletion_reason: listings.deletion_reason,
+        deleted_by_user_id: listings.deleted_by_user_id,
+        username: users.username,
+        source: sql<string>`'deleted'`
+      })
+      .from(listings)
+      .leftJoin(users, eq(listings.deleted_by_user_id, users.id))
+      .where(eq(listings.is_deleted, true));
+
+    // Hole nicht-erfolgreiche Akquisen mit Listing + User-Info
+    const unsuccessfulAcquisitions = await db
+      .select({
+        id: listings.id,
+        title: listings.title,
+        price: listings.price,
+        location: listings.location,
+        area: listings.area,
+        url: listings.url,
+        category: listings.category,
+        region: listings.region,
+        images: listings.images,
+        scraped_at: listings.scraped_at,
+        deletion_reason: acquisitions.notes,
+        deleted_by_user_id: acquisitions.user_id,
+        username: users.username,
+        source: sql<string>`'unsuccessful'`
+      })
+      .from(acquisitions)
+      .innerJoin(listings, eq(acquisitions.listing_id, listings.id))
+      .innerJoin(users, eq(acquisitions.user_id, users.id))
+      .where(eq(acquisitions.status, 'nicht_erfolgreich'));
+
+    return [...deletedListings, ...unsuccessfulAcquisitions];
+  }
+
+  async getSuccessfulAcquisitions(userId?: number): Promise<any[]> {
+    let query = db
+      .select({
+        id: listings.id,
+        title: listings.title,
+        price: listings.price,
+        location: listings.location,
+        area: listings.area,
+        url: listings.url,
+        category: listings.category,
+        region: listings.region,
+        images: listings.images,
+        scraped_at: listings.scraped_at,
+        contacted_at: acquisitions.contacted_at,
+        notes: acquisitions.notes,
+        user_id: acquisitions.user_id,
+        username: users.username
+      })
+      .from(acquisitions)
+      .innerJoin(listings, eq(acquisitions.listing_id, listings.id))
+      .innerJoin(users, eq(acquisitions.user_id, users.id))
+      .where(eq(acquisitions.status, 'erfolg'));
+
+    if (userId) {
+      query = query.where(eq(acquisitions.user_id, userId)) as any;
+    }
+
+    return await query.orderBy(desc(acquisitions.contacted_at));
   }
 
   async getListingStats(): Promise<{

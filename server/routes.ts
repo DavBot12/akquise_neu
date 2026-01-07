@@ -20,10 +20,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Listings routes
   app.get("/api/listings", async (req, res) => {
     try {
-      const { region, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price } = req.query;
+      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price } = req.query;
       const filters: any = {};
 
       if (region && region !== "Alle Regionen") filters.region = region;
+      if (district && district !== "Alle Bezirke") filters.district = district;
       if (price_evaluation && price_evaluation !== "Alle Preise") {
         const mapping: { [key: string]: string } = {
           "Unter dem Schnitt": "unter_schnitt",
@@ -80,11 +81,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/listings/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { reason } = req.body;
-      await storage.markListingAsDeleted(parseInt(id), reason);
+      const { reason, userId } = req.body;
+      await storage.markListingAsDeleted(parseInt(id), userId, reason);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete listing" });
+    }
+  });
+
+  app.get("/api/listings/deleted-unsuccessful", async (req, res) => {
+    try {
+      const results = await storage.getDeletedAndUnsuccessful();
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch deleted/unsuccessful listings" });
+    }
+  });
+
+  app.get("/api/listings/successful", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const results = await storage.getSuccessfulAcquisitions(userId ? parseInt(userId as string) : undefined);
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch successful acquisitions" });
     }
   });
 
