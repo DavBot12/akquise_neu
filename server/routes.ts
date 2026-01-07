@@ -8,14 +8,14 @@ import { db } from "./db";
 
 import { PriceEvaluator } from "./services/priceEvaluator";
 import { ScraperV3Service } from "./services/scraper-v3";
+import { NewestScraperService } from "./services/scraper-newest";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const priceEvaluator = new PriceEvaluator();
-  // Import scraper services (ONLY V3 and 24/7 - old scrapers removed!)
+  // Import scraper services (V3, 24/7, Newest)
   const { ContinuousScraper247Service } = await import('./services/scraper-24-7');
-  // const { PriceMirrorScraperService } = await import('./services/price-mirror-scraper'); // DISABLED
   const continuousScraper = new ContinuousScraper247Service();
-  // const priceMirrorService = new PriceMirrorScraperService(); // DISABLED
+  const newestScraper = new NewestScraperService();
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
@@ -343,6 +343,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (typeof safe.area === 'number') safe.area = String(safe.area);
               if (typeof safe.eur_per_m2 === 'number') safe.eur_per_m2 = String(safe.eur_per_m2);
 
+              // Check if listing already exists
+              const existing = await storage.getListingByUrl(safe.url);
+              if (existing) {
+                console.log('[V3-DB] Update (bereits vorhanden):', safe.title?.substring(0, 50));
+
+                // Update scraped_at, last_changed_at und price
+                await storage.updateListingOnRescrape(safe.url, {
+                  scraped_at: new Date(),
+                  last_changed_at: safe.last_changed_at,
+                  price: safe.price
+                });
+
+                console.log('[V3-DB] ✓ Aktualisiert:', existing.id);
+                return;
+              }
+
               const priceEvaluation = await priceEvaluator.evaluateListing(
                 Number(safe.eur_per_m2 || 0),
                 safe.region
@@ -405,7 +421,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Check ob bereits in DB
             const existing = await storage.getListingByUrl(listingData.url);
             if (existing) {
-              console.log('[24/7-DB] Skip (bereits vorhanden):', listingData.title.substring(0, 50));
+              console.log('[24/7-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
+
+              // Update scraped_at, last_changed_at und price
+              await storage.updateListingOnRescrape(listingData.url, {
+                scraped_at: new Date(),
+                last_changed_at: listingData.last_changed_at,
+                price: listingData.price
+              });
+
+              console.log('[24/7-DB] ✓ Aktualisiert:', existing.id);
               return;
             }
 
@@ -460,6 +485,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(status);
     } catch (error) {
       res.status(500).json({ message: "Failed to get 24/7 scraper status" });
+    }
+  });
+
+  // NEWEST SCRAPER ENDPOINTS (Neueste Inserate mit sort=1)
+  app.post("/api/scraper/start-newest", async (req, res) => {
+    try {
+      const { intervalMinutes = 30, maxPages = 3 } = req.body;
+
+      const scraperOptions = {
+        intervalMinutes,
+        maxPages,
+        onLog: (message: string) => {
+          console.log('[NEWEST-SCRAPER]', message);
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'scraperUpdate', message }));
+            }
+          });
+        },
+        onListingFound: async (listingData: any) => {
+          try {
+            // Check if listing already exists
+            const existing = await storage.getListingByUrl(listingData.url);
+            if (existing) {
+              console.log('[NEWEST-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
+
+              // Update scraped_at, last_changed_at und price
+              await storage.updateListingOnRescrape(listingData.url, {
+                scraped_at: new Date(),
+                last_changed_at: listingData.last_changed_at,
+                price: listingData.price
+              });
+
+              console.log('[NEWEST-DB] ✓ Aktualisiert:', existing.id);
+              return;
+            }
+
+            // Price evaluation
+            const priceEvaluation = await priceEvaluator.evaluateListing(
+              Number(listingData.eur_per_m2 || 0),
+              listingData.region
+            );
+
+            // Save to database
+            const listing = await storage.createListing({
+              ...listingData,
+              price_evaluation: priceEvaluation
+            });
+
+            console.log('[NEWEST-DB] ✓ Neues Listing gespeichert:', listing.id);
+
+            // Broadcast new listing
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'newListing', listing }));
+              }
+            });
+          } catch (error) {
+            console.error('[NEWEST-DB] ✗ Fehler beim Speichern:', error);
+          }
+        },
+        onPhoneFound: async ({ url, phone }: { url: string; phone: string }) => {
+          try {
+            const updated = await storage.updateDiscoveredLinkPhone(url, phone);
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'phoneFound', link: updated || { url, phone_number: phone } }));
+              }
+            });
+          } catch (e) {
+            console.error('updateDiscoveredLinkPhone error', e);
+          }
+        }
+      };
+
+      await newestScraper.start(scraperOptions);
+
+      res.json({ success: true, message: "Newest Scraper gestartet (sort=1)" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start newest scraper" });
+    }
+  });
+
+  app.post("/api/scraper/stop-newest", async (req, res) => {
+    try {
+      newestScraper.stop();
+      res.json({ success: true, message: "Newest Scraper gestoppt" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to stop newest scraper" });
+    }
+  });
+
+  app.get("/api/scraper/status-newest", async (req, res) => {
+    try {
+      const status = newestScraper.getStatus();
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get newest scraper status" });
+    }
+  });
+
+  // ============== PREISSPIEGEL SCRAPER (Vienna Market Data) ==============
+
+  app.post("/api/scraper/start-preisspiegel", async (req, res) => {
+    try {
+      const { preisspiegelScraper } = await import('./services/scraper-preisspiegel');
+
+      const logMessages: string[] = [];
+      const onLog = (msg: string) => {
+        logMessages.push(msg);
+        if (wss) {
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'log', message: msg }));
+            }
+          });
+        }
+      };
+
+      const onListingFound = async (listing: any) => {
+        try {
+          const result = await storage.upsertPriceMirrorListing(listing);
+          console.log('[PREISSPIEGEL] DB Insert OK:', result.id, result.price, result.area_m2);
+        } catch (e: any) {
+          console.error('[PREISSPIEGEL] DB Error:', e?.message || e, 'Data:', listing);
+          onLog(`[PREISSPIEGEL] DB Error: ${e?.message || e}`);
+        }
+      };
+
+      preisspiegelScraper.startManualScrape({ onLog, onListingFound });
+
+      res.json({ success: true, message: "Preisspiegel Scraper gestartet (Wien Marktdaten)" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start preisspiegel scraper" });
+    }
+  });
+
+  app.post("/api/scraper/stop-preisspiegel", async (req, res) => {
+    try {
+      const { preisspiegelScraper } = await import('./services/scraper-preisspiegel');
+      preisspiegelScraper.stop();
+      res.json({ success: true, message: "Preisspiegel Scraper gestoppt" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to stop preisspiegel scraper" });
+    }
+  });
+
+  app.get("/api/scraper/status-preisspiegel", async (req, res) => {
+    try {
+      const { preisspiegelScraper } = await import('./services/scraper-preisspiegel');
+      const status = preisspiegelScraper.getStatus();
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get preisspiegel scraper status" });
+    }
+  });
+
+  // Price Mirror Listings API
+  app.get("/api/price-mirror/listings", async (req, res) => {
+    try {
+      const { category, bezirk_code, building_type } = req.query;
+      const filters: any = {};
+
+      if (category) filters.category = category;
+      if (bezirk_code) filters.bezirk_code = bezirk_code;
+      if (building_type) filters.building_type = building_type;
+
+      const listings = await storage.getPriceMirrorListings(filters);
+      res.json(listings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch price mirror listings" });
+    }
+  });
+
+  app.get("/api/price-mirror/stats", async (req, res) => {
+    try {
+      const { category, bezirk_code, building_type } = req.query;
+      const filters: any = {};
+
+      if (category) filters.category = category;
+      if (bezirk_code) filters.bezirk_code = bezirk_code;
+      if (building_type) filters.building_type = building_type as 'neubau' | 'altbau';
+
+      const stats = await storage.getMarketStats(filters);
+      console.log('[PREISSPIEGEL] Stats query result:', stats);
+      res.json(stats);
+    } catch (error) {
+      console.error('[PREISSPIEGEL] Stats error:', error);
+      res.status(500).json({ message: "Failed to fetch market stats" });
+    }
+  });
+
+  app.get("/api/price-mirror/stats-by-bezirk", async (req, res) => {
+    try {
+      const { category, building_type } = req.query;
+      const filters: any = {};
+
+      if (category) filters.category = category;
+      if (building_type) filters.building_type = building_type as 'neubau' | 'altbau';
+
+      const stats = await storage.getMarketStatsByBezirk(filters);
+      res.json(stats);
+    } catch (error) {
+      console.error('[PREISSPIEGEL] Stats by Bezirk error:', error);
+      res.status(500).json({ message: "Failed to fetch market stats by Bezirk" });
+    }
+  });
+
+  // Combined status endpoint for all scrapers
+  app.get("/api/scraper/status-all", async (req, res) => {
+    try {
+      const status247 = continuousScraper.getStatus();
+      const statusNewest = newestScraper.getStatus();
+
+      res.json({
+        scraper247: status247,
+        scraperNewest: statusNewest
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get scraper status" });
     }
   });
 

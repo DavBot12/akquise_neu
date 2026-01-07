@@ -11,6 +11,7 @@ import ScraperConsole from "@/components/scraper-console";
 import ScraperDualConsole from "@/components/scraper-dual-console";
 import PriceMirror from "@/components/price-mirror";
 import PriceMirrorControl from "@/components/price-mirror-control";
+import PreisspiegelTest from "@/components/preisspiegel-test";
 import Statistics from "@/pages/statistics";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
@@ -27,6 +28,8 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [categoryFilter, setCategoryFilter] = useState("Alle Kategorien");
   const [phoneFilter, setPhoneFilter] = useState("Alle");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500000]);
+  const [sortBy, setSortBy] = useState<"scraped_at" | "last_changed_at">("last_changed_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const queryClient = useQueryClient();
 
@@ -190,15 +193,14 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   <Building className="mr-3 h-4 w-4" />
                   Scraper Console
                 </Button>
-                {/* V10: Preisspiegel Scraper ausgeblendet */}
-                {/* <Button
-                  variant={activeTab === "price-scraper" ? "default" : "ghost"}
+                <Button
+                  variant={activeTab === "preisspiegel-test" ? "default" : "ghost"}
                   className="w-full justify-start"
-                  onClick={() => setActiveTab("price-scraper")}
+                  onClick={() => setActiveTab("preisspiegel-test")}
                 >
                   <TrendingUp className="mr-3 h-4 w-4" />
-                  Preisspiegel Scraper
-                </Button> */}
+                  Preisspiegel Test
+                </Button>
               </>
             )}
             {/* V10: Preisspiegel ausgeblendet */}
@@ -399,10 +401,35 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  <div className="col-span-full mb-4">
+                  <div className="col-span-full mb-4 flex items-center justify-between">
                     <p className="text-sm text-gray-600">{listings.length} Listing{listings.length !== 1 ? 's' : ''} gefunden</p>
+                    <div className="flex gap-2 items-center">
+                      <Select value={sortBy} onValueChange={(val) => setSortBy(val as "scraped_at" | "last_changed_at")}>
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="last_changed_at">Zuletzt geändert</SelectItem>
+                          <SelectItem value="scraped_at">Scraping-Datum</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+                      >
+                        {sortOrder === "desc" ? "↓ Neueste" : "↑ Älteste"}
+                      </Button>
+                    </div>
                   </div>
-                  {listings.map((listing) => (
+                  {listings
+                    .slice()
+                    .sort((a, b) => {
+                      const aDate = a[sortBy] ? new Date(a[sortBy]!).getTime() : 0;
+                      const bDate = b[sortBy] ? new Date(b[sortBy]!).getTime() : 0;
+                      return sortOrder === "desc" ? bDate - aDate : aDate - bDate;
+                    })
+                    .map((listing) => (
                     <ListingCard
                       key={listing.id}
                       listing={listing}
@@ -422,6 +449,13 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
         {user?.is_admin && activeTab === "scraper" && (
           <div className="h-full">
             <ScraperDualConsole />
+          </div>
+        )}
+
+        {/* Preisspiegel Test Tab - Admin only */}
+        {user?.is_admin && activeTab === "preisspiegel-test" && (
+          <div className="h-full">
+            <PreisspiegelTest />
           </div>
         )}
 

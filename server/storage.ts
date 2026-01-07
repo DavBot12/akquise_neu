@@ -1,30 +1,33 @@
-import { 
-  listings, 
-  contacts, 
+import {
+  listings,
+  contacts,
   listing_contacts,
   users,
   acquisitions,
   user_sessions,
   price_mirror_data,
+  price_mirror_listings,
   discovered_links,
   scraper_state,
-  type Listing, 
-  type Contact, 
+  type Listing,
+  type Contact,
   type ListingContact,
   type User,
   type Acquisition,
   type UserSession,
   type PriceMirrorData,
+  type PriceMirrorListing,
   type DiscoveredLink,
   type ScraperState,
   type InsertScraperState,
-  type InsertListing, 
-  type InsertContact, 
+  type InsertListing,
+  type InsertContact,
   type InsertListingContact,
   type InsertUser,
   type InsertAcquisition,
   type InsertUserSession,
   type InsertPriceMirrorData,
+  type InsertPriceMirrorListing,
   type InsertDiscoveredLink
 } from "@shared/schema";
 import { db } from "./db";
@@ -51,6 +54,11 @@ export interface IStorage {
   getListingById(id: number): Promise<Listing | undefined>;
   getListingByUrl(url: string): Promise<Listing | undefined>;
   createListing(listing: InsertListing): Promise<Listing>;
+  updateListingOnRescrape(url: string, updates: {
+    scraped_at?: Date;
+    last_changed_at?: Date | null;
+    price?: number;
+  }): Promise<void>;
   updateListingAkquiseStatus(id: number, akquise_erledigt: boolean): Promise<void>;
   markListingAsDeleted(id: number, userId: number, reason?: string): Promise<void>;
   getDeletedAndUnsuccessful(): Promise<any[]>;
@@ -106,13 +114,48 @@ export interface IStorage {
   endUserSession(sessionId: number): Promise<void>;
   updateLoginStats(userId: number): Promise<void>;
   
-  // Price mirror data
+  // Price mirror data (aggregated)
   savePriceMirrorData(data: InsertPriceMirrorData): Promise<PriceMirrorData>;
   getPriceMirrorData(): Promise<PriceMirrorData[]>;
+
+  // Price mirror listings (detailed Vienna market data)
+  upsertPriceMirrorListing(data: any): Promise<any>;
+  getPriceMirrorListings(filters?: {
+    category?: string;
+    bezirk_code?: string;
+    building_type?: 'neubau' | 'altbau';
+  }): Promise<any[]>;
+  getMarketStats(filters?: {
+    category?: string;
+    bezirk_code?: string;
+    building_type?: 'neubau' | 'altbau';
+  }): Promise<{
+    avg_price: number;
+    avg_eur_per_m2: number;
+    min_price: number;
+    max_price: number;
+    count: number;
+  }>;
+  getMarketStatsByBezirk(filters?: {
+    category?: string;
+    building_type?: 'neubau' | 'altbau';
+  }): Promise<Array<{
+    bezirk_code: string;
+    bezirk_name: string;
+    avg_price: number;
+    avg_eur_per_m2: number;
+    min_price: number;
+    max_price: number;
+    count: number;
+  }>>;
 
   // Discovered links (Scraper V2)
   saveDiscoveredLink(data: InsertDiscoveredLink): Promise<DiscoveredLink>;
   getDiscoveredLinks(limit?: number): Promise<DiscoveredLink[]>;
+  updateDiscoveredLinkPhone(url: string, phone: string): Promise<DiscoveredLink | undefined>;
+
+  // Activity scraper methods
+  updateListingLastSeen(id: number): Promise<void>;
 
   // Scraper state (page counters)
   getAllScraperState(): Promise<Record<string, number>>;
@@ -219,6 +262,29 @@ export class DatabaseStorage implements IStorage {
       .values(listing as any)
       .returning();
     return newListing;
+  }
+
+  async updateListingOnRescrape(url: string, updates: {
+    scraped_at?: Date;
+    last_changed_at?: Date | null;
+    price?: number;
+  }): Promise<void> {
+    const updateData: any = {};
+
+    if (updates.scraped_at !== undefined) {
+      updateData.scraped_at = updates.scraped_at;
+    }
+    if (updates.last_changed_at !== undefined) {
+      updateData.last_changed_at = updates.last_changed_at;
+    }
+    if (updates.price !== undefined) {
+      updateData.price = updates.price;
+    }
+
+    await db
+      .update(listings)
+      .set(updateData)
+      .where(eq(listings.url, url));
   }
 
   async updateListingAkquiseStatus(id: number, akquise_erledigt: boolean): Promise<void> {
@@ -913,6 +979,166 @@ export class DatabaseStorage implements IStorage {
         target: scraper_state.state_key,
         set: { next_page: nextPage, updated_at: new Date() }
       });
+  }
+
+  // Activity scraper: Update last_seen_at timestamp
+  async updateListingLastSeen(id: number): Promise<void> {
+    await db
+      .update(listings)
+      .set({ scraped_at: new Date() })  // Nutze scraped_at als last_seen_at
+      .where(eq(listings.id, id));
+  }
+
+  // ============== PRICE MIRROR LISTINGS (Vienna Market Data) ==============
+
+  /**
+   * Upsert price mirror listing (insert or update by URL)
+   */
+  async upsertPriceMirrorListing(data: InsertPriceMirrorListing): Promise<PriceMirrorListing> {
+    const [result] = await db
+      .insert(price_mirror_listings)
+      .values(data)
+      .onConflictDoUpdate({
+        target: price_mirror_listings.url,
+        set: {
+          price: data.price,
+          area_m2: data.area_m2,
+          eur_per_m2: data.eur_per_m2,
+          bezirk_code: data.bezirk_code,
+          bezirk_name: data.bezirk_name,
+          building_type: data.building_type,
+          last_changed_at: data.last_changed_at,
+          scraped_at: new Date(),
+          is_active: data.is_active ?? true,
+        }
+      })
+      .returning();
+
+    return result as PriceMirrorListing;
+  }
+
+  /**
+   * Get price mirror listings with optional filters
+   */
+  async getPriceMirrorListings(filters?: {
+    category?: string;
+    bezirk_code?: string;
+    building_type?: 'neubau' | 'altbau';
+  }): Promise<PriceMirrorListing[]> {
+    let query = db.select().from(price_mirror_listings);
+
+    const conditions = [];
+    if (filters?.category) {
+      conditions.push(eq(price_mirror_listings.category, filters.category));
+    }
+    if (filters?.bezirk_code) {
+      conditions.push(eq(price_mirror_listings.bezirk_code, filters.bezirk_code));
+    }
+    if (filters?.building_type) {
+      conditions.push(eq(price_mirror_listings.building_type, filters.building_type));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    return (await query.orderBy(desc(price_mirror_listings.scraped_at))) as PriceMirrorListing[];
+  }
+
+  /**
+   * Get market statistics (aggregated)
+   */
+  async getMarketStats(filters?: {
+    category?: string;
+    bezirk_code?: string;
+    building_type?: 'neubau' | 'altbau';
+  }): Promise<{
+    avg_price: number;
+    avg_eur_per_m2: number;
+    min_price: number;
+    max_price: number;
+    count: number;
+  }> {
+    const conditions = [eq(price_mirror_listings.is_active, true)];
+
+    if (filters?.category) {
+      conditions.push(eq(price_mirror_listings.category, filters.category));
+    }
+    if (filters?.bezirk_code) {
+      conditions.push(eq(price_mirror_listings.bezirk_code, filters.bezirk_code));
+    }
+    if (filters?.building_type) {
+      conditions.push(eq(price_mirror_listings.building_type, filters.building_type));
+    }
+
+    const [result] = await db
+      .select({
+        avg_price: sql<number>`AVG(${price_mirror_listings.price}::numeric)`,
+        avg_eur_per_m2: sql<number>`AVG(${price_mirror_listings.eur_per_m2}::numeric)`,
+        min_price: sql<number>`MIN(${price_mirror_listings.price}::numeric)`,
+        max_price: sql<number>`MAX(${price_mirror_listings.price}::numeric)`,
+        count: sql<number>`COUNT(*)::int`
+      })
+      .from(price_mirror_listings)
+      .where(and(...conditions));
+
+    return {
+      avg_price: Math.round(result?.avg_price || 0),
+      avg_eur_per_m2: Math.round(result?.avg_eur_per_m2 || 0),
+      min_price: Math.round(result?.min_price || 0),
+      max_price: Math.round(result?.max_price || 0),
+      count: result?.count || 0
+    };
+  }
+
+  /**
+   * Get market statistics grouped by Bezirk
+   */
+  async getMarketStatsByBezirk(filters?: {
+    category?: string;
+    building_type?: 'neubau' | 'altbau';
+  }): Promise<Array<{
+    bezirk_code: string;
+    bezirk_name: string;
+    avg_price: number;
+    avg_eur_per_m2: number;
+    min_price: number;
+    max_price: number;
+    count: number;
+  }>> {
+    const conditions = [eq(price_mirror_listings.is_active, true)];
+
+    if (filters?.category) {
+      conditions.push(eq(price_mirror_listings.category, filters.category));
+    }
+    if (filters?.building_type) {
+      conditions.push(eq(price_mirror_listings.building_type, filters.building_type));
+    }
+
+    const results = await db
+      .select({
+        bezirk_code: price_mirror_listings.bezirk_code,
+        bezirk_name: price_mirror_listings.bezirk_name,
+        avg_price: sql<number>`AVG(${price_mirror_listings.price}::numeric)`,
+        avg_eur_per_m2: sql<number>`AVG(${price_mirror_listings.eur_per_m2}::numeric)`,
+        min_price: sql<number>`MIN(${price_mirror_listings.price}::numeric)`,
+        max_price: sql<number>`MAX(${price_mirror_listings.price}::numeric)`,
+        count: sql<number>`COUNT(*)::int`
+      })
+      .from(price_mirror_listings)
+      .where(and(...conditions))
+      .groupBy(price_mirror_listings.bezirk_code, price_mirror_listings.bezirk_name)
+      .orderBy(price_mirror_listings.bezirk_code);
+
+    return results.map(r => ({
+      bezirk_code: r.bezirk_code,
+      bezirk_name: r.bezirk_name,
+      avg_price: Math.round(r.avg_price || 0),
+      avg_eur_per_m2: Math.round(r.avg_eur_per_m2 || 0),
+      min_price: Math.round(r.min_price || 0),
+      max_price: Math.round(r.max_price || 0),
+      count: r.count || 0
+    }));
   }
 }
 

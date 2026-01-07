@@ -15,6 +15,8 @@ export const listings = pgTable("listings", {
   images: json("images").$type<string[]>().default([]),
   url: text("url").notNull().unique(),
   scraped_at: timestamp("scraped_at").defaultNow().notNull(),
+  first_seen_at: timestamp("first_seen_at").defaultNow().notNull(), // Wann das System das Inserat erstmals sah
+  last_changed_at: timestamp("last_changed_at"), // "Zuletzt geändert" Datum von Willhaben
   akquise_erledigt: boolean("akquise_erledigt").default(false).notNull(),
   is_deleted: boolean("is_deleted").default(false).notNull(),
   deletion_reason: text("deletion_reason"),
@@ -217,3 +219,29 @@ export const insertScraperStateSchema = createInsertSchema(scraper_state).omit({
 
 export type InsertScraperState = z.infer<typeof insertScraperStateSchema>;
 export type ScraperState = typeof scraper_state.$inferSelect;
+
+// Price mirror listings for detailed market data (Vienna only, all listings)
+export const price_mirror_listings = pgTable("price_mirror_listings", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull(), // 'eigentumswohnung' | 'haus'
+  bezirk_code: text("bezirk_code").notNull(), // "1010", "1020", etc.
+  bezirk_name: text("bezirk_name").notNull(), // "Innere Stadt", "Leopoldstadt"
+  building_type: text("building_type"), // 'neubau' | 'altbau' | null (nur für Wohnungen)
+  price: decimal("price", { precision: 12, scale: 2 }).notNull(),
+  area_m2: decimal("area_m2", { precision: 10, scale: 2 }),
+  eur_per_m2: decimal("eur_per_m2", { precision: 10, scale: 2 }),
+  url: text("url").notNull().unique(),
+  scraped_at: timestamp("scraped_at").defaultNow().notNull(),
+  first_seen_at: timestamp("first_seen_at").defaultNow().notNull(),
+  last_changed_at: timestamp("last_changed_at"),
+  is_active: boolean("is_active").default(true).notNull(),
+});
+
+export const insertPriceMirrorListingSchema = createInsertSchema(price_mirror_listings).omit({
+  id: true,
+  scraped_at: true,
+  first_seen_at: true,
+});
+
+export type InsertPriceMirrorListing = z.infer<typeof insertPriceMirrorListingSchema>;
+export type PriceMirrorListing = typeof price_mirror_listings.$inferSelect;
