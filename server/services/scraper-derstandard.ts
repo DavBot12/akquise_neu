@@ -287,12 +287,17 @@ export class DerStandardScraperService {
     const areaStr = this.extractArea($, bodyText);
     const area = areaStr ? parseFloat(areaStr) : 0;
 
-    // Accept listing if it has either price or area
-    if (price <= 0 && !areaStr) {
-      return { listing: null, reason: 'no price and no area' };
+    // WICHTIG: Nur Listings MIT echtem Preis akzeptieren (kein "Preis auf Anfrage")
+    if (price <= 0) {
+      return { listing: null, reason: 'kein Preis (Preis auf Anfrage)' };
     }
 
-    const eurPerM2 = area > 0 && price > 0 ? Math.round(price / area) : 0;
+    // Auch Fläche ist Pflicht für sinnvolle Daten
+    if (!areaStr || area <= 0) {
+      return { listing: null, reason: 'keine Fläche' };
+    }
+
+    const eurPerM2 = Math.round(price / area);
 
     const images = this.extractImages($, html);
     const description = this.extractDescription($);
@@ -309,8 +314,8 @@ export class DerStandardScraperService {
     return {
       listing: {
         title,
-        price: price > 0 ? price : 1, // Set to 1 if "Preis auf Anfrage" (DB requires price)
-        area: areaStr || null,
+        price,
+        area: areaStr,
         location,
         url,
         images,
@@ -318,7 +323,7 @@ export class DerStandardScraperService {
         phone_number: phoneDirect || null,
         category,
         region,
-        eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
+        eur_per_m2: String(eurPerM2),
         akquise_erledigt: false,
         last_changed_at: null,
         source: 'derstandard',
@@ -348,38 +353,69 @@ export class DerStandardScraperService {
   }
 
   private extractPrice($: ReturnType<typeof load>, bodyText: string): number {
-    // derStandard often has "Preis auf Anfrage" listings
-    // Look for actual numbers in body text
-    // Kaufpreis format: large numbers (100000+) with € or without
-
-    // Try to find 6+ digit numbers (minimum 100000 EUR)
-    const largeNumbers = bodyText.match(/\d{6,}/g) || [];
-    for (const numStr of largeNumbers) {
-      const num = parseInt(numStr);
-      // Reasonable price range for Austrian real estate: 100k - 10M
-      if (num >= 100000 && num <= 10000000) {
-        // Check if it's likely a price (not a phone number or ID)
-        const context = bodyText.substring(bodyText.indexOf(numStr) - 50, bodyText.indexOf(numStr) + 50);
-        if (context.toLowerCase().includes('preis') || context.includes('€')) {
-          return num;
+    // PRIMARY: Stats Section - .sc-stat-label + .sc-stat-value
+    const statItems = $('section.heading-section-stats .sc-stat-label, .sc-stat-label');
+    for (let i = 0; i < statItems.length; i++) {
+      const label = $(statItems[i]).text().trim();
+      if (label === 'Kaufpreis') {
+        const value = $(statItems[i]).next('.sc-stat-value').text().trim();
+        if (value && value !== 'Preis auf Anfrage') {
+          // Format: "€ 149.900" or "€ 1.500.000"
+          const numStr = value.replace(/[€\s.]/g, '').trim();
+          const price = parseInt(numStr);
+          if (price >= 50000 && price <= 10000000) {
+            return price;
+          }
         }
       }
     }
 
-    return 0; // No price found (likely "Preis auf Anfrage")
+    // FALLBACK: Metadata Section
+    const metaItems = $('.sc-metadata-label');
+    for (let i = 0; i < metaItems.length; i++) {
+      const label = $(metaItems[i]).text().trim();
+      if (label === 'Kaufpreis') {
+        const value = $(metaItems[i]).next('.sc-metadata-value').text().trim();
+        if (value && value !== 'Preis auf Anfrage') {
+          const numStr = value.replace(/[€\s.]/g, '').trim();
+          const price = parseInt(numStr);
+          if (price >= 50000 && price <= 10000000) {
+            return price;
+          }
+        }
+      }
+    }
+
+    return 0; // No price found
   }
 
   private extractArea($: ReturnType<typeof load>, bodyText: string): string | null {
-    // Look for m² pattern in body text
-    // Common formats: "65 m²", "65,5 m²", "65.5 m²"
-    const areaMatches = bodyText.match(/(\d+[,.]?\d*)\s*m²/g) || [];
+    // PRIMARY: Stats Section - Nutzfläche or Wohnfläche
+    const statItems = $('.sc-stat-label');
+    for (let i = 0; i < statItems.length; i++) {
+      const label = $(statItems[i]).text().trim();
+      if (label === 'Nutzfläche' || label === 'Wohnfläche') {
+        const value = $(statItems[i]).next('.sc-stat-value').text().trim();
+        if (value) {
+          // Format: "30.01 m²"
+          const numStr = value.replace(/[^\d.,]/g, '').replace(',', '.');
+          const area = parseFloat(numStr);
+          if (area >= 10 && area <= 1000) {
+            return area.toString();
+          }
+        }
+      }
+    }
 
-    if (areaMatches.length > 0) {
-      // Get the first reasonable area (between 10 and 1000 m²)
-      for (const match of areaMatches) {
-        const numMatch = match.match(/(\d+[,.]?\d*)/);
-        if (numMatch) {
-          const area = parseFloat(numMatch[1].replace(',', '.'));
+    // FALLBACK: Metadata Section
+    const metaItems = $('.sc-metadata-label');
+    for (let i = 0; i < metaItems.length; i++) {
+      const label = $(metaItems[i]).text().trim();
+      if (label === 'Nutzfläche' || label === 'Wohnfläche') {
+        const value = $(metaItems[i]).next('.sc-metadata-value').text().trim();
+        if (value) {
+          const numStr = value.replace(/[^\d.,]/g, '').replace(',', '.');
+          const area = parseFloat(numStr);
           if (area >= 10 && area <= 1000) {
             return area.toString();
           }
@@ -391,34 +427,26 @@ export class DerStandardScraperService {
   }
 
   private extractLocation($: ReturnType<typeof load>, bodyText: string, key: string): string {
-    // Look for "Bezirk" patterns - object location, not agency address
-    const bezirkMatch = bodyText.match(/(\d{4}\s+Wien[^,\n]{0,50})/i);
+    // PRIMARY: Metadata Section - PLZ field
+    const metaItems = $('.sc-metadata-label');
+    for (let i = 0; i < metaItems.length; i++) {
+      const label = $(metaItems[i]).text().trim();
+      if (label === 'PLZ') {
+        const value = $(metaItems[i]).next('.sc-metadata-value').text().trim();
+        if (value) {
+          // Format: "1200 Wien" or just "1200"
+          return value.includes('Wien') ? value : `${value} Wien`;
+        }
+      }
+    }
+
+    // FALLBACK: Look for Wien district patterns in body text
+    const bezirkMatch = bodyText.match(/(\d{4}\s+Wien)/i);
     if (bezirkMatch) {
       return bezirkMatch[1].trim();
     }
 
-    // Look for Wien district patterns (1., 2., etc.)
-    const districtMatch = bodyText.match(/(\d{1,2}\.,?\s*Bezirk[^,\n]{0,30})/i);
-    if (districtMatch) {
-      return districtMatch[1].trim();
-    }
-
-    // Look for any Wien address pattern
-    const wienMatch = bodyText.match(/([A-ZÄÖÜ][a-zäöüß]+straße[^,\n]{0,20},?\s*\d{4}\s+Wien)/i) ||
-                     bodyText.match(/([A-ZÄÖÜ][a-zäöüß]+gasse[^,\n]{0,20},?\s*\d{4}\s+Wien)/i);
-    if (wienMatch) {
-      return wienMatch[1].trim();
-    }
-
-    // Search in HTML JSON data (avoid agency address)
-    const html = $.html();
-    const jsonMatch = html.match(/"propertyLocation[^"]*":\s*"([^"]+)"/i) ||
-                     html.match(/"objectAddress[^"]*":\s*"([^"]+)"/i);
-    if (jsonMatch && !jsonMatch[1].toLowerCase().includes('makler')) {
-      return jsonMatch[1];
-    }
-
-    // Fallback to region
+    // Fallback to region from key
     return key.includes('wien') ? 'Wien' : 'Niederösterreich';
   }
 
