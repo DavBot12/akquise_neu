@@ -334,10 +334,7 @@ export class DatabaseStorage implements IStorage {
         deletion_reason: listings.deletion_reason,
         deleted_by_user_id: listings.deleted_by_user_id,
         deleted_at: listings.deleted_at,
-        username: users.username,
-        source: sql<string>`'deleted'`.as('source'),
-        result_date: sql<Date | null>`NULL`.as('result_date'),
-        contacted_at: sql<Date | null>`NULL`.as('contacted_at')
+        username: users.username
       })
       .from(listings)
       .leftJoin(users, eq(listings.deleted_by_user_id, users.id))
@@ -363,9 +360,8 @@ export class DatabaseStorage implements IStorage {
         last_changed_at: listings.last_changed_at,
         deletion_reason: acquisitions.notes,
         deleted_by_user_id: acquisitions.user_id,
-        deleted_at: sql<Date | null>`NULL`.as('deleted_at'),
+        deleted_at: acquisitions.result_date,
         username: users.username,
-        source: sql<string>`'unsuccessful'`.as('source'),
         result_date: acquisitions.result_date,
         contacted_at: acquisitions.contacted_at
       })
@@ -374,7 +370,11 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(acquisitions.user_id, users.id))
       .where(eq(acquisitions.status, 'nicht_erfolgreich'));
 
-    return [...deletedListings, ...unsuccessfulAcquisitions];
+    // Add source field in JavaScript
+    const deletedWithSource = deletedListings.map(l => ({ ...l, source: 'deleted', result_date: null, contacted_at: null }));
+    const unsuccessfulWithSource = unsuccessfulAcquisitions.map(l => ({ ...l, source: 'unsuccessful' }));
+
+    return [...deletedWithSource, ...unsuccessfulWithSource];
   }
 
   async getSuccessfulAcquisitions(userId?: number): Promise<any[]> {

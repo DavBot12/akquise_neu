@@ -97,7 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await storage.getDeletedAndUnsuccessful();
       res.json(results);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch deleted/unsuccessful listings" });
+      console.error("Error fetching deleted/unsuccessful listings:", error);
+      res.status(500).json({ message: "Failed to fetch deleted/unsuccessful listings", error: String(error) });
     }
   });
 
