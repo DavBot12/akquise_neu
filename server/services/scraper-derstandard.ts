@@ -529,28 +529,22 @@ export class DerStandardScraperService {
   private extractImages($: ReturnType<typeof load>, html: string): string[] {
     const images = new Set<string>();
 
-    // PRIMARY: picture source mit .jpeg URLs (aus Analyse)
-    $('picture source[srcSet*=".jpeg"]').each((_, el) => {
-      const srcSet = $(el).attr('srcSet');
-      if (srcSet) {
-        // Extract base URL: https://i.prod.mp-dst.onyx60.com/plain/private-ads/{id}/{id}.jpeg
-        const match = srcSet.match(/(https:\/\/[^\/]+\/[^\/]+\/private-ads\/[^\/]+\/[^\/]+\.jpeg)/);
+    // PRIMARY: picture source - WICHTIG: Attribut heißt "srcset" (lowercase!)
+    $('picture source').each((_, el) => {
+      const srcset = $(el).attr('srcset'); // lowercase!
+      if (srcset) {
+        // Extract URL (kann .jpg oder .jpeg sein)
+        const match = srcset.match(/(https:\/\/[^\s]+\.(?:jpg|jpeg))/i);
         if (match) {
-          images.add(match[1]);
+          // Base URL ohne transformations (split by /~)
+          const baseUrl = match[1].split('/~')[0];
+          images.add(baseUrl);
         }
       }
     });
 
-    // FALLBACK: img tags mit immobilien-URLs
+    // FALLBACK: img tags
     $('img[alt*="Bild"]').each((_, el) => {
-      const src = $(el).attr('src');
-      if (src && src.includes('mp-dst') && !src.includes('placeholder')) {
-        images.add(src);
-      }
-    });
-
-    // FALLBACK 2: Swiper slides
-    $('.swiper-slide img').each((_, el) => {
       const src = $(el).attr('src');
       if (src && src.startsWith('http') && !src.includes('placeholder') && !src.includes('logo')) {
         images.add(src);
