@@ -698,7 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============== DERSTANDARD SCRAPER ==============
 
-  app.post("/api/scraper/start-derstandard", async (req, res) => {
+  app.post("/api/derstandard-scraper/start", async (req, res) => {
     try {
       const { intervalMinutes = 30, maxPages = 3 } = req.body;
 
@@ -778,7 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/scraper/stop-derstandard", async (req, res) => {
+  app.post("/api/derstandard-scraper/stop", async (req, res) => {
     try {
       derStandardScraper.stop();
       res.json({ success: true, message: "derStandard Scraper gestoppt" });
@@ -787,7 +787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/scraper/status-derstandard", async (req, res) => {
+  app.get("/api/derstandard-scraper/status", async (req, res) => {
     try {
       const status = derStandardScraper.getStatus();
       res.json(status);
