@@ -333,7 +333,6 @@ export class DatabaseStorage implements IStorage {
         last_changed_at: listings.last_changed_at,
         deletion_reason: listings.deletion_reason,
         deleted_by_user_id: listings.deleted_by_user_id,
-        deleted_at: listings.deleted_at,
         username: users.username
       })
       .from(listings)
@@ -370,9 +369,18 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(acquisitions.user_id, users.id))
       .where(eq(acquisitions.status, 'nicht_erfolgreich'));
 
-    // Add source field in JavaScript
-    const deletedWithSource = deletedListings.map(l => ({ ...l, source: 'deleted', result_date: null, contacted_at: null }));
-    const unsuccessfulWithSource = unsuccessfulAcquisitions.map(l => ({ ...l, source: 'unsuccessful' }));
+    // Add source field and missing fields in JavaScript
+    const deletedWithSource = deletedListings.map(l => ({
+      ...l,
+      source: 'deleted',
+      result_date: null,
+      contacted_at: null,
+      deleted_at: null // Gelöschte Listings haben kein deleted_at Feld in DB
+    }));
+    const unsuccessfulWithSource = unsuccessfulAcquisitions.map(l => ({
+      ...l,
+      source: 'unsuccessful'
+    }));
 
     return [...deletedWithSource, ...unsuccessfulWithSource];
   }
