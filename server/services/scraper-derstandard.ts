@@ -460,18 +460,15 @@ export class DerStandardScraperService {
   }
 
   private extractDescription($: ReturnType<typeof load>): string {
-    // PRIMARY: Section mit h2 "Beschreibung"
-    const descSection = $('section:has(h2)').filter((_, el) => {
-      const h2Text = $(el).find('h2').text().trim();
-      return h2Text === 'Beschreibung';
-    });
-
-    if (descSection.length > 0) {
-      // Sammle alle <p> Tags innerhalb der Section
+    // PRIMARY: .sc-truncatable-section-text (das ist wo die Beschreibung ist!)
+    const truncatableText = $('.sc-truncatable-section-text');
+    if (truncatableText.length > 0) {
       const paragraphs: string[] = [];
-      descSection.find('p').each((_, p) => {
+      truncatableText.find('p').each((_, p) => {
         const text = $(p).text().trim();
-        if (text) paragraphs.push(text);
+        if (text && text !== '&nbsp;') {
+          paragraphs.push(text);
+        }
       });
 
       if (paragraphs.length > 0) {
@@ -479,16 +476,15 @@ export class DerStandardScraperService {
       }
     }
 
-    // FALLBACK: Suche nach Description-Klassen
-    const fallbackSelectors = [
-      '[class*="Description"]',
-      '[class*="description"]',
-      '.sc-description'
-    ];
+    // FALLBACK: Section mit h2 "Beschreibung"
+    const descSection = $('section:has(h2)').filter((_, el) => {
+      const h2Text = $(el).find('h2').text().trim();
+      return h2Text === 'Beschreibung';
+    });
 
-    for (const sel of fallbackSelectors) {
-      const text = $(sel).text().trim();
-      if (text && text.length > 50) {
+    if (descSection.length > 0) {
+      const text = descSection.text().trim();
+      if (text.length > 50) {
         return text.substring(0, 2000);
       }
     }
