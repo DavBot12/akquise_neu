@@ -50,6 +50,7 @@ export interface IStorage {
     has_phone?: boolean;
     min_price?: number;
     max_price?: number;
+    source?: string;
   }): Promise<Listing[]>;
   getListingById(id: number): Promise<Listing | undefined>;
   getListingByUrl(url: string): Promise<Listing | undefined>;
@@ -195,6 +196,7 @@ export class DatabaseStorage implements IStorage {
     has_phone?: boolean;
     min_price?: number;
     max_price?: number;
+    source?: string;
   }): Promise<Listing[]> {
     let query = db.select().from(listings);
 
@@ -237,6 +239,9 @@ export class DatabaseStorage implements IStorage {
       }
       if (filters.max_price !== undefined) {
         conditions.push(sql`${listings.price} <= ${filters.max_price}`);
+      }
+      if (filters.source) {
+        conditions.push(eq(listings.source, filters.source));
       }
     }
 

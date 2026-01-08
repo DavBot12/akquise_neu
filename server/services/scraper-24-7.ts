@@ -32,12 +32,12 @@ export class ContinuousScraper247Service {
 
   // Allgemeine URLs OHNE Vorfilter - wir filtern selbst nach Keywords!
   private baseUrls: Record<string, string> = {
-    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=25',
-    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/niederoesterreich?rows=25',
-    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=25',
-    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=25',
-    'haus-wien': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/wien?rows=25',
-    'haus-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/niederoesterreich?rows=25'
+    'eigentumswohnung-wien': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/eigentumswohnung-angebote?areaId=900&areaId=903&rows=200',
+    'eigentumswohnung-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/eigentumswohnung/niederoesterreich?rows=200',
+    'grundstueck-wien': 'https://www.willhaben.at/iad/immobilien/grundstuecke/grundstueck-angebote?areaId=900&areaId=903&rows=200',
+    'grundstueck-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/grundstuecke/niederoesterreich?rows=200',
+    'haus-wien': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/wien?rows=200',
+    'haus-niederoesterreich': 'https://www.willhaben.at/iad/immobilien/haus-kaufen/niederoesterreich?rows=200'
   };
 
   constructor() {
@@ -161,7 +161,7 @@ export class ContinuousScraper247Service {
             } else {
               skippedCount++;
             }
-            await this.sleep(1000 + Math.random() * 1000); // 1-2s - SCHNELL!
+            await this.sleep(60 + Math.random() * 120); // 60-180ms wie V3
           }
 
           options.onProgress(`[24/7] ${category} Seite ${current}: ${foundCount} private, ${skippedCount} gefiltert`);
@@ -284,6 +284,7 @@ export class ContinuousScraper247Service {
       const location = locJson || this.extractLocation($, url);
       const phoneNumber = this.extractPhoneNumber(html, $);
       const images = this.extractImages($, html);
+      const lastChangedAt = this.extractLastChanged($, html);
 
       const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
       const listingCategory = category.includes('eigentumswohnung')
@@ -305,7 +306,8 @@ export class ContinuousScraper247Service {
         phone_number: phoneNumber || null,
         category: listingCategory,
         region,
-        eur_per_m2: eurPerM2 ? String(eurPerM2) : null
+        eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
+        last_changed_at: lastChangedAt
       };
 
       return null;
@@ -505,6 +507,35 @@ export class ContinuousScraper247Service {
     if (candidates.length === 0) return null;
     const best = candidates.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
     return best?.n || null;
+  }
+
+  private extractLastChanged($: cheerio.CheerioAPI, html: string): Date | null {
+    try {
+      // Methode 1: Suche im DOM via Cheerio mit data-testid
+      const editDateEl = $('[data-testid="ad-detail-ad-edit-date-top"]').text();
+      if (editDateEl) {
+        // Format: "Zuletzt geändert: 07.01.2026, 16:11 Uhr"
+        const match = editDateEl.match(/(\d{2})\.(\d{2})\.(\d{4}),\s*(\d{2}):(\d{2})/);
+        if (match) {
+          const [, day, month, year, hour, minute] = match;
+          // Create date in local timezone (Vienna)
+          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+          return date;
+        }
+      }
+
+      // Methode 2: Regex fallback im gesamten HTML
+      const regexMatch = html.match(/Zuletzt geändert:\s*<!--\s*-->(\d{2})\.(\d{2})\.(\d{4}),\s*(\d{2}):(\d{2})\s*Uhr/);
+      if (regexMatch) {
+        const [, day, month, year, hour, minute] = regexMatch;
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+        return date;
+      }
+
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
   private async loadStateSafe(): Promise<void> {

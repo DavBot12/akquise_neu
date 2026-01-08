@@ -28,6 +28,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [bezirkFilter, setBezirkFilter] = useState("Alle Bezirke");
   const [categoryFilter, setCategoryFilter] = useState("Alle Kategorien");
   const [phoneFilter, setPhoneFilter] = useState("Alle");
+  const [sourceFilter, setSourceFilter] = useState("Alle Quellen");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500000]);
   const [sortBy, setSortBy] = useState<"scraped_at" | "last_changed_at">("last_changed_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -62,7 +63,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
 
   // Fetch listings with proper query parameters - HIDE COMPLETED ACQUISITIONS
   const { data: listings = [], isLoading: listingsLoading } = useQuery<Listing[]>({
-    queryKey: ["/api/listings", regionFilter, bezirkFilter, categoryFilter, phoneFilter, priceRange],
+    queryKey: ["/api/listings", regionFilter, bezirkFilter, categoryFilter, phoneFilter, sourceFilter, priceRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
@@ -70,6 +71,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       if (categoryFilter !== "Alle Kategorien") params.append("category", categoryFilter);
       if (phoneFilter === "Nur mit Telefonnummer") params.append("has_phone", "true");
       if (phoneFilter === "Nur ohne Telefonnummer") params.append("has_phone", "false");
+      if (sourceFilter !== "Alle Quellen") params.append("source", sourceFilter);
       if (priceRange[0] > 0) params.append("min_price", priceRange[0].toString());
       if (priceRange[1] < 1500000) params.append("max_price", priceRange[1].toString());
       // WICHTIG: Verstecke erledigte Akquisen vom Dashboard
@@ -373,6 +375,17 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       <SelectItem value="Alle">Alle</SelectItem>
                       <SelectItem value="Nur mit Telefonnummer">Nur mit Telefonnummer</SelectItem>
                       <SelectItem value="Nur ohne Telefonnummer">Nur ohne Telefonnummer</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Alle Quellen">Alle Quellen</SelectItem>
+                      <SelectItem value="willhaben">Willhaben</SelectItem>
+                      <SelectItem value="derstandard">derStandard</SelectItem>
                     </SelectContent>
                   </Select>
 

@@ -1,0 +1,157 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1010", "name": "Innere Stadt" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3738, 48.2082], [16.3738, 48.2182], [16.3838, 48.2182], [16.3838, 48.2082], [16.3738, 48.2082]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1020", "name": "Leopoldstadt" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3838, 48.2082], [16.3838, 48.2282], [16.4138, 48.2282], [16.4138, 48.2082], [16.3838, 48.2082]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1030", "name": "Landstraße" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3838, 48.1882], [16.3838, 48.2082], [16.4138, 48.2082], [16.4138, 48.1882], [16.3838, 48.1882]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1040", "name": "Wieden" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3538, 48.1882], [16.3538, 48.2082], [16.3738, 48.2082], [16.3738, 48.1882], [16.3538, 48.1882]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1050", "name": "Margareten" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3438, 48.1782], [16.3438, 48.1982], [16.3638, 48.1982], [16.3638, 48.1782], [16.3438, 48.1782]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1100", "name": "Favoriten" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3538, 48.1582], [16.3538, 48.1882], [16.3938, 48.1882], [16.3938, 48.1582], [16.3538, 48.1582]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1110", "name": "Simmering" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3938, 48.1582], [16.3938, 48.1982], [16.4538, 48.1982], [16.4538, 48.1582], [16.3938, 48.1582]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1120", "name": "Meidling" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3138, 48.1682], [16.3138, 48.1882], [16.3438, 48.1882], [16.3438, 48.1682], [16.3138, 48.1682]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1130", "name": "Hietzing" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.2738, 48.1782], [16.2738, 48.2082], [16.3138, 48.2082], [16.3138, 48.1782], [16.2738, 48.1782]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1140", "name": "Penzing" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.2538, 48.1982], [16.2538, 48.2282], [16.3138, 48.2282], [16.3138, 48.1982], [16.2538, 48.1982]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1150", "name": "Rudolfsheim-Fünfhaus" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3138, 48.1982], [16.3138, 48.2182], [16.3438, 48.2182], [16.3438, 48.1982], [16.3138, 48.1982]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1160", "name": "Ottakring" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.2938, 48.2182], [16.2938, 48.2382], [16.3338, 48.2382], [16.3338, 48.2182], [16.2938, 48.2182]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1170", "name": "Hernals" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3138, 48.2282], [16.3138, 48.2482], [16.3438, 48.2482], [16.3438, 48.2282], [16.3138, 48.2282]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1180", "name": "Währing" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3438, 48.2282], [16.3438, 48.2482], [16.3738, 48.2482], [16.3738, 48.2282], [16.3438, 48.2282]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1190", "name": "Döbling" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3538, 48.2382], [16.3538, 48.2682], [16.3938, 48.2682], [16.3938, 48.2382], [16.3538, 48.2382]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1200", "name": "Brigittenau" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3738, 48.2282], [16.3738, 48.2482], [16.4038, 48.2482], [16.4038, 48.2282], [16.3738, 48.2282]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1210", "name": "Floridsdorf" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.3838, 48.2482], [16.3838, 48.2882], [16.4438, 48.2882], [16.4438, 48.2482], [16.3838, 48.2482]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1220", "name": "Donaustadt" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.4138, 48.2082], [16.4138, 48.2682], [16.5038, 48.2682], [16.5038, 48.2082], [16.4138, 48.2082]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "bezirk": "1230", "name": "Liesing" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[16.2938, 48.1382], [16.2938, 48.1682], [16.3638, 48.1682], [16.3638, 48.1382], [16.2938, 48.1382]]]
+      }
+    }
+  ]
+}

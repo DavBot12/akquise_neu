@@ -24,6 +24,7 @@ export default function ScraperConsole() {
   const [delay, setDelay] = useState(2000); // Optimierter Delay
   const [keyword, setKeyword] = useState("privat"); // Keyword-Filter
   const [scraper247Status, setScraper247Status] = useState<{isRunning: boolean, currentCycle: number}>({isRunning: false, currentCycle: 0});
+  const [newestScraperStatus, setNewestScraperStatus] = useState<{isRunning: boolean, currentCycle: number}>({isRunning: false, currentCycle: 0});
   const [logs, setLogs] = useState<string[]>([
     "[INFO] V3 Scraper bereit - NUR Privatverkäufe!",
   ]);
@@ -41,6 +42,36 @@ export default function ScraperConsole() {
 
   const logContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Poll 24/7 Scraper status
+  const { data: status247 } = useQuery<{isRunning: boolean, currentCycle: number}>({
+    queryKey: ["247-scraper-status"],
+    queryFn: async () => {
+      return await apiRequest("GET", "/api/scraper/status-247") as Promise<{isRunning: boolean, currentCycle: number}>;
+    },
+    refetchInterval: 5000, // Alle 5 Sekunden
+  });
+
+  useEffect(() => {
+    if (status247) {
+      setScraper247Status(status247);
+    }
+  }, [status247]);
+
+  // Poll Newest Scraper status
+  const { data: newestStatus } = useQuery<{isRunning: boolean, currentCycle: number}>({
+    queryKey: ["newest-scraper-status"],
+    queryFn: async () => {
+      return await apiRequest("GET", "/api/scraper/status-newest") as Promise<{isRunning: boolean, currentCycle: number}>;
+    },
+    refetchInterval: 5000, // Alle 5 Sekunden
+  });
+
+  useEffect(() => {
+    if (newestStatus) {
+      setNewestScraperStatus(newestStatus);
+    }
+  }, [newestStatus]);
 
   // WebSocket for real-time scraper updates
   useWebSocket("/ws", {
@@ -129,8 +160,8 @@ export default function ScraperConsole() {
     },
     onSuccess: () => {
       setScraperStatus("Läuft");
-      setScraperStats(prev => ({ 
-        ...prev, 
+      setScraperStats(prev => ({
+        ...prev,
         progress: 0,
         newListings: 0,
         errors: 0,
@@ -147,6 +178,50 @@ export default function ScraperConsole() {
       toast({
         title: "Fehler",
         description: "Scraper konnte nicht gestartet werden.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Newest Scraper Mutations
+  const startNewestScraperMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/scraper/start-newest", {
+        intervalMinutes: 30,
+        maxPages: 3
+      });
+    },
+    onSuccess: () => {
+      setNewestScraperStatus(prev => ({ ...prev, isRunning: true }));
+      toast({
+        title: "Newest Scraper gestartet",
+        description: "Neueste Inserate werden alle 30 Min gescrapt.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fehler",
+        description: "Newest Scraper konnte nicht gestartet werden.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const stopNewestScraperMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/scraper/stop-newest", {});
+    },
+    onSuccess: () => {
+      setNewestScraperStatus(prev => ({ ...prev, isRunning: false }));
+      toast({
+        title: "Newest Scraper gestoppt",
+        description: "Scraper wurde gestoppt.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fehler",
+        description: "Newest Scraper konnte nicht gestoppt werden.",
         variant: "destructive",
       });
     },
@@ -292,6 +367,43 @@ export default function ScraperConsole() {
             </CardContent>
           </Card>
 
+          {/* Newest Scraper Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-blue-700">
+                🚀 Newest Scraper (sort=1)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>• Scrapt alle 30 Min die neuesten Inserate</p>
+                <p>• Nur erste 1-3 Seiten (sort=1)</p>
+                <p>• Nur NEUE private Listings</p>
+              </div>
+
+              {newestScraperStatus.isRunning && (
+                <div className="text-sm font-medium text-blue-700 bg-blue-50 p-2 rounded">
+                  🔄 Cycle #{newestScraperStatus.currentCycle} aktiv
+                </div>
+              )}
+
+              <Button
+                className={`w-full ${
+                  newestScraperStatus.isRunning
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+                onClick={() => newestScraperStatus.isRunning
+                  ? stopNewestScraperMutation.mutate()
+                  : startNewestScraperMutation.mutate()
+                }
+                disabled={startNewestScraperMutation.isPending || stopNewestScraperMutation.isPending}
+              >
+                {newestScraperStatus.isRunning ? "⏹️ Stoppen" : "▶️ Starten"}
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Scraper Status & Stats */}
           <Card>
             <CardHeader>
@@ -302,15 +414,28 @@ export default function ScraperConsole() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium">Status:</span>
-                <Badge 
+                <span className="text-sm font-medium">V3 Status:</span>
+                <Badge
                   className={`${
-                    scraperStatus === "Läuft" 
-                      ? "bg-warning text-white" 
+                    scraperStatus === "Läuft"
+                      ? "bg-warning text-white"
                       : "bg-success text-white"
                   }`}
                 >
                   {scraperStatus}
+                </Badge>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <span className="text-sm font-medium">Newest Scraper:</span>
+                <Badge
+                  className={`${
+                    newestScraperStatus.isRunning
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-400 text-white"
+                  }`}
+                >
+                  {newestScraperStatus.isRunning ? `🔄 Läuft (Cycle #${newestScraperStatus.currentCycle})` : "Gestoppt"}
                 </Badge>
               </div>
               

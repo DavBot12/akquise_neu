@@ -9,18 +9,20 @@ import { db } from "./db";
 import { PriceEvaluator } from "./services/priceEvaluator";
 import { ScraperV3Service } from "./services/scraper-v3";
 import { NewestScraperService } from "./services/scraper-newest";
+import { DerStandardScraperService } from "./services/scraper-derstandard";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const priceEvaluator = new PriceEvaluator();
-  // Import scraper services (V3, 24/7, Newest)
+  // Import scraper services (V3, 24/7, Newest, derStandard)
   const { ContinuousScraper247Service } = await import('./services/scraper-24-7');
   const continuousScraper = new ContinuousScraper247Service();
   const newestScraper = new NewestScraperService();
+  const derStandardScraper = new DerStandardScraperService();
 
   // Listings routes
   app.get("/api/listings", async (req, res) => {
     try {
-      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price } = req.query;
+      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price, source } = req.query;
       const filters: any = {};
 
       if (region && region !== "Alle Regionen") filters.region = region;
@@ -39,6 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (has_phone !== undefined) filters.has_phone = has_phone === "true";
       if (min_price) filters.min_price = parseInt(min_price as string);
       if (max_price) filters.max_price = parseInt(max_price as string);
+      if (source && source !== "Alle Quellen") filters.source = source;
 
       const listings = await storage.getListings(filters);
       res.json(listings);
@@ -693,15 +696,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============== DERSTANDARD SCRAPER ==============
+
+  app.post("/api/scraper/start-derstandard", async (req, res) => {
+    try {
+      const { intervalMinutes = 30, maxPages = 3 } = req.body;
+
+      const scraperOptions = {
+        intervalMinutes,
+        maxPages,
+        onLog: (message: string) => {
+          console.log('[DERSTANDARD-SCRAPER]', message);
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: 'scraperUpdate', message }));
+            }
+          });
+        },
+        onListingFound: async (listingData: any) => {
+          try {
+            // Check if listing already exists
+            const existing = await storage.getListingByUrl(listingData.url);
+            if (existing) {
+              console.log('[DERSTANDARD-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
+
+              // Update scraped_at and price
+              await storage.updateListingOnRescrape(listingData.url, {
+                scraped_at: new Date(),
+                last_changed_at: listingData.last_changed_at,
+                price: listingData.price
+              });
+
+              console.log('[DERSTANDARD-DB] ✓ Aktualisiert:', existing.id);
+              return;
+            }
+
+            // Price evaluation
+            const priceEvaluation = await priceEvaluator.evaluateListing(
+              Number(listingData.eur_per_m2 || 0),
+              listingData.region
+            );
+
+            // Save to database
+            const listing = await storage.createListing({
+              ...listingData,
+              price_evaluation: priceEvaluation,
+              source: 'derstandard'
+            });
+
+            console.log('[DERSTANDARD-DB] ✓ Neues Listing gespeichert:', listing.id);
+
+            // Broadcast new listing
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'newListing', listing }));
+              }
+            });
+          } catch (error) {
+            console.error('[DERSTANDARD-DB] ✗ Fehler beim Speichern:', error);
+          }
+        },
+        onPhoneFound: async ({ url, phone }: { url: string; phone: string }) => {
+          try {
+            const updated = await storage.updateDiscoveredLinkPhone(url, phone);
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'phoneFound', link: updated || { url, phone_number: phone } }));
+              }
+            });
+          } catch (e) {
+            console.error('updateDiscoveredLinkPhone error', e);
+          }
+        }
+      };
+
+      await derStandardScraper.start(scraperOptions);
+
+      res.json({ success: true, message: "derStandard Scraper gestartet" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start derStandard scraper" });
+    }
+  });
+
+  app.post("/api/scraper/stop-derstandard", async (req, res) => {
+    try {
+      derStandardScraper.stop();
+      res.json({ success: true, message: "derStandard Scraper gestoppt" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to stop derStandard scraper" });
+    }
+  });
+
+  app.get("/api/scraper/status-derstandard", async (req, res) => {
+    try {
+      const status = derStandardScraper.getStatus();
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get derStandard scraper status" });
+    }
+  });
+
   // Combined status endpoint for all scrapers
   app.get("/api/scraper/status-all", async (req, res) => {
     try {
       const status247 = continuousScraper.getStatus();
       const statusNewest = newestScraper.getStatus();
+      const statusDerStandard = derStandardScraper.getStatus();
 
       res.json({
         scraper247: status247,
-        scraperNewest: statusNewest
+        scraperNewest: statusNewest,
+        scraperDerStandard: statusDerStandard
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to get scraper status" });

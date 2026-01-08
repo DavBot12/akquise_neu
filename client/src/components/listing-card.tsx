@@ -44,7 +44,7 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
     const now = new Date();
     const diffMs = now.getTime() - scraped.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    
+
     if (diffHours < 1) {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       return `vor ${diffMinutes}min`;
@@ -53,6 +53,38 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
     } else {
       const diffDays = Math.floor(diffHours / 24);
       return `vor ${diffDays}d`;
+    }
+  };
+
+  const formatLastChanged = (date: Date | null) => {
+    if (!date) return null;
+    const changed = date instanceof Date ? date : new Date(date);
+    return changed.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatFirstSeen = (date: Date) => {
+    const firstSeen = date instanceof Date ? date : new Date(date);
+    const now = new Date();
+    const diffMs = now.getTime() - firstSeen.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      if (diffHours === 0) {
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        return `vor ${diffMinutes}min`;
+      }
+      return `vor ${diffHours}h`;
+    } else if (diffDays === 1) {
+      return 'vor 1 Tag';
+    } else {
+      return `vor ${diffDays} Tagen`;
     }
   };
 
@@ -163,9 +195,32 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           </p>
         )}
         
-        <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-          <span>Gescraped: {formatScrapedAt(listing.scraped_at)}</span>
-          <span className="text-primary">Privat</span>
+        <div className="flex flex-col gap-1 text-xs text-gray-500 mb-4">
+          <div className="flex items-center justify-between">
+            <span>Gescraped: {formatScrapedAt(listing.scraped_at)}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-primary">Privat</span>
+              {listing.source === 'derstandard' ? (
+                <Badge variant="outline" className="text-xs px-2 py-0 border-blue-500 text-blue-600">
+                  derStandard
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs px-2 py-0 border-green-500 text-green-600">
+                  Willhaben
+                </Badge>
+              )}
+            </div>
+          </div>
+          {listing.first_seen_at && (
+            <div className="text-xs text-gray-500">
+              Erstmals gesehen: {formatFirstSeen(listing.first_seen_at)}
+            </div>
+          )}
+          {listing.last_changed_at && (
+            <div className="text-xs text-gray-400">
+              Zuletzt geändert: {formatLastChanged(listing.last_changed_at)}
+            </div>
+          )}
         </div>
         
         <div className="flex space-x-2">

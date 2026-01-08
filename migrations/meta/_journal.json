@@ -8,6 +8,20 @@
       "when": 1767691307726,
       "tag": "0000_wooden_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1767812599654,
+      "tag": "0001_amazing_nomad",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767814304070,
+      "tag": "0002_oval_deathbird",
+      "breakpoints": true
     }
   ]
 }

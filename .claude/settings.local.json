@@ -36,7 +36,18 @@
       "Bash(npx drizzle-kit push:*)",
       "Bash(git push:*)",
       "Bash(find:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)",
+      "Bash(psql:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run db:migrate:*)",
+      "Bash(npm run)",
+      "Bash(npm run db:push:*)",
+      "Bash(npx playwright install:*)",
+      "Bash(rm:*)",
+      "Bash(npx playwright-core:*)"
     ]
   }
 }

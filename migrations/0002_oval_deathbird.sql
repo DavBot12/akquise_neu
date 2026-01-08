@@ -1,0 +1,1 @@
+ALTER TABLE "listings" ADD COLUMN "first_seen_at" timestamp DEFAULT now() NOT NULL;

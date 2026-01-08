@@ -24,6 +24,7 @@ export const listings = pgTable("listings", {
   price_evaluation: text("price_evaluation").$type<"unter_schnitt" | "im_schnitt" | "ueber_schnitt">(),
   category: text("category").notNull(), // eigentumswohnung or grundstueck or haus
   region: text("region").notNull(), // wien or niederoesterreich
+  source: text("source").notNull().default("willhaben"), // willhaben or derstandard
 });
 
 export const contacts = pgTable("contacts", {
