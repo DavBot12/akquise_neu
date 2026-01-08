@@ -8,17 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Trash2, Download, Settings, BarChart3, Terminal } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ScraperConsole() {
+  const [scraperSource, setScraperSource] = useState<"willhaben" | "derstandard">("willhaben");
   const [selectedCategories, setSelectedCategories] = useState([
     "eigentumswohnung-wien",
-    "grundstuecke-wien",
+    "haus-wien",
     "eigentumswohnung-niederoesterreich",
-    "grundstuecke-niederoesterreich"
+    "haus-niederoesterreich"
+    // Grundstücke standardmäßig DEAKTIVIERT
   ]);
   const [maxPages, setMaxPages] = useState(10);
   const [delay, setDelay] = useState(2000); // Optimierter Delay
@@ -42,6 +45,25 @@ export default function ScraperConsole() {
 
   const logContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Reset Kategorien beim Wechsel der Source
+  useEffect(() => {
+    if (scraperSource === "willhaben") {
+      setSelectedCategories([
+        "eigentumswohnung-wien",
+        "haus-wien",
+        "eigentumswohnung-niederoesterreich",
+        "haus-niederoesterreich"
+      ]);
+    } else {
+      setSelectedCategories([
+        "eigentumswohnung-wien",
+        "haus-wien",
+        "eigentumswohnung-niederoesterreich",
+        "haus-niederoesterreich"
+      ]);
+    }
+  }, [scraperSource]);
 
   // Poll 24/7 Scraper status
   const { data: status247 } = useQuery<{isRunning: boolean, currentCycle: number}>({
@@ -151,11 +173,16 @@ export default function ScraperConsole() {
 
   const startScrapingMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/scraper/start", {
+      // Wähle Endpoint basierend auf Source
+      const endpoint = scraperSource === "willhaben"
+        ? "/api/scraper/start"
+        : "/api/derstandard-scraper/start";
+
+      return await apiRequest("POST", endpoint, {
         categories: selectedCategories,
         maxPages,
         delay,
-        keyword, // Keyword-Filter an Backend übergeben
+        keyword: scraperSource === "willhaben" ? keyword : undefined, // Keyword nur für Willhaben
       });
     },
     onSuccess: () => {
@@ -260,23 +287,42 @@ export default function ScraperConsole() {
     });
   };
 
-  const categories = [
-    { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
-    { id: "grundstuecke-wien", label: "Grundstücke Wien" },
-    { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
-    { id: "grundstuecke-niederoesterreich", label: "Grundstücke NÖ" },
-  ];
+  // Kategorien basierend auf Source
+  const categories = scraperSource === "willhaben"
+    ? [
+        { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
+        { id: "haus-wien", label: "Häuser Wien" },
+        { id: "grundstuecke-wien", label: "Grundstücke Wien" },
+        { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
+        { id: "haus-niederoesterreich", label: "Häuser NÖ" },
+        { id: "grundstuecke-niederoesterreich", label: "Grundstücke NÖ" },
+      ]
+    : [
+        { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
+        { id: "haus-wien", label: "Häuser Wien" },
+        { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
+        { id: "haus-niederoesterreich", label: "Häuser NÖ" },
+      ];
 
   return (
     <>
       <div className="p-6 border-b border-gray-200 bg-white">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Scraper Console</h2>
-            <p className="text-gray-600 mt-1">Willhaben.at Scraping verwalten</p>
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              Scraper Console
+              {scraperSource === "willhaben" ? (
+                <Badge variant="outline" className="border-green-500 text-green-600">Willhaben</Badge>
+              ) : (
+                <Badge variant="outline" className="border-blue-500 text-blue-600">derStandard</Badge>
+              )}
+            </h2>
+            <p className="text-gray-600 mt-1">
+              {scraperSource === "willhaben" ? "Willhaben.at" : "derStandard.at"} Scraping verwalten
+            </p>
           </div>
           <div className="flex space-x-3">
-            <Button 
+            <Button
               onClick={() => startScrapingMutation.mutate()}
               disabled={startScrapingMutation.isPending || scraperStatus === "Läuft"}
               className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 transition-all duration-200 opacity-100"
@@ -300,6 +346,33 @@ export default function ScraperConsole() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Source Auswahl */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Quelle wählen
+                </Label>
+                <Select value={scraperSource} onValueChange={(val) => setScraperSource(val as "willhaben" | "derstandard")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="willhaben">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-green-500 text-green-600">Willhaben</Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="derstandard">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-blue-500 text-blue-600">derStandard</Badge>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {scraperSource === "willhaben" ? "Scrape von Willhaben.at" : "Scrape von derStandard.at"}
+                </p>
+              </div>
+
               <div>
                 <Label className="text-sm font-medium text-gray-700 mb-2 block">
                   Kategorien
@@ -310,7 +383,7 @@ export default function ScraperConsole() {
                       <Checkbox
                         id={category.id}
                         checked={selectedCategories.includes(category.id)}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handleCategoryChange(category.id, checked as boolean)
                         }
                       />
@@ -349,21 +422,24 @@ export default function ScraperConsole() {
                 />
               </div>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Keyword-Filter
-                </Label>
-                <Input
-                  type="text"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="z.B. privat, privatverkauf, provisionsfrei"
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Default: "privat" - findet private Listings
-                </p>
-              </div>
+              {/* Keyword-Filter nur für Willhaben */}
+              {scraperSource === "willhaben" && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Keyword-Filter
+                  </Label>
+                  <Input
+                    type="text"
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder="z.B. privat, privatverkauf, provisionsfrei"
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Default: "privat" - findet private Listings
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
