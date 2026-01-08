@@ -47,7 +47,13 @@
       "Bash(npm run db:push:*)",
       "Bash(npx playwright install:*)",
       "Bash(rm:*)",
-      "Bash(npx playwright-core:*)"
+      "Bash(npx playwright-core:*)",
+      "Bash(tasklist:*)",
+      "Bash(lsof:*)",
+      "Bash(python:*)",
+      "Bash(set:*)",
+      "Bash(source:*)",
+      "Bash(set +a)"
     ]
   }
 }

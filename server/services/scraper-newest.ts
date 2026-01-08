@@ -30,6 +30,8 @@ export class NewestScraperService {
   private isRunning = false;
   private intervalHandle: NodeJS.Timeout | null = null;
   private currentCycle = 0;
+  private intervalMinutes = 30; // Store interval for status display
+  private nextCycleTime: Date | null = null;
   private axiosInstance: AxiosInstance;
   private sessionCookies = '';
   private requestCount = 0;
@@ -72,16 +74,26 @@ export class NewestScraperService {
     } = options;
 
     this.isRunning = true;
+    this.intervalMinutes = intervalMinutes;
     onLog?.('[NEWEST] 🚀 GESTARTET - Neueste Inserate (sort=1)');
     onLog?.(`[NEWEST] ⏱️ Intervall: ${intervalMinutes} Min | 📄 MaxPages: ${maxPages} (mit + ohne keyword)`);
 
     // Erste Ausführung sofort
     await this.runCycle({ maxPages, onLog, onListingFound, onPhoneFound });
 
+    // Berechne nächsten Zyklus-Zeitpunkt
+    this.nextCycleTime = new Date(Date.now() + intervalMinutes * 60 * 1000);
+    const nextTimeStr = this.nextCycleTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    onLog?.(`[NEWEST] ⏰ Nächster Zyklus um ${nextTimeStr} Uhr`);
+
     // Danach regelmäßig
     this.intervalHandle = setInterval(async () => {
       if (this.isRunning) {
         await this.runCycle({ maxPages, onLog, onListingFound, onPhoneFound });
+        // Nach jedem Zyklus nächsten Zeitpunkt berechnen
+        this.nextCycleTime = new Date(Date.now() + intervalMinutes * 60 * 1000);
+        const nextTimeStr = this.nextCycleTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        onLog?.(`[NEWEST] ⏰ Nächster Zyklus um ${nextTimeStr} Uhr`);
       }
     }, intervalMinutes * 60 * 1000);
   }
@@ -100,10 +112,11 @@ export class NewestScraperService {
   /**
    * Status-Informationen
    */
-  getStatus(): { isRunning: boolean; currentCycle: number } {
+  getStatus(): { isRunning: boolean; currentCycle: number; nextCycleTime: string | null } {
     return {
       isRunning: this.isRunning,
-      currentCycle: this.currentCycle
+      currentCycle: this.currentCycle,
+      nextCycleTime: this.nextCycleTime ? this.nextCycleTime.toISOString() : null
     };
   }
 

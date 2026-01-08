@@ -33,7 +33,7 @@ export default function ScraperDualConsole() {
     isRunning: false,
     currentCycle: 0
   });
-  const [newestScraperStatus, setNewestScraperStatus] = useState<{isRunning: boolean, currentCycle: number}>({isRunning: false, currentCycle: 0});
+  const [newestScraperStatus, setNewestScraperStatus] = useState<{isRunning: boolean, currentCycle: number, nextCycleTime: string | null}>({isRunning: false, currentCycle: 0, nextCycleTime: null});
 
   const logContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -64,10 +64,11 @@ export default function ScraperDualConsole() {
   });
 
   // Poll Newest Scraper status
-  const { data: newestStatus } = useQuery<{isRunning: boolean, currentCycle: number}>({
+  const { data: newestStatus } = useQuery<{isRunning: boolean, currentCycle: number, nextCycleTime: string | null}>({
     queryKey: ["newest-scraper-status"],
     queryFn: async () => {
-      return await apiRequest("GET", "/api/scraper/status-newest") as Promise<{isRunning: boolean, currentCycle: number}>;
+      const response = await apiRequest("GET", "/api/scraper/status-newest");
+      return await response.json();
     },
     refetchInterval: 5000,
   });
@@ -318,8 +319,8 @@ export default function ScraperDualConsole() {
                 <h4 className="font-semibold text-blue-800 mb-3">🎯 V3 Scraper (Händisch)</h4>
 
                 <div className="space-y-3">
-                  {/* Source Auswahl */}
-                  <div>
+                  {/* Source Auswahl - ausgeblendet, derStandard deaktiviert */}
+                  {/* <div>
                     <Label className="text-sm font-medium text-gray-700 mb-2 block">
                       Quelle wählen
                     </Label>
@@ -343,7 +344,7 @@ export default function ScraperDualConsole() {
                     <p className="text-xs text-gray-500 mt-1">
                       {scraperSource === "willhaben" ? "Scrape von Willhaben.at" : "Scrape von derStandard.at"}
                     </p>
-                  </div>
+                  </div> */}
 
                   <div>
                     <Label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -465,8 +466,15 @@ export default function ScraperDualConsole() {
                   </div>
 
                   {newestScraperStatus.isRunning && (
-                    <div className="text-sm font-medium text-blue-700">
-                      Zyklus #{newestScraperStatus.currentCycle} aktiv
+                    <div className="text-sm space-y-1">
+                      <div className="font-medium text-blue-700">
+                        Zyklus #{newestScraperStatus.currentCycle} aktiv
+                      </div>
+                      {newestScraperStatus.nextCycleTime && (
+                        <div className="text-xs text-blue-600">
+                          Nächster Zyklus: {new Date(newestScraperStatus.nextCycleTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
+                        </div>
+                      )}
                     </div>
                   )}
 

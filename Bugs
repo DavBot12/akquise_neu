@@ -1,0 +1,12 @@
+ToDos:
+1.  in dashboard "Alle Quellen" Filter ausblenden
+2. in Scraper Console "Quelle wählen ausblenden"
+3. Team Performance wird falsch gezählt, jede Akquise wird als 10x gezählt -> hier nachhacken
+4. bei erfolgreiche akquisen werden auch nicht erfolgreiche angezeigt
+5. newest scraper zeigt in dual scraper UI nicht status an
+6. newest-scraper soll nach beendigung des zyklus in scraper console anzeigen, dass er zyklus zu ende und uhrzeit wann er neuanfängt -> diese nachrichten sollen nicht verschwinden/ oder man implimentiert se in UI
+7. preisspiegel inserate anzahl updatet sich falsch
+8. nochmal preisspiegel info extraktion genauestens überprüfen
+9.  [NEWEST-DB] Update (bereits vorhanden): Kleingartenwohnhaus auf 483m2 Eigengrund - Privatv
+[NEWEST-DB] ✓ Aktualisiert: 40
+aber bei dem objekt wird "gescraped vor XY h " nicht aktualisiert

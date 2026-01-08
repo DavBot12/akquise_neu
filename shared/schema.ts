@@ -125,7 +125,10 @@ export const acquisitions = pgTable("acquisitions", {
   notes: text("notes"),
   contacted_at: timestamp("contacted_at").defaultNow().notNull(),
   result_date: timestamp("result_date"),
-});
+}, (table) => ({
+  // Unique constraint: each user can only have one acquisition record per listing
+  uniqueUserListing: uniqueIndex("idx_acquisitions_user_listing").on(table.user_id, table.listing_id),
+}));
 
 export const acquisitionsRelations = relations(acquisitions, ({ one }) => ({
   user: one(users, {

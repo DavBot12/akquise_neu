@@ -142,7 +142,7 @@ export default function ViennaHeatmap({ bezirkStats }: ViennaHeatmapProps) {
     }).addTo(mapInstance.current);
 
     // Add legend
-    const legend = L.control({ position: 'bottomright' });
+    const legend = new L.Control({ position: 'bottomright' });
     legend.onAdd = () => {
       const div = L.DomUtil.create('div', 'info legend');
       div.style.backgroundColor = 'white';

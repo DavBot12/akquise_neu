@@ -89,6 +89,11 @@ export class PreisspiegelScraperService {
     options.onLog?.('[PREISSPIEGEL] Modus: ALLE Inserate (privat + gewerblich)');
 
     try {
+      // Deaktiviere alle bestehenden Listings vor dem Scrape
+      options.onLog?.('[PREISSPIEGEL] 🔄 Deaktiviere alte Listings...');
+      await storage.deactivateAllPriceMirrorListings();
+      options.onLog?.('[PREISSPIEGEL] ✅ Alte Listings deaktiviert');
+
       await this.establishSession(options.onLog);
       await this.runFullScrape(options);
       options.onLog?.('[PREISSPIEGEL] ✅ SCRAPE COMPLETE');
@@ -472,34 +477,101 @@ export class PreisspiegelScraperService {
   }
 
   /**
-   * Extrahiert Preis (1:1 von scraper-newest.ts)
+   * Extrahiert Preis - verbesserte robuste Extraktion
    */
   private extractPrice($: cheerio.CheerioAPI, bodyText: string): number {
-    const cand = $('span:contains("€"), div:contains("Kaufpreis"), [data-testid*="price"]').text();
-    const m1 = cand.match(/€\s*(\d{1,3})\.(\d{3})/);
-    if (m1) {
-      const v = parseInt(m1[1] + m1[2]);
-      if (v >= 50000 && v <= 9999999) return v;
+    // Methode 1: Spezifische Preis-Selektoren
+    const priceSelectors = [
+      '[data-testid*="price"]',
+      '[data-testid*="contact-box-price"]',
+      'span:contains("Kaufpreis")',
+      'div:contains("Kaufpreis")'
+    ];
+
+    for (const selector of priceSelectors) {
+      const text = $(selector).text();
+      // Format: € 149.900 oder €149.900 oder € 1.499.000
+      const match = text.match(/€\s*(\d{1,3})(?:\.(\d{3}))+/);
+      if (match) {
+        const priceStr = match[0].replace(/[€\s.]/g, '');
+        const price = parseInt(priceStr);
+        if (price >= 50000 && price <= 9999999) {
+          return price;
+        }
+      }
     }
-    const m2 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
+
+    // Methode 2: Kaufpreis im bodyText
+    const m2 = bodyText.match(/kaufpreis[:\s]*€\s*(\d{1,3})(?:\.(\d{3}))+/i);
     if (m2) {
-      const v = parseInt(m2[1] + m2[2]);
-      if (v >= 50000 && v <= 9999999) return v;
+      const priceStr = m2[0].match(/€\s*(\d{1,3}(?:\.\d{3})+)/)![1].replace(/\./g, '');
+      const price = parseInt(priceStr);
+      if (price >= 50000 && price <= 9999999) {
+        return price;
+      }
     }
+
+    // Methode 3: Generische €-Suche
+    const m3 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
+    if (m3) {
+      const price = parseInt(m3[1] + m3[2]);
+      if (price >= 50000 && price <= 9999999) {
+        return price;
+      }
+    }
+
+    // Methode 4: Fallback - alle 6-stelligen Zahlen mit Punkten
     const digits = (bodyText.match(/(\d{3}\.\d{3})/g) || [])
       .map(x => parseInt(x.replace('.', '')))
       .find(v => v >= 50000 && v <= 9999999);
+
     return digits || 0;
   }
 
   /**
-   * Extrahiert Fläche (1:1 von scraper-newest.ts)
+   * Extrahiert Fläche - verbesserte Extraktion
    */
   private extractArea($: cheerio.CheerioAPI, bodyText: string): string | '' {
-    const m1 = $('span:contains("m²"), div:contains("Wohnfläche")').text().match(/(\d{1,4})\s*m²/i);
-    if (m1) return m1[1];
-    const m2 = bodyText.match(/(\d{1,3})\s*m²/i);
-    return m2?.[1] || '';
+    // Methode 1: Spezifische Selektoren für Wohnfläche/Nutzfläche
+    const areaSelectors = [
+      '[data-testid*="attribute-living-area"]',
+      '[data-testid*="attribute-usable-area"]',
+      'div:contains("Wohnfläche")',
+      'div:contains("Nutzfläche")',
+      'span:contains("Wohnfläche")',
+      'span:contains("Nutzfläche")'
+    ];
+
+    for (const selector of areaSelectors) {
+      const text = $(selector).text();
+      const match = text.match(/(\d{1,4}(?:[,.]\d{1,2})?)\s*m²/i);
+      if (match) {
+        const area = parseFloat(match[1].replace(',', '.'));
+        if (area >= 10 && area <= 1000) {
+          return Math.round(area).toString();
+        }
+      }
+    }
+
+    // Methode 2: Regex im bodyText - nur valide Bereiche
+    const m2 = bodyText.match(/(?:wohnfläche|nutzfläche|fläche)[\s:]*(\d{1,4}(?:[,.]\d{1,2})?)\s*m²/i);
+    if (m2) {
+      const area = parseFloat(m2[1].replace(',', '.'));
+      if (area >= 10 && area <= 1000) {
+        return Math.round(area).toString();
+      }
+    }
+
+    // Methode 3: Generische m²-Suche als Fallback
+    const m3 = bodyText.match(/(\d{1,3})\s*m²/i);
+    if (m3) {
+      const area = parseInt(m3[1]);
+      if (area >= 10 && area <= 1000) {
+        return area.toString();
+      }
+    }
+
+    return '';
   }
 
   private getRandomUA(): string {

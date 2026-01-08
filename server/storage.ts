@@ -122,6 +122,7 @@ export interface IStorage {
 
   // Price mirror listings (detailed Vienna market data)
   upsertPriceMirrorListing(data: any): Promise<any>;
+  deactivateAllPriceMirrorListings(): Promise<void>;
   getPriceMirrorListings(filters?: {
     category?: string;
     bezirk_code?: string;
@@ -327,8 +328,11 @@ export class DatabaseStorage implements IStorage {
         scraped_at: listings.scraped_at,
         deletion_reason: listings.deletion_reason,
         deleted_by_user_id: listings.deleted_by_user_id,
+        deleted_at: listings.deleted_at,
         username: users.username,
-        source: sql<string>`'deleted'`
+        source: sql<string>`'deleted'`,
+        result_date: sql<Date | null>`NULL`,
+        contacted_at: sql<Date | null>`NULL`
       })
       .from(listings)
       .leftJoin(users, eq(listings.deleted_by_user_id, users.id))
@@ -349,8 +353,11 @@ export class DatabaseStorage implements IStorage {
         scraped_at: listings.scraped_at,
         deletion_reason: acquisitions.notes,
         deleted_by_user_id: acquisitions.user_id,
+        deleted_at: sql<Date | null>`NULL`,
         username: users.username,
-        source: sql<string>`'unsuccessful'`
+        source: sql<string>`'unsuccessful'`,
+        result_date: acquisitions.result_date,
+        contacted_at: acquisitions.contacted_at
       })
       .from(acquisitions)
       .innerJoin(listings, eq(acquisitions.listing_id, listings.id))
@@ -361,7 +368,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSuccessfulAcquisitions(userId?: number): Promise<any[]> {
-    let query = db
+    // Build where conditions
+    const whereConditions = [eq(acquisitions.status, 'erfolg')];
+    if (userId) {
+      whereConditions.push(eq(acquisitions.user_id, userId));
+    }
+
+    const query = db
       .select({
         id: listings.id,
         title: listings.title,
@@ -374,6 +387,7 @@ export class DatabaseStorage implements IStorage {
         images: listings.images,
         scraped_at: listings.scraped_at,
         contacted_at: acquisitions.contacted_at,
+        result_date: acquisitions.result_date,
         notes: acquisitions.notes,
         user_id: acquisitions.user_id,
         username: users.username
@@ -381,11 +395,7 @@ export class DatabaseStorage implements IStorage {
       .from(acquisitions)
       .innerJoin(listings, eq(acquisitions.listing_id, listings.id))
       .innerJoin(users, eq(acquisitions.user_id, users.id))
-      .where(eq(acquisitions.status, 'erfolg'));
-
-    if (userId) {
-      query = query.where(eq(acquisitions.user_id, userId)) as any;
-    }
+      .where(and(...whereConditions));
 
     return await query.orderBy(desc(acquisitions.contacted_at));
   }
@@ -554,7 +564,7 @@ export class DatabaseStorage implements IStorage {
   async createAcquisition(insertAcquisition: InsertAcquisition): Promise<Acquisition> {
     const [acquisition] = await db
       .insert(acquisitions)
-      .values(insertAcquisition)
+      .values(insertAcquisition as any)
       .returning();
     return acquisition;
   }
@@ -607,9 +617,10 @@ export class DatabaseStorage implements IStorage {
     };
 
     results.forEach(result => {
-      stats.total += result.count;
+      const count = Number(result.count); // Sicherstellen dass es eine Zahl ist
+      stats.total += count;
       if (result.status in stats) {
-        (stats as any)[result.status] = result.count;
+        (stats as any)[result.status] = count;
       }
     });
 
@@ -689,9 +700,9 @@ export class DatabaseStorage implements IStorage {
     );
 
     // Group sessions by date for streak calculation
-    const loginDates = [...new Set(recentSessions.map(s => 
+    const loginDates = Array.from(new Set(recentSessions.map(s =>
       new Date(s.login_time).toDateString()
-    ))].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    ))).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
     let streakDays = 0;
     let currentDate = new Date();
@@ -1032,6 +1043,16 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return result as PriceMirrorListing;
+  }
+
+  /**
+   * Deactivate all price mirror listings (to be called before scrape)
+   */
+  async deactivateAllPriceMirrorListings(): Promise<void> {
+    await db
+      .update(price_mirror_listings)
+      .set({ is_active: false })
+      .execute();
   }
 
   /**

@@ -69,7 +69,8 @@ export default function ScraperConsole() {
   const { data: status247 } = useQuery<{isRunning: boolean, currentCycle: number}>({
     queryKey: ["247-scraper-status"],
     queryFn: async () => {
-      return await apiRequest("GET", "/api/scraper/status-247") as Promise<{isRunning: boolean, currentCycle: number}>;
+      const response = await apiRequest("GET", "/api/scraper/status-247");
+      return await response.json();
     },
     refetchInterval: 5000, // Alle 5 Sekunden
   });
@@ -84,7 +85,8 @@ export default function ScraperConsole() {
   const { data: newestStatus } = useQuery<{isRunning: boolean, currentCycle: number}>({
     queryKey: ["newest-scraper-status"],
     queryFn: async () => {
-      return await apiRequest("GET", "/api/scraper/status-newest") as Promise<{isRunning: boolean, currentCycle: number}>;
+      const response = await apiRequest("GET", "/api/scraper/status-newest");
+      return await response.json();
     },
     refetchInterval: 5000, // Alle 5 Sekunden
   });

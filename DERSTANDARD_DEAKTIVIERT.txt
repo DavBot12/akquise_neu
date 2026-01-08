@@ -1,0 +1,50 @@
+# derStandard Scraper - TEMPORÄR DEAKTIVIERT
+
+## Status: Auskommentiert (V2.2 Rollback)
+
+Der derStandard.at Scraper wurde temporär deaktiviert und der gesamte Code auskommentiert.
+
+### Grund für Deaktivierung:
+1. **Beschreibung**: CSS-Selektoren ändern sich, instabile Extraktion
+2. **Bilder**: Komplizierte srcset-Struktur, unzuverlässig
+3. **Telefon**: Meist nicht verfügbar (nur Kontaktformular)
+4. **Privat-Filter**: Unzuverlässig - viele Makler schreiben "provisionsfrei"
+5. **Allgemein**: derStandard hat viel weniger echte Privatverkäufe als Willhaben
+
+### Was wurde auskommentiert:
+- [x] server/services/scraper-derstandard.ts - Komplette Service-Klasse
+- [x] server/routes.ts - derStandard API Endpoints
+- [x] client/src/components/scraper-console.tsx - Source-Auswahl UI
+- [x] client/src/components/scraper-dual-console.tsx - Source-Auswahl UI
+
+### Entscheidung:
+**FOKUS auf Willhaben.at** - dort sind die Daten besser und mehr echte Privatverkäufe!
+
+### Für später (wenn derStandard wieder aktiviert werden soll):
+1. Bessere Selektoren analysieren (evtl. mit Playwright DevTools)
+2. Button-Click für Telefonnummer implementieren
+3. Besseren Privat-Filter entwickeln (z.B. Makler-Namen blocklist)
+4. Oder: Komplett neuen Ansatz mit API-Reverse-Engineering
+
+### Letzte funktionierende Version:
+- Preis-Extraktion: ✅ funktioniert
+- Fläche-Extraktion: ✅ funktioniert  
+- Location-Extraktion: ✅ funktioniert
+- Beschreibung: ❌ CSS-Klasse nicht gefunden
+- Bilder: ⚠️ teilweise
+- Telefon: ❌ meist nicht verfügbar
+- Privat-Filter: ⚠️ unzuverlässig
+
+### Commits mit derStandard-Code:
+- d343387 - feat: derStandard Scraper komplett neu mit korrekten Selektoren
+- 0e00154 - fix: 4 kritische Fixes für derStandard Scraper
+- 31e1b46 - fix: Bilder-Extraktion mit korrektem srcset Attribut
+- 6451643 - fix: Beschreibung korrekt aus .sc-truncatable-section-text
+
+Alle auskommentierten Dateien können später wieder aktiviert werden durch:
+- Entfernen der /* */ Kommentare
+- Wieder-Aktivieren der UI-Komponenten
+
+---
+Datum: 2026-01-08
+Status: Code bleibt im Repo, aber auskommentiert

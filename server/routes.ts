@@ -936,8 +936,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const acquisition = await storage.createAcquisition(req.body);
       res.json(acquisition);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating acquisition:", error);
+      // Check for unique constraint violation (PostgreSQL error code 23505)
+      if (error.code === '23505' || error.message?.includes('duplicate')) {
+        return res.status(409).json({ error: "Duplicate acquisition: You have already recorded this acquisition" });
+      }
       res.status(500).json({ error: "Failed to create acquisition" });
     }
   });
