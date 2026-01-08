@@ -89,6 +89,21 @@ export default function Dashboard({ user }: DashboardProps) {
     markCompletedMutation.mutate({ id, akquise_erledigt: true });
   };
 
+  // Delete listing mutation
+  const deleteListingMutation = useMutation({
+    mutationFn: async ({ id, reason, userId }: { id: number; reason?: string; userId?: number }) => {
+      await apiRequest("DELETE", `/api/listings/${id}`, { reason, userId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/listings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/listings/stats"] });
+    },
+  });
+
+  const handleDeleteListing = (id: number, reason?: string) => {
+    deleteListingMutation.mutate({ id, reason, userId: user?.id });
+  };
+
   // Sort listings
   const sortedListings = [...listings].sort((a, b) => {
     const aValue = sortBy === "scraped_at" ? new Date(a.scraped_at).getTime() : new Date(a.last_changed_at || a.scraped_at).getTime();
@@ -260,6 +275,7 @@ export default function Dashboard({ user }: DashboardProps) {
                 listing={listing}
                 onMarkCompleted={handleMarkCompleted}
                 isMarkingCompleted={markCompletedMutation.isPending}
+                onDelete={handleDeleteListing}
                 user={user}
               />
             ))}
