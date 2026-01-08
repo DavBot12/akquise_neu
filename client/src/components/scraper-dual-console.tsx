@@ -7,19 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Terminal, Settings, Clock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ScraperDualConsole() {
+  const [scraperSource, setScraperSource] = useState<"willhaben" | "derstandard">("willhaben");
   const [selectedCategories, setSelectedCategories] = useState([
     "eigentumswohnung-wien",
-    "grundstueck-wien",
     "haus-wien",
     "eigentumswohnung-niederoesterreich",
-    "grundstueck-niederoesterreich",
     "haus-niederoesterreich"
+    // Grundstücke standardmäßig DEAKTIVIERT
   ]);
   const [maxPages, setMaxPages] = useState(3);
   const [delay, setDelay] = useState(2000);
@@ -36,6 +37,25 @@ export default function ScraperDualConsole() {
 
   const logContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Reset Kategorien beim Wechsel der Source
+  useEffect(() => {
+    if (scraperSource === "willhaben") {
+      setSelectedCategories([
+        "eigentumswohnung-wien",
+        "haus-wien",
+        "eigentumswohnung-niederoesterreich",
+        "haus-niederoesterreich"
+      ]);
+    } else {
+      setSelectedCategories([
+        "eigentumswohnung-wien",
+        "haus-wien",
+        "eigentumswohnung-niederoesterreich",
+        "haus-niederoesterreich"
+      ]);
+    }
+  }, [scraperSource]);
 
   // Fetch 24/7 scraper status on mount to restore state after reload
   const { data: status247 } = useQuery<{ isRunning: boolean; currentCycle: number }>({
@@ -103,18 +123,25 @@ export default function ScraperDualConsole() {
   // V3 Scraper (manual)
   const startPrivatScrapingMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/scraper/start", {
+      // Wähle Endpoint basierend auf Source
+      const endpoint = scraperSource === "willhaben"
+        ? "/api/scraper/start"
+        : "/api/derstandard-scraper/start";
+
+      return await apiRequest("POST", endpoint, {
         categories: selectedCategories,
         maxPages,
         delay,
-        keyword,
+        keyword: scraperSource === "willhaben" ? keyword : undefined, // Keyword nur für Willhaben
       });
     },
     onSuccess: () => {
       setScraperStatus("Läuft");
       toast({
         title: "V3 Scraper gestartet",
-        description: `Scraper läuft mit keyword="${keyword}"`,
+        description: scraperSource === "willhaben"
+          ? `Scraper läuft mit keyword="${keyword}"`
+          : `derStandard Scraper gestartet`,
       });
     },
     onError: () => {
@@ -216,14 +243,22 @@ export default function ScraperDualConsole() {
     setLogs(["[INFO] Log gelöscht..."]);
   };
 
-  const categories = [
-    { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
-    { id: "grundstueck-wien", label: "Grundstücke Wien" },
-    { id: "haus-wien", label: "Häuser Wien" },
-    { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
-    { id: "grundstueck-niederoesterreich", label: "Grundstücke NÖ" },
-    { id: "haus-niederoesterreich", label: "Häuser NÖ" },
-  ];
+  // Kategorien basierend auf Source
+  const categories = scraperSource === "willhaben"
+    ? [
+        { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
+        { id: "haus-wien", label: "Häuser Wien" },
+        { id: "grundstueck-wien", label: "Grundstücke Wien" },
+        { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
+        { id: "haus-niederoesterreich", label: "Häuser NÖ" },
+        { id: "grundstueck-niederoesterreich", label: "Grundstücke NÖ" },
+      ]
+    : [
+        { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
+        { id: "haus-wien", label: "Häuser Wien" },
+        { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
+        { id: "haus-niederoesterreich", label: "Häuser NÖ" },
+      ];
 
   return (
     <>
@@ -283,6 +318,33 @@ export default function ScraperDualConsole() {
                 <h4 className="font-semibold text-blue-800 mb-3">🎯 V3 Scraper (Händisch)</h4>
 
                 <div className="space-y-3">
+                  {/* Source Auswahl */}
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Quelle wählen
+                    </Label>
+                    <Select value={scraperSource} onValueChange={(val) => setScraperSource(val as "willhaben" | "derstandard")}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="willhaben">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="border-green-500 text-green-600">Willhaben</Badge>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="derstandard">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="border-blue-500 text-blue-600">derStandard</Badge>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {scraperSource === "willhaben" ? "Scrape von Willhaben.at" : "Scrape von derStandard.at"}
+                    </p>
+                  </div>
+
                   <div>
                     <Label className="text-sm font-medium text-gray-700 mb-2 block">
                       Kategorien
@@ -329,16 +391,19 @@ export default function ScraperDualConsole() {
                     </div>
                   </div>
 
-                  <div>
-                    <Label className="text-sm font-medium">Keyword-Filter</Label>
-                    <Input
-                      type="text"
-                      value={keyword}
-                      onChange={(e) => setKeyword(e.target.value)}
-                      placeholder="privat"
-                      className="font-mono text-sm"
-                    />
-                  </div>
+                  {/* Keyword-Filter nur für Willhaben */}
+                  {scraperSource === "willhaben" && (
+                    <div>
+                      <Label className="text-sm font-medium">Keyword-Filter</Label>
+                      <Input
+                        type="text"
+                        value={keyword}
+                        onChange={(e) => setKeyword(e.target.value)}
+                        placeholder="privat"
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                  )}
 
                   <Button
                     className="w-full bg-blue-600 hover:bg-blue-700"
