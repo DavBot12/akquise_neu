@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Play, Square, Terminal, BarChart3 } from "lucide-react";
+import { Play, Square, Terminal, BarChart3, Map } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
+import ViennaHeatmap from "@/components/vienna-heatmap";
 
 export default function PreisspiegelTest() {
   const [logs, setLogs] = useState<string[]>([
@@ -299,6 +300,21 @@ export default function PreisspiegelTest() {
                 </tbody>
               </table>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Wien Heatmap */}
+      {bezirkStats.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Map className="w-5 h-5" />
+              Wien Preisspiegel Heatmap
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ViennaHeatmap bezirkStats={bezirkStats} />
           </CardContent>
         </Card>
       )}

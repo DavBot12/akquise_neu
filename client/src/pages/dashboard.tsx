@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 
-import { Building, ChartLine, TrendingUp, LogOut, User } from "lucide-react";
+import { Building, ChartLine, TrendingUp, LogOut, User, Users } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ListingCard from "@/components/listing-card";
 import ScraperConsole from "@/components/scraper-console";
@@ -12,6 +12,7 @@ import ScraperDualConsole from "@/components/scraper-dual-console";
 import PriceMirror from "@/components/price-mirror";
 import PriceMirrorControl from "@/components/price-mirror-control";
 import PreisspiegelTest from "@/components/preisspiegel-test";
+import TeamPerformance from "@/components/team-performance";
 import Statistics from "@/pages/statistics";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing, Contact } from "@shared/schema";
@@ -199,7 +200,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   onClick={() => setActiveTab("preisspiegel-test")}
                 >
                   <TrendingUp className="mr-3 h-4 w-4" />
-                  Preisspiegel Test
+                  Preisspiegel
                 </Button>
               </>
             )}
@@ -239,6 +240,16 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <ChartLine className="mr-3 h-4 w-4" />
               Erfolgreiche Akquisen
             </Button>
+            {user?.is_admin && (
+              <Button
+                variant={activeTab === "performance" ? "default" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => setActiveTab("performance")}
+              >
+                <Users className="mr-3 h-4 w-4" />
+                Team Performance
+              </Button>
+            )}
           </div>
         </nav>
 
@@ -548,6 +559,25 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Team Performance Tab - Admin only */}
+        {user?.is_admin && activeTab === "performance" && (
+          <div className="h-full">
+            <div className="p-6 border-b border-gray-200 bg-white">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Team Performance</h2>
+                  <p className="text-gray-600 mt-1">
+                    Mitarbeiter-Erfolgsraten und Statistiken
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 h-full overflow-y-auto">
+              <TeamPerformance />
             </div>
           </div>
         )}

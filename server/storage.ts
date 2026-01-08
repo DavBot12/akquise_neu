@@ -103,6 +103,7 @@ export interface IStorage {
     erfolg: number;
     nicht_erfolgreich: number;
     erfolgsrate: number;
+    last_login: Date | null;
   }>>;
   
   // User statistics for sidebar
@@ -619,19 +620,30 @@ export class DatabaseStorage implements IStorage {
     erfolg: number;
     nicht_erfolgreich: number;
     erfolgsrate: number;
+    last_login: Date | null;
   }>> {
     const allUsers = await db.select().from(users).where(eq(users.is_admin, false));
     const result = [];
 
     for (const user of allUsers) {
       const stats = await this.getAcquisitionStats(user.id);
+
+      // Get last login from user_sessions
+      const [lastSession] = await db
+        .select()
+        .from(user_sessions)
+        .where(eq(user_sessions.user_id, user.id))
+        .orderBy(desc(user_sessions.login_time))
+        .limit(1);
+
       result.push({
         id: user.id,
         username: user.username,
         total: stats.total,
         erfolg: stats.erfolg,
         nicht_erfolgreich: stats.nicht_erfolgreich,
-        erfolgsrate: stats.erfolgsrate
+        erfolgsrate: stats.erfolgsrate,
+        last_login: lastSession?.login_time || null
       });
     }
 
