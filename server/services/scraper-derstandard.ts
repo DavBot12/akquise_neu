@@ -278,10 +278,19 @@ export class DerStandardScraperService {
   private parseDetailWithReason(html: string, url: string, key: string): { listing: any | null; reason: string } {
     const $ = load(html);
     const bodyText = $('body').text();
+    const bodyTextLower = bodyText.toLowerCase();
 
     // Extract basic info
     const title = this.extractTitle($);
     if (!title || title.length < 5) return { listing: null, reason: 'no title' };
+
+    // PRIVAT-FILTER: Suche nach "provisionsfrei" oder ähnlichen Keywords
+    const privatKeywords = ['provisionsfrei', 'keine provision', 'ohne provision', 'privatverkauf', 'privat'];
+    const hasPrivateKeyword = privatKeywords.some(kw => bodyTextLower.includes(kw));
+
+    if (!hasPrivateKeyword) {
+      return { listing: null, reason: 'kein Privat/Provisionsfrei-Keyword (Makler)' };
+    }
 
     const price = this.extractPrice($, bodyText);
     const areaStr = this.extractArea($, bodyText);
@@ -451,18 +460,36 @@ export class DerStandardScraperService {
   }
 
   private extractDescription($: ReturnType<typeof load>): string {
-    const descSelectors = [
-      '[data-testid="description"]',
+    // PRIMARY: Section mit h2 "Beschreibung"
+    const descSection = $('section:has(h2)').filter((_, el) => {
+      const h2Text = $(el).find('h2').text().trim();
+      return h2Text === 'Beschreibung';
+    });
+
+    if (descSection.length > 0) {
+      // Sammle alle <p> Tags innerhalb der Section
+      const paragraphs: string[] = [];
+      descSection.find('p').each((_, p) => {
+        const text = $(p).text().trim();
+        if (text) paragraphs.push(text);
+      });
+
+      if (paragraphs.length > 0) {
+        return paragraphs.join('\n\n').substring(0, 2000);
+      }
+    }
+
+    // FALLBACK: Suche nach Description-Klassen
+    const fallbackSelectors = [
+      '[class*="Description"]',
       '[class*="description"]',
-      '[class*="objektbeschreibung"]',
-      'div.description',
-      'p.description'
+      '.sc-description'
     ];
 
-    for (const sel of descSelectors) {
+    for (const sel of fallbackSelectors) {
       const text = $(sel).text().trim();
-      if (text && text.length > 30) {
-        return text.substring(0, 1000);
+      if (text && text.length > 50) {
+        return text.substring(0, 2000);
       }
     }
 
@@ -470,27 +497,30 @@ export class DerStandardScraperService {
   }
 
   private extractPhone($: ReturnType<typeof load>, html: string): string | null {
-    // Try to find phone number in various formats
-    const phonePatterns = [
-      /\+43[\s\-]?\d{1,4}[\s\-]?\d{3,}[\s\-]?\d{3,}/g,
-      /0\d{3,4}[\s\-]?\d{3,}[\s\-]?\d{3,}/g,
-      /\(0\d{2,4}\)[\s\-]?\d{3,}/g
-    ];
-
-    const bodyText = $('body').text();
-
-    for (const pattern of phonePatterns) {
-      const match = bodyText.match(pattern);
-      if (match) {
-        return match[0].replace(/[\s\-]/g, '');
+    // PRIMARY: tel: Link
+    const telLink = $('a[href^="tel:"]');
+    if (telLink.length > 0) {
+      const href = telLink.attr('href');
+      if (href) {
+        return href.replace('tel:', '').replace(/[\s\-]/g, '');
       }
     }
 
-    // Check in HTML data attributes or JSON
-    const jsonMatch = html.match(/"phone[^"]*":\s*"([^"]+)"/i) ||
-                     html.match(/"telefon[^"]*":\s*"([^"]+)"/i);
-    if (jsonMatch) {
-      return jsonMatch[1];
+    // FALLBACK: Suche nach Kontakt-Telefonnummern in .sc-contact oder .sc-metadata
+    const contactSelectors = [
+      '.sc-contact-phone',
+      '.sc-contact a[href^="tel:"]',
+      '[class*="contact"] a[href^="tel:"]'
+    ];
+
+    for (const sel of contactSelectors) {
+      const link = $(sel);
+      if (link.length > 0) {
+        const href = link.attr('href');
+        if (href && href.startsWith('tel:')) {
+          return href.replace('tel:', '').replace(/[\s\-]/g, '');
+        }
+      }
     }
 
     return null;
@@ -499,23 +529,33 @@ export class DerStandardScraperService {
   private extractImages($: ReturnType<typeof load>, html: string): string[] {
     const images = new Set<string>();
 
-    // Try common image selectors
-    $('img[src*="derstandard"], img[src*="immobilien"]').each((_, el) => {
-      const src = $(el).attr('src');
-      if (src && !src.includes('placeholder') && !src.includes('logo')) {
-        const fullSrc = src.startsWith('http') ? src : `https://immobilien.derstandard.at${src}`;
-        images.add(fullSrc);
+    // PRIMARY: picture source mit .jpeg URLs (aus Analyse)
+    $('picture source[srcSet*=".jpeg"]').each((_, el) => {
+      const srcSet = $(el).attr('srcSet');
+      if (srcSet) {
+        // Extract base URL: https://i.prod.mp-dst.onyx60.com/plain/private-ads/{id}/{id}.jpeg
+        const match = srcSet.match(/(https:\/\/[^\/]+\/[^\/]+\/private-ads\/[^\/]+\/[^\/]+\.jpeg)/);
+        if (match) {
+          images.add(match[1]);
+        }
       }
     });
 
-    // Check for image URLs in JSON data
-    const imageMatches = html.matchAll(/"image[^"]*":\s*"([^"]+)"/g);
-    for (const match of imageMatches) {
-      const url = match[1].replace(/\\/g, '');
-      if (url.startsWith('http')) {
-        images.add(url);
+    // FALLBACK: img tags mit immobilien-URLs
+    $('img[alt*="Bild"]').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && src.includes('mp-dst') && !src.includes('placeholder')) {
+        images.add(src);
       }
-    }
+    });
+
+    // FALLBACK 2: Swiper slides
+    $('.swiper-slide img').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && src.startsWith('http') && !src.includes('placeholder') && !src.includes('logo')) {
+        images.add(src);
+      }
+    });
 
     return Array.from(images);
   }
