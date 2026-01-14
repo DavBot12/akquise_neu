@@ -42,6 +42,9 @@ export class NewestScraperService {
   private lastFirstListingIds: Record<string, string | null> = {};
   private currentFirstListingIds: Record<string, string | null> = {};
 
+  // Quick-check state: stores ALL private IDs on page 1 (for detecting new listings anywhere on page)
+  private page1PrivateIds: Record<string, string[]> = {};
+
   // Dual timer system
   private quickCheckIntervalHandle: NodeJS.Timeout | null = null;
   private fullScrapeIntervalHandle: NodeJS.Timeout | null = null;
@@ -1159,7 +1162,10 @@ export class NewestScraperService {
 
   /**
    * QUICK CHECK: Lightweight check of first page only
-   * Returns true if first listing ID has changed (new listings available)
+   * Returns true if ANY private listing ID on page 1 is new (not seen before)
+   *
+   * FIX: Previously only compared first ID - missed new listings at positions 2-90
+   * Now: Extracts ALL private IDs and checks if any are new
    */
   private async quickCheck(): Promise<boolean> {
     try {
@@ -1176,27 +1182,44 @@ export class NewestScraperService {
       const res = await this.proxyRequest(url, { headers });
       const html = res.data as string;
 
-      // Extract first listing ID (use ISPRIVATE filter)
+      // Extract ALL private listing IDs from page 1
       const { filteredUrls } = this.extractDetailUrlsWithISPRIVATE(html);
       if (filteredUrls.length === 0) {
         this.onLog?.('[QUICK-CHECK] No private listings found on first page');
         return false;
       }
 
-      const firstListingId = this.extractListingIdFromUrl(filteredUrls[0]);
-      const categoryLastFirstId = this.lastFirstListingIds[categoryKey];
+      // Get all current private IDs on page 1
+      const currentIds = filteredUrls
+        .map(url => this.extractListingIdFromUrl(url))
+        .filter(id => id !== null) as string[];
 
-      if (!categoryLastFirstId) {
-        // First run ever - no comparison possible
-        this.onLog?.(`[QUICK-CHECK] First run for ${categoryKey} - storing ID: ${firstListingId}`);
+      // Get stored IDs from last check
+      const lastIdsKey = `${categoryKey}_page1_ids`;
+      const lastIds = this.page1PrivateIds?.[lastIdsKey] || [];
+
+      // First run - store IDs and don't trigger
+      if (lastIds.length === 0) {
+        this.page1PrivateIds = this.page1PrivateIds || {};
+        this.page1PrivateIds[lastIdsKey] = currentIds;
+        this.onLog?.(`[QUICK-CHECK] First run - stored ${currentIds.length} IDs for ${categoryKey}`);
         return false;
       }
 
-      const hasChanged = firstListingId !== categoryLastFirstId;
+      // Check for NEW IDs (not in last check)
+      const lastIdSet = new Set(lastIds);
+      const newIds = currentIds.filter(id => !lastIdSet.has(id));
 
-      this.onLog?.(`[QUICK-CHECK] ${categoryKey} - Current: ${firstListingId} | Last: ${categoryLastFirstId} | Changed: ${hasChanged}`);
+      // Update stored IDs for next check
+      this.page1PrivateIds[lastIdsKey] = currentIds;
 
-      return hasChanged;
+      if (newIds.length > 0) {
+        this.onLog?.(`[QUICK-CHECK] ${categoryKey} - Found ${newIds.length} NEW private listings: ${newIds.slice(0, 3).join(', ')}${newIds.length > 3 ? '...' : ''}`);
+        return true;
+      }
+
+      this.onLog?.(`[QUICK-CHECK] ${categoryKey} - No new listings (${currentIds.length} private on page 1)`);
+      return false;
     } catch (error: any) {
       this.onLog?.(`[QUICK-CHECK] Error: ${error?.message || error}`);
       return false; // Don't trigger scrape on error

@@ -116,25 +116,31 @@ export class ScraperV3Service {
     }
   }
 
+  /**
+   * Playwright fallback for phone extraction (clicks "Telefon anzeigen" button)
+   * PERFORMANCE NOTE: This is SLOW (10-20s per call) because it launches Chrome
+   * Use sparingly - JSON CONTACT/PHONE pattern should catch most phones now
+   */
   private async playwrightPhoneFallback(url: string): Promise<string | null> {
     const browser = await chromium.launch({ headless: true });
     try {
       const context = await browser.newContext();
       const page = await context.newPage();
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      // Reduced timeout from 30s to 15s for faster failure
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
       // Try clicking a button/link that reveals phone
       const candidates = [
+        '[data-testid="top-contact-box-phone-number-button"]',
+        '[data-testid="show-phone"]',
         'text=Telefon anzeigen',
         'text=Telefonnummern anzeigen',
         'button:has-text("Telefon")',
-        '[data-testid="show-phone"]',
-        '[data-testid="top-contact-box-phone-number-button"]',
       ];
       for (const sel of candidates) {
         const el = await page.$(sel);
-        if (el) { try { await el.click({ timeout: 2000 }); } catch {} }
+        if (el) { try { await el.click({ timeout: 1500 }); break; } catch {} }
       }
-      // Wait for a revealed phone element
+      // Wait for a revealed phone element - reduced timeout from 4s to 2s
       const revealSelectors = [
         'a[href^="tel:"]',
         '[data-testid="top-contact-box-phone-number-virtual"]',
@@ -143,7 +149,7 @@ export class ScraperV3Service {
       for (const rs of revealSelectors) {
         try {
           const loc = page.locator(rs).first();
-          await loc.waitFor({ state: 'visible', timeout: 4000 });
+          await loc.waitFor({ state: 'visible', timeout: 2000 });
           const href = await loc.getAttribute('href');
           const txt = (await loc.textContent()) || '';
           const raw = (href?.replace(/^tel:/i,'') || '') || txt;
