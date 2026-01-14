@@ -19,7 +19,7 @@ export default function Dashboard({ user }: DashboardProps) {
   const [categoryFilter, setCategoryFilter] = useState("Alle Kategorien");
   const [phoneFilter, setPhoneFilter] = useState("Alle");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500000]);
-  const [sortBy, setSortBy] = useState<"scraped_at" | "last_changed_at">("last_changed_at");
+  const [sortBy, setSortBy] = useState<"scraped_at" | "last_changed_at" | "first_seen_at">("last_changed_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const queryClient = useQueryClient();
@@ -106,8 +106,20 @@ export default function Dashboard({ user }: DashboardProps) {
 
   // Sort listings
   const sortedListings = [...listings].sort((a, b) => {
-    const aValue = sortBy === "scraped_at" ? new Date(a.scraped_at).getTime() : new Date(a.last_changed_at || a.scraped_at).getTime();
-    const bValue = sortBy === "scraped_at" ? new Date(b.scraped_at).getTime() : new Date(b.last_changed_at || b.scraped_at).getTime();
+    let aValue: number;
+    let bValue: number;
+
+    if (sortBy === "scraped_at") {
+      aValue = new Date(a.scraped_at).getTime();
+      bValue = new Date(b.scraped_at).getTime();
+    } else if (sortBy === "first_seen_at") {
+      aValue = new Date(a.first_seen_at).getTime();
+      bValue = new Date(b.first_seen_at).getTime();
+    } else {
+      aValue = new Date(a.last_changed_at || a.scraped_at).getTime();
+      bValue = new Date(b.last_changed_at || b.scraped_at).getTime();
+    }
+
     return sortOrder === "desc" ? bValue - aValue : aValue - bValue;
   });
 
@@ -194,8 +206,9 @@ export default function Dashboard({ user }: DashboardProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Alle Kategorien">Alle Kategorien</SelectItem>
-                <SelectItem value="wohnung">Wohnung</SelectItem>
+                <SelectItem value="eigentumswohnung">Wohnung</SelectItem>
                 <SelectItem value="haus">Haus</SelectItem>
+                <SelectItem value="grundstueck">Grundstück</SelectItem>
               </SelectContent>
             </Select>
 
@@ -226,11 +239,12 @@ export default function Dashboard({ user }: DashboardProps) {
           </div>
 
           <div className="flex gap-4 mt-4">
-            <Select value={sortBy} onValueChange={(val) => setSortBy(val as "scraped_at" | "last_changed_at")}>
+            <Select value={sortBy} onValueChange={(val) => setSortBy(val as "scraped_at" | "last_changed_at" | "first_seen_at")}>
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="first_seen_at">Sortieren: Erstmals gesehen</SelectItem>
                 <SelectItem value="scraped_at">Sortieren: Scrape-Datum</SelectItem>
                 <SelectItem value="last_changed_at">Sortieren: Änderungsdatum</SelectItem>
               </SelectContent>

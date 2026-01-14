@@ -150,7 +150,7 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
       </div>
       
       <CardContent className="p-3 flex-1 flex flex-col">
-        <h3 className="font-semibold text-base text-gray-800 mb-2 line-clamp-2">
+        <h3 className="font-semibold text-base text-foreground mb-2 line-clamp-2">
           {listing.title}
         </h3>
 

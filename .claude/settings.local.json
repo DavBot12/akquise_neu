@@ -53,7 +53,30 @@
       "Bash(python:*)",
       "Bash(set:*)",
       "Bash(source:*)",
-      "Bash(set +a)"
+      "Bash(set +a)",
+      "Bash(timeout 5 tail:*)",
+      "Bash(exit 0)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(docker tag:*)",
+      "Bash(npm run tsx:*)",
+      "Bash($env:DATABASE_URL=\"postgresql://neondb_owner:npg_lKPVtzqY7O8B@ep-jolly-dust-a22d0vlg-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require\")",
+      "Bash(cmd //c \"set DATABASE_URL=postgresql://neondb_owner:npg_lKPVtzqY7O8B@ep-jolly-dust-a22d0vlg-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require^&channel_binding=require && npx tsx server/scripts/add-is-approved.ts\")",
+      "Bash(cmd //c \"set DATABASE_URL=postgresql://neondb_owner:npg_lKPVtzqY7O8B@ep-jolly-dust-a22d0vlg-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require^&channel_binding=require && npx tsx -e \"\"import { db } from ''./server/db.js''; import { users } from ''./shared/schema.js''; db.select\\(\\).from\\(users\\).then\\(u => console.log\\(JSON.stringify\\(u, null, 2\\)\\)\\).then\\(\\(\\) => process.exit\\(0\\)\\)\"\"\")",
+      "Bash(cmd //c \"set DATABASE_URL=postgresql://neondb_owner:npg_lKPVtzqY7O8B@ep-jolly-dust-a22d0vlg-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require && npx drizzle-kit studio --port 4983 &\")",
+      "Bash(for page in {1..10})",
+      "Bash(do echo \"=== Page $page ===\")",
+      "Bash(done)",
+      "Bash(cloc:*)",
+      "Bash(npm run db:set-initial-ids:*)",
+      "Bash(cross-env NODE_ENV=development tsx:*)",
+      "Bash(cd:*)",
+      "Bash(cross-env NODE_ENV=development npx tsx:*)",
+      "Bash(npx cross-env:*)",
+      "Bash(for adid in 1666190026 1659555284 1326686531 938830322 1559436231)",
+      "Bash(do echo \"ADID $adid:\")",
+      "Bash(for adid in 1121953138 1786011546)",
+      "Bash(wc:*)"
     ]
   }
 }

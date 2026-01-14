@@ -165,7 +165,12 @@ export default function ScraperConsole() {
 
   const scrollToBottom = () => {
     if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+      // ScrollArea verwendet einen internen Viewport - finde ihn
+      const viewport = logContainerRef.current.closest('[data-radix-scroll-area-viewport]')
+        || logContainerRef.current.parentElement;
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   };
 

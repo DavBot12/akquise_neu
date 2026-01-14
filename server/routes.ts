@@ -2,9 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import axios from "axios";
+import bcrypt from "bcrypt";
+import { Resend } from "resend";
 import { storage } from "./storage";
-import { insertListingSchema, insertContactSchema, insertListingContactSchema, listings, discovered_links } from "@shared/schema";
+import { insertListingSchema, insertContactSchema, insertListingContactSchema, listings, discovered_links, users, user_sessions } from "@shared/schema";
 import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 import { PriceEvaluator } from "./services/priceEvaluator";
 import { ScraperV3Service } from "./services/scraper-v3";
@@ -242,6 +245,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User changes own password (no old password required)
+  app.post("/api/auth/change-password", async (req, res) => {
+    try {
+      const { userId, newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 4) {
+        res.status(400).json({ error: "Neues Passwort muss mindestens 4 Zeichen lang sein" });
+        return;
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        res.status(404).json({ error: "Benutzer nicht gefunden" });
+        return;
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update password
+      await db.update(users)
+        .set({ password: hashedPassword })
+        .where(eq(users.id, userId));
+
+      console.log(`[PASSWORD CHANGE] User ${user.username} changed their password`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ error: "Passwort-Änderung fehlgeschlagen" });
+    }
+  });
+
   // DISABLED: Price mirror scraper routes - will be improved later with per-district pricing
   // app.post("/api/scraper/price-mirror", async (req, res) => {
   //   try {
@@ -476,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/scraper/stop-247", async (req, res) => {
     try {
-      continuousScraper.stop247Scraping();
+      continuousScraper.stop247Scraping((msg) => broadcastLog(msg));
       res.json({ success: true, message: "24/7 Scraper gestoppt" });
     } catch (error) {
       res.status(500).json({ message: "Failed to stop 24/7 scraper" });
@@ -510,10 +545,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         onListingFound: async (listingData: any) => {
           try {
+            const isDebug = process.env.DEBUG_SCRAPER === 'true';
+
+            if (isDebug) {
+              console.log('[NEWEST-DB] 🔍 Checking if exists:', listingData.url);
+            }
+
             // Check if listing already exists
             const existing = await storage.getListingByUrl(listingData.url);
             if (existing) {
-              console.log('[NEWEST-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
+              if (isDebug) {
+                console.log('[NEWEST-DB] 📝 UPDATE (bereits vorhanden - ID:', existing.id + '):', listingData.title.substring(0, 50));
+                console.log('[NEWEST-DB]    Old price:', existing.price, '→ New price:', listingData.price);
+                console.log('[NEWEST-DB]    Old scraped_at:', existing.scraped_at);
+              }
 
               // Update scraped_at, last_changed_at und price
               await storage.updateListingOnRescrape(listingData.url, {
@@ -522,8 +567,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 price: listingData.price
               });
 
-              console.log('[NEWEST-DB] ✓ Aktualisiert:', existing.id);
+              if (isDebug) {
+                console.log('[NEWEST-DB] ✅ UPDATE COMPLETE - scraped_at aktualisiert!');
+                console.log('[NEWEST-DB] ✓ Aktualisiert:', existing.id);
+              }
               return;
+            }
+
+            if (isDebug) {
+              console.log('[NEWEST-DB] 🆕 NEW LISTING - saving to DB...');
+              console.log('[NEWEST-DB]    Title:', listingData.title.substring(0, 60));
+              console.log('[NEWEST-DB]    Price:', listingData.price);
+              console.log('[NEWEST-DB]    Region:', listingData.region);
             }
 
             // Price evaluation
@@ -532,13 +587,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               listingData.region
             );
 
+            if (isDebug) {
+              console.log('[NEWEST-DB]    Price evaluation:', priceEvaluation);
+            }
+
             // Save to database
             const listing = await storage.createListing({
               ...listingData,
               price_evaluation: priceEvaluation
             });
 
-            console.log('[NEWEST-DB] ✓ Neues Listing gespeichert:', listing.id);
+            if (isDebug) {
+              console.log('[NEWEST-DB] ✅ NEW LISTING SAVED - ID:', listing.id);
+            }
 
             // Broadcast new listing
             wss.clients.forEach(client => {
@@ -546,8 +607,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 client.send(JSON.stringify({ type: 'newListing', listing }));
               }
             });
-          } catch (error) {
-            console.error('[NEWEST-DB] ✗ Fehler beim Speichern:', error);
+          } catch (error: any) {
+            console.error('[NEWEST-DB] ❌ FATAL ERROR beim Speichern:', error);
+            console.error('[NEWEST-DB]    Error message:', error?.message);
+            console.error('[NEWEST-DB]    Error stack:', error?.stack);
+            console.error('[NEWEST-DB]    Listing data:', listingData);
           }
         },
         onPhoneFound: async ({ url, phone }: { url: string; phone: string }) => {
@@ -574,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/scraper/stop-newest", async (req, res) => {
     try {
-      newestScraper.stop();
+      newestScraper.stop((msg) => broadcastLog(msg));
       res.json({ success: true, message: "Newest Scraper gestoppt" });
     } catch (error) {
       res.status(500).json({ message: "Failed to stop newest scraper" });
@@ -587,6 +651,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(status);
     } catch (error) {
       res.status(500).json({ message: "Failed to get newest scraper status" });
+    }
+  });
+
+  // Manual triggers for testing/debugging (optional)
+  app.post("/api/scraper/trigger-newest-full", async (req, res) => {
+    try {
+      // Trigger immediate full scrape (will respect mutex if already running)
+      (newestScraper as any).runFullScrape();
+      res.json({ success: true, message: "Full scrape triggered manually" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to trigger full scrape" });
+    }
+  });
+
+  app.post("/api/scraper/trigger-newest-quick", async (req, res) => {
+    try {
+      const hasNewListings = await (newestScraper as any).quickCheck();
+      res.json({
+        success: true,
+        hasNewListings,
+        message: hasNewListings ? "New listings detected" : "No new listings"
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to trigger quick check" });
     }
   });
 
@@ -881,9 +969,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes with real tracking
   app.get("/api/auth/user", async (req, res) => {
     try {
-      // For now, return null if no session exists
-      // This will be enhanced with proper session management later
-      res.json(null);
+      const sessionId = req.headers['x-session-id'];
+
+      if (!sessionId) {
+        res.json(null);
+        return;
+      }
+
+      // Validate session exists and is active
+      const [session] = await db
+        .select()
+        .from(user_sessions)
+        .where(eq(user_sessions.id, parseInt(sessionId as string)));
+
+      if (!session || session.logout_time) {
+        res.json(null);
+        return;
+      }
+
+      // Get user data
+      const user = await storage.getUser(session.user_id);
+      if (!user) {
+        res.json(null);
+        return;
+      }
+
+      res.json({
+        id: user.id,
+        username: user.username,
+        is_admin: user.is_admin,
+        sessionId: session.id
+      });
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({ error: "Failed to get user" });
@@ -894,13 +1010,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = req.body;
       const user = await storage.getUserByUsername(username);
-      
-      if (user && user.password === password) {
+
+      // Compare password using bcrypt
+      if (user && await bcrypt.compare(password, user.password)) {
+        // Check if user is approved (Admins sind immer approved)
+        if (!user.is_approved && !user.is_admin) {
+          res.status(403).json({ error: "Account wartet auf Freigabe durch Admin" });
+          return;
+        }
+
         // Create user session for tracking
         const userAgent = req.headers['user-agent'];
         const ipAddress = req.ip || req.connection.remoteAddress;
         const session = await storage.createUserSession(user.id, ipAddress, userAgent);
-        
+
         // Update login statistics
         await storage.updateLoginStats(user.id);
 
@@ -918,14 +1041,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = req.body;
       const existingUser = await storage.getUserByUsername(username);
-      
+
       if (existingUser) {
         res.status(400).json({ error: "Username already exists" });
         return;
       }
-      
+
       const user = await storage.createUser({ username, password });
-      res.json({ success: true, user: { id: user.id, username: user.username, is_admin: user.is_admin } });
+
+      // Send email notification to admin (Resend)
+      if (process.env.RESEND_API_KEY) {
+        try {
+          const resend = new Resend(process.env.RESEND_API_KEY);
+
+          const emailResult = await resend.emails.send({
+            from: 'Akquise System <onboarding@resend.dev>',
+            to: 'admin@sira-group.at',
+            subject: 'Neue Konto-Registrierung - Freigabe erforderlich',
+            html: `
+              <h2>Neue Konto-Registrierung</h2>
+              <p>Ein neuer Benutzer hat sich registriert und wartet auf Freigabe:</p>
+              <ul>
+                <li><strong>Benutzername:</strong> ${username}</li>
+                <li><strong>User ID:</strong> ${user.id}</li>
+                <li><strong>Registriert am:</strong> ${new Date().toLocaleString('de-DE')}</li>
+              </ul>
+              <p>Bitte geben Sie diesen Benutzer frei, damit er Zugriff auf das System erhält.</p>
+            `
+          });
+
+          console.log(`[REGISTRATION] ✅ Email notification sent to admin@sira-group.at for user: ${username}`, emailResult);
+        } catch (emailError: any) {
+          console.error('[REGISTRATION] ❌ Failed to send email notification:', emailError);
+          console.error('[REGISTRATION] ❌ Error details:', emailError?.message, emailError?.statusCode, emailError?.error);
+          // Don't fail registration if email fails
+        }
+      } else {
+        console.log(`[REGISTRATION] ℹ️ New user registered: ${username} (ID: ${user.id}) - Email notification disabled (no Resend API key)`);
+      }
+
+      // Don't return user data or auto-login - require admin approval first
+      res.json({
+        success: true,
+        message: "Registrierung erfolgreich! Ihr Account wartet auf Freigabe durch den Administrator.",
+        requiresApproval: true
+      });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ error: "Registration failed" });
@@ -989,6 +1149,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching users stats:", error);
       res.status(500).json({ error: "Failed to fetch users stats" });
+    }
+  });
+
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const allUsers = await db.select().from(users).orderBy(desc(users.created_at));
+      res.json(allUsers);
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/approve", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { is_approved } = req.body;
+
+      await db.update(users)
+        .set({ is_approved })
+        .where(eq(users.id, parseInt(id)));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating user approval:", error);
+      res.status(500).json({ error: "Failed to update user approval" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 4) {
+        res.status(400).json({ error: "Password must be at least 4 characters" });
+        return;
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await db.update(users)
+        .set({ password: hashedPassword })
+        .where(eq(users.id, parseInt(id)));
+
+      console.log(`[ADMIN] Password reset for user ID ${id}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(users).where(eq(users.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 

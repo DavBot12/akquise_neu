@@ -91,6 +91,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   is_admin: boolean("is_admin").default(false).notNull(),
+  is_approved: boolean("is_approved").default(false).notNull(), // Freigabe durch Admin erforderlich
   last_login: timestamp("last_login"),
   total_logins: integer("total_logins").default(0),
   total_session_time: integer("total_session_time").default(0), // in minutes
@@ -213,6 +214,7 @@ export const scraper_state = pgTable("scraper_state", {
   id: serial("id").primaryKey(),
   state_key: text("state_key").notNull().unique(),
   next_page: integer("next_page").notNull(),
+  state_value: text("state_value"), // For storing text values like listing IDs
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 

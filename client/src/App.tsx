@@ -4,17 +4,24 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { useAutoLogout } from "@/hooks/use-auto-logout";
 import Dashboard from "@/pages/dashboard";
 import ListingsSuccessful from "@/pages/listings-successful";
 import ListingsArchived from "@/pages/listings-archived";
 import ScraperDual from "@/pages/scraper-dual";
 import AnalyticsPreisspiegel from "@/pages/analytics-preisspiegel";
 import AnalyticsTeam from "@/pages/analytics-team";
+import UserManagementPage from "@/pages/user-management";
+import SettingsPage from "@/pages/settings";
 import LoginPage from "@/pages/login";
 import AppLayout from "@/components/app-layout";
 
 
 function Router({ user, onLogout }: { user: { id: number; username: string; is_admin?: boolean }; onLogout: () => void }) {
+  // Auto-logout after 30 minutes of inactivity
+  useAutoLogout(onLogout);
+
   return (
     <AppLayout user={user} onLogout={onLogout}>
       <Switch>
@@ -25,6 +32,8 @@ function Router({ user, onLogout }: { user: { id: number; username: string; is_a
         <Route path="/scraper/dual" component={() => <ScraperDual user={user} />} />
         <Route path="/analytics/preisspiegel" component={() => <AnalyticsPreisspiegel user={user} />} />
         <Route path="/analytics/team" component={() => <AnalyticsTeam user={user} />} />
+        <Route path="/admin/users" component={UserManagementPage} />
+        <Route path="/settings" component={() => <SettingsPage user={user} />} />
         <Route>
           <div className="flex items-center justify-center h-screen">
             <div className="text-center">
@@ -56,16 +65,18 @@ function App() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        {user ? (
-          <Router user={user} onLogout={handleLogout} />
-        ) : (
-          <LoginPage onLogin={handleLogin} />
-        )}
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="light" storageKey="akquise-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          {user ? (
+            <Router user={user} onLogout={handleLogout} />
+          ) : (
+            <LoginPage onLogin={handleLogin} />
+          )}
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

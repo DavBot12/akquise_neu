@@ -32,11 +32,25 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       const data = await response.json();
 
       if (data.success) {
-        toast({
-          title: isLogin ? "Anmeldung erfolgreich" : "Registrierung erfolgreich",
-          description: `Willkommen, ${data.user.username}!`,
-        });
-        onLogin(data.user);
+        // Check if registration requires approval
+        if (!isLogin && data.requiresApproval) {
+          toast({
+            title: "Registrierung erfolgreich",
+            description: data.message || "Ihr Account wartet auf Freigabe durch den Administrator.",
+          });
+          // Switch to login form but don't auto-login
+          setIsLogin(true);
+          setPassword(""); // Clear password
+        } else if (data.user) {
+          // Normal login flow
+          toast({
+            title: isLogin ? "Anmeldung erfolgreich" : "Registrierung erfolgreich",
+            description: `Willkommen, ${data.user.username}!`,
+          });
+          onLogin(data.user);
+        } else {
+          throw new Error("Unerwartete Server-Antwort");
+        }
       } else {
         throw new Error(data.error || "Unbekannter Fehler");
       }

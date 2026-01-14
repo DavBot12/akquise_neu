@@ -7,6 +7,11 @@ ToDos:
 6. newest-scraper soll nach beendigung des zyklus in scraper console anzeigen, dass er zyklus zu ende und uhrzeit wann er neuanfängt -> diese nachrichten sollen nicht verschwinden/ oder man implimentiert se in UI
 7. preisspiegel inserate anzahl updatet sich falsch
 8. nochmal preisspiegel info extraktion genauestens überprüfen
-9.  [NEWEST-DB] Update (bereits vorhanden): Kleingartenwohnhaus auf 483m2 Eigengrund - Privatv
-[NEWEST-DB] ✓ Aktualisiert: 40
-aber bei dem objekt wird "gescraped vor XY h " nicht aktualisiert
+9.  alles soll immer automatisch aktualisieren will nicht immer f5 drücken
+
+vorschlag nach bug fixes:
+alle unterseiten mit domain.com/dashboard
+/scraper-console
+/....
+
+was sagst du dazu ?

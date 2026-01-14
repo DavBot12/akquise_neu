@@ -1,6 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { storage } from '../storage';
+import { ProxyAgent, fetch as undiciFetch } from 'undici';
+import { proxyManager } from './proxy-manager';
 
 interface ContinuousScrapingOptions {
   onProgress: (message: string) => void;
@@ -51,6 +53,60 @@ export class ContinuousScraper247Service {
     });
   }
 
+  /**
+   * In dev mode: direct connection without proxy
+   */
+  private async proxyRequest(url: string, options: any = {}): Promise<any> {
+    const proxyUrl = proxyManager.getProxyUrl();
+    // In dev mode proxyUrl is undefined - use direct connection
+    const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
+
+    const headers: Record<string, string> = {
+      'User-Agent': options.headers?.['User-Agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'de-AT,de;q=0.9,en;q=0.8',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      ...options.headers
+    };
+
+    if (this.sessionCookies) {
+      headers['Cookie'] = this.sessionCookies;
+    }
+
+    // Timeout mit AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const fetchOptions: any = {
+        headers,
+        signal: controller.signal
+      };
+      if (dispatcher) {
+        fetchOptions.dispatcher = dispatcher;
+      }
+
+      const response = await undiciFetch(url, fetchOptions);
+
+      clearTimeout(timeoutId);
+      const setCookies = response.headers.getSetCookie?.() || [];
+      const data = await response.text();
+
+      return {
+        data,
+        headers: {
+          'set-cookie': setCookies
+        },
+        status: response.status
+      };
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      throw e;
+    }
+  }
+
   async start247Scraping(options: ContinuousScrapingOptions): Promise<void> {
     if (this.isRunning) {
       options.onProgress('[24/7] Scraper laeuft bereits!');
@@ -64,8 +120,9 @@ export class ContinuousScraper247Service {
     this.continuousScanLoop(options);
   }
 
-  stop247Scraping(): void {
+  stop247Scraping(onProgress?: (message: string) => void): void {
     this.isRunning = false;
+    onProgress?.('[24/7] ⛔ STOP Signal gesendet');
   }
 
   getStatus(): { isRunning: boolean; currentCycle: number } {
@@ -128,7 +185,7 @@ export class ContinuousScraper247Service {
 
       while (retries > 0 && !success) {
         try {
-          const urls = await this.getPageUrls(category, current);
+          const { urls, isPrivate0, isPrivate1 } = await this.getPageUrls(category, current);
 
           // Wenn keine URLs mehr -> wahrscheinlich am Ende
           if (urls.length === 0) {
@@ -146,7 +203,7 @@ export class ContinuousScraper247Service {
           }
 
           emptyPageCount = 0; // Reset wenn URLs gefunden
-          options.onProgress(`[24/7] ${category} Seite ${current}: ${urls.length} URLs`);
+          options.onProgress(`[24/7] ${category} Seite ${current}: ${urls.length} URLs → ${isPrivate1} privat (ISPRIVATE=1), ${isPrivate0} kommerziell (ISPRIVATE=0)`);
 
           let foundCount = 0;
           let skippedCount = 0;
@@ -190,66 +247,121 @@ export class ContinuousScraper247Service {
     }
   }
 
-  private async getPageUrls(category: string, page: number): Promise<string[]> {
+  private async getPageUrls(category: string, page: number): Promise<{ urls: string[]; isPrivate0: number; isPrivate1: number }> {
     const baseUrl = this.baseUrls[category];
-    if (!baseUrl) return [];
-    
+    if (!baseUrl) return { urls: [], isPrivate0: 0, isPrivate1: 0 };
+
     const url = `${baseUrl}&page=${page}`;
-    
-    const response = await this.axiosInstance.get(url, {
+
+    const response = await this.proxyRequest(url, {
       headers: {
         'User-Agent': this.getRandomUserAgent(),
-        'Cookie': this.sessionCookies,
         'Referer': 'https://www.willhaben.at/',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8'
       },
-      validateStatus: (s) => s >= 200 && s < 500
+      validateStatus: (s: number) => s >= 200 && s < 500
     });
 
     if (response.status >= 400) {
-      return [];
+      return { urls: [], isPrivate0: 0, isPrivate1: 0 };
     }
 
     const html = response.data as string;
-    const $ = cheerio.load(html);
-    const urls: string[] = [];
 
-    // URL-Extraktion mit mehreren Selektoren
-    const selectors = [
-      'a[href*="/iad/immobilien/d/"]',
-      'a[data-testid*="result-item"]',
-      '.result-item a'
-    ];
+    // ✅ FIXED: Sequential attribute grouping (100% accurate, no neighbor interference)
+    const attributePattern = /\{"name":"([^"]+)","values":\["([^"]*)"\]\}/g;
+    const allAttributes = Array.from(html.matchAll(attributePattern));
 
-    selectors.forEach(selector => {
-      $(selector).each((_, element) => {
-        const href = $(element).attr('href');
-        if (href && href.includes('/iad/immobilien/d/')) {
-          const fullUrl = href.startsWith('http') ? href : `https://www.willhaben.at${href}`;
-          urls.push(fullUrl);
-        }
-      });
-    });
+    // Group attributes by listing using ADID as delimiter
+    const listingData = new Map<number, Map<string, string>>();
+    let currentListingIndex = -1;
 
-    // Regex fallback like V3 for robustness
-    const direct = html.match(/"(\/iad\/immobilien\/d\/[^"\s>]+)"/g) || [];
-    for (const m of direct) {
-      const p = m.replace(/\"/g, '"').replace(/\"/g,'');
-      const path = m.replace(/\"/g,'').replace(/"/g,'');
-      const full = `https://www.willhaben.at${path}`;
-      urls.push(full);
+    for (const attr of allAttributes) {
+      const fieldName = attr[1];
+      const fieldValue = attr[2];
+
+      // ADID marks the start of a new listing block
+      if (fieldName === 'ADID') {
+        currentListingIndex++;
+        listingData.set(currentListingIndex, new Map());
+      }
+
+      // Add attribute to the current listing
+      if (currentListingIndex >= 0) {
+        listingData.get(currentListingIndex)!.set(fieldName, fieldValue);
+      }
     }
 
-    return Array.from(new Set(urls));
+    let isPrivate0 = 0;
+    let isPrivate1 = 0;
+    const filteredUrls: string[] = [];
+
+    // Filter and build URLs for ISPRIVATE=1 only
+    for (const [_, attrs] of Array.from(listingData.entries())) {
+      const isPrivate = attrs.get('ISPRIVATE');
+      const adId = attrs.get('ADID');
+
+      if (isPrivate === '0') {
+        isPrivate0++;
+      } else if (isPrivate === '1') {
+        isPrivate1++;
+
+        // Build URL
+        const seoUrl = attrs.get('SEO_URL');
+        let url: string;
+
+        if (seoUrl) {
+          if (seoUrl.startsWith('http')) {
+            url = seoUrl;
+          } else {
+            let cleanUrl = seoUrl.startsWith('/') ? seoUrl : `/${seoUrl}`;
+            // Add /iad/ if missing
+            if (!cleanUrl.startsWith('/iad/')) {
+              cleanUrl = cleanUrl.replace(/^\//, '/iad/');
+            }
+            url = `https://www.willhaben.at${cleanUrl}`;
+          }
+        } else {
+          // Fallback: build from ADID
+          url = `https://www.willhaben.at/iad/immobilien/d/immobilie/${adId}`;
+        }
+
+        filteredUrls.push(url);
+      }
+    }
+
+    return {
+      urls: filteredUrls,
+      isPrivate0,
+      isPrivate1
+    };
+  }
+
+  private extractListingIdFromUrl(url: string): string | null {
+    // Willhaben format: ID comes at the end after hyphen (e.g., titel-1234567890)
+    let match = url.match(/-(\d{8,})(?:[\\/\?#]|$)/);
+    if (match) return match[1];
+
+    // Try format 2: ID as last segment after slash
+    match = url.match(/\/(\d{8,})(?:[\\/\?#]|$)/);
+    if (match) return match[1];
+
+    // Fallback: extract last segment and check if it's all digits
+    const segments = url.split(/[\\/\?#]/).filter(s => s.length > 0);
+    const lastSegment = segments[segments.length - 1];
+    if (/^\d{8,}$/.test(lastSegment)) {
+      return lastSegment;
+    }
+
+    return null;
   }
 
   private async processListing(url: string, category: string, onProgress: (msg: string) => void): Promise<any | null> {
     try {
-      const response = await this.axiosInstance.get(url, {
+      const response = await this.proxyRequest(url, {
         headers: {
           'User-Agent': this.getRandomUserAgent(),
-          'Cookie': this.sessionCookies,
           'Referer': 'https://www.willhaben.at/iad/immobilien/'
         }
       });
@@ -319,11 +431,12 @@ export class ContinuousScraper247Service {
 
   private async establishSession(onProgress: (msg: string) => void): Promise<void> {
     try {
-      const response = await this.axiosInstance.get('https://www.willhaben.at');
+      const response = await this.proxyRequest('https://www.willhaben.at', { headers: { 'User-Agent': this.getRandomUserAgent() } });
       const cookies = response.headers['set-cookie'];
       if (cookies) {
-        this.sessionCookies = cookies.map(cookie => cookie.split(';')[0]).join('; ');
+        this.sessionCookies = cookies.map((cookie: string) => cookie.split(';')[0]).join('; ');
       }
+      onProgress('[24/7] Session established via proxy');
       await this.sleep(2000);
     } catch (error) {
       // Ignoriere Session-Fehler im 24/7 Modus
@@ -350,6 +463,27 @@ export class ContinuousScraper247Service {
 
   private extractPrice($: cheerio.CheerioAPI, bodyText: string): number {
     const cand = $('span:contains("€"), div:contains("Kaufpreis"), [data-testid*="price"]').text();
+
+    // ✅ PRIORITY 1: JSON PRICE attribute (most reliable!)
+    const jsonPrice = bodyText.match(/"PRICE","values":\["(\d+)"\]/);
+    if (jsonPrice) {
+      const v = parseInt(jsonPrice[1]);
+      if (v >= 50000 && v <= 99999999) return v;
+    }
+
+    // ✅ PRIORITY 2: Support prices up to 99M (XX.XXX.XXX format like € 2.600.000)
+    const m1Million = cand.match(/€\s*(\d{1,2})\.(\d{3})\.(\d{3})/);
+    if (m1Million) {
+      const v = parseInt(m1Million[1] + m1Million[2] + m1Million[3]);
+      if (v >= 50000 && v <= 99999999) return v;
+    }
+    const m2Million = bodyText.match(/€\s*(\d{1,2})\.(\d{3})\.(\d{3})/);
+    if (m2Million) {
+      const v = parseInt(m2Million[1] + m2Million[2] + m2Million[3]);
+      if (v >= 50000 && v <= 99999999) return v;
+    }
+
+    // Fallback: Prices under 1M (€ XXX.XXX format)
     const m1 = cand.match(/€\s*(\d{1,3})\.(\d{3})/);
     if (m1) { const v = parseInt(m1[1] + m1[2]); if (v >= 50000 && v <= 9999999) return v; }
     const m2 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
@@ -437,6 +571,8 @@ export class ContinuousScraper247Service {
 
   // V3 Multi-Layer Phone Extraction (BEST METHOD!)
   private extractPhoneNumber(html: string, $: cheerio.CheerioAPI): string | null {
+    const isDebug = process.env.DEBUG_SCRAPER === 'true';
+
     // 0) Direct tel: links and known testids
     const normalize = (s: string) => s.replace(/[^+\d]/g, '');
     const score = (n: string) => (n.startsWith('+43') ? 3 : 0) + (n.startsWith('06') ? 2 : 0) + (n.length >= 10 ? 1 : 0);
@@ -450,14 +586,72 @@ export class ContinuousScraper247Service {
       '43667891221',
       '+43667891221'
     ]);
-    const isBlocked = (n: string) => {
-      const d = n.replace(/[^+\d]/g, '');
-      const alt = d.replace(/^\+43/, '0').replace(/^43/, '0');
-      const bare = d.replace(/^\+/, '');
+    const isBlocked = (raw: string) => {
+      const d = raw.replace(/[\s\+\-\(\)\/]/g, '');
+      const alt = d.replace(/^0/, '+43');
+      const bare = d.replace(/^\+43/, '0');
+
+      if (isDebug && blocked.has(d)) {
+        console.log(`[24/7-PHONE-DEBUG] Blocked number: ${raw} → ${d}`);
+      }
+
       return blocked.has(d) || blocked.has(alt) || blocked.has(bare);
     };
 
     const directNums: string[] = [];
+
+    // PRIORITY 1: JSON patterns (David's Goldfund! - most reliable)
+    // Pattern 1: {"name":"CONTACT/PHONE","values":["06509903513"]}
+    const contactPhonePattern = /\{"name":"CONTACT\/PHONE","values":\["([^"]+)"\]\}/g;
+    const contactPhoneMatches = Array.from(html.matchAll(contactPhonePattern));
+
+    if (isDebug) {
+      console.log(`[24/7-PHONE-DEBUG] CONTACT/PHONE matches: ${contactPhoneMatches.length}`);
+    }
+
+    for (const match of contactPhoneMatches) {
+      const phone = match[1];
+      if (phone && phone.length > 0) {
+        directNums.push(phone);
+        if (isDebug) {
+          console.log(`[24/7-PHONE-DEBUG] Found via CONTACT/PHONE: ${phone}`);
+        }
+      }
+    }
+
+    // Pattern 2: [{"id":"phoneNo","description":"Telefon","value":"06509903513"}]
+    const phoneNoPattern = /\{"id":"phoneNo","description":"Telefon","value":"([^"]+)"\}/g;
+    const phoneNoMatches = Array.from(html.matchAll(phoneNoPattern));
+
+    if (isDebug) {
+      console.log(`[24/7-PHONE-DEBUG] phoneNo matches: ${phoneNoMatches.length}`);
+    }
+
+    for (const match of phoneNoMatches) {
+      const phone = match[1];
+      if (phone && phone.length > 0) {
+        directNums.push(phone);
+        if (isDebug) {
+          console.log(`[24/7-PHONE-DEBUG] Found via phoneNo: ${phone}`);
+        }
+      }
+    }
+
+    // Pattern 3: {"name":"PHONE_NUMBER","values":["..."]} (fallback)
+    const phoneNumberPattern = /\{"name":"PHONE_NUMBER","values":\["([^"]+)"\]\}/g;
+    const phoneNumberMatches = Array.from(html.matchAll(phoneNumberPattern));
+
+    for (const match of phoneNumberMatches) {
+      const phone = match[1];
+      if (phone && phone.length > 0) {
+        directNums.push(phone);
+        if (isDebug) {
+          console.log(`[24/7-PHONE-DEBUG] Found via PHONE_NUMBER: ${phone}`);
+        }
+      }
+    }
+
+    // PRIORITY 2: HTML tel: links and known testids
     $('a[href^="tel:"]').each((_, a) => {
       const href = $(a).attr('href') || '';
       const txt = $(a).text() || '';
@@ -469,9 +663,20 @@ export class ContinuousScraper247Service {
       if (t) directNums.push(t);
     });
     const normalizedDirect = directNums.map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
+
+    if (isDebug) {
+      console.log(`[24/7-PHONE-DEBUG] Total candidates from JSON/HTML: ${directNums.length}`);
+      console.log(`[24/7-PHONE-DEBUG] After normalization and filtering: ${normalizedDirect.length}`);
+    }
+
     if (normalizedDirect.length > 0) {
       const best = normalizedDirect.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
-      if (best?.n) return best.n;
+      if (best?.n) {
+        if (isDebug) {
+          console.log(`[24/7-PHONE-DEBUG] ✅ Returning best phone from ${normalizedDirect.length} candidates: ${best.n}`);
+        }
+        return best.n;
+      }
     }
 
     // 1) DOM-near extraction: look for elements containing 'Telefon' and read adjacent text

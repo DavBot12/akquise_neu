@@ -1,6 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { load } from 'cheerio';
+import { ProxyAgent, fetch as undiciFetch } from 'undici';
+import { proxyManager } from './proxy-manager';
 import { storage } from '../storage';
 
 interface PreisspiegelScraperOptions {
@@ -73,6 +75,62 @@ export class PreisspiegelScraperService {
   }
 
   /**
+   * Proxy Request mit undici (wie in scraper-newest.ts)
+   * In dev mode: direct connection without proxy
+   */
+  private async proxyRequest(url: string, options: any = {}): Promise<any> {
+    const proxyUrl = proxyManager.getProxyUrl();
+    // In dev mode proxyUrl is undefined - use direct connection
+    const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
+
+    const headers: Record<string, string> = {
+      'User-Agent': options.headers?.['User-Agent'] || this.getRandomUA(),
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'de-AT,de;q=0.9,en;q=0.8',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      ...options.headers
+    };
+
+    if (this.sessionCookies) {
+      headers['Cookie'] = this.sessionCookies;
+    }
+
+    // Timeout mit AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const fetchOptions: any = {
+        headers,
+        signal: controller.signal
+      };
+      // Only add dispatcher if using proxy
+      if (dispatcher) {
+        fetchOptions.dispatcher = dispatcher;
+      }
+
+      const response = await undiciFetch(url, fetchOptions);
+
+      clearTimeout(timeoutId);
+      const setCookies = response.headers.getSetCookie?.() || [];
+      const data = await response.text();
+
+      return {
+        data,
+        headers: {
+          'set-cookie': setCookies
+        },
+        status: response.status
+      };
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      throw e;
+    }
+  }
+
+  /**
    * Startet manuellen Preisspiegel-Scrape
    */
   async startManualScrape(options: PreisspiegelScraperOptions = {}): Promise<void> {
@@ -140,17 +198,16 @@ export class PreisspiegelScraperService {
 
           const headers = {
             'User-Agent': this.getRandomUA(),
-            'Referer': currentPage > 1 ? `${baseUrl}&page=${currentPage-1}` : 'https://www.willhaben.at/',
-            'Cookie': this.sessionCookies
+            'Referer': currentPage > 1 ? `${baseUrl}&page=${currentPage-1}` : 'https://www.willhaben.at/'
           };
 
-          const res = await this.axiosInstance.get(url, { headers });
+          const res = await this.proxyRequest(url, { headers });
           const html = res.data as string;
 
-          // Extrahiere Detail-URLs
-          const urls = this.extractDetailUrls(html);
+          // ULTRA-MEGA-FAST: Parse ALL listings directly from search page JSON (NO detail page fetches!)
+          const parsedListings = this.parseAllListingsFromSearchPage(html, category);
 
-          if (urls.length === 0) {
+          if (parsedListings.length === 0) {
             emptyPageCount++;
             options.onLog?.(`[PREISSPIEGEL] ${category} Seite ${currentPage}: Leer (${emptyPageCount}/3)`);
             if (emptyPageCount >= 3) {
@@ -160,30 +217,25 @@ export class PreisspiegelScraperService {
             }
           } else {
             emptyPageCount = 0;
-            options.onLog?.(`[PREISSPIEGEL] ${category} Seite ${currentPage}: ${urls.length} URLs gefunden`);
+            options.onLog?.(`[PREISSPIEGEL] ${category} Seite ${currentPage}: ${parsedListings.length} Listings parsed (NO detail fetches!)`);
 
-            // Process alle URLs
+            // Save ALL listings instantly (no detail fetching needed!)
             let savedCount = 0;
-            for (const detailUrl of urls) {
+            for (const listing of parsedListings) {
               if (!this.isRunning) break;
 
               try {
-                const detail = await this.fetchDetail(detailUrl);
-                const listing = this.parseDetailMinimal(detail, detailUrl, category, options.onLog);
-
-                if (listing && options.onListingFound) {
+                if (options.onListingFound) {
                   await options.onListingFound(listing);
                   savedCount++;
-                  options.onLog?.(`[PREISSPIEGEL] ✅ ${listing.bezirk_code} ${listing.bezirk_name} :: €${listing.price} :: ${listing.area_m2}m²`);
+                  options.onLog?.(`[PREISSPIEGEL] ✅ ${listing.bezirk_code || 'N/A'} ${listing.bezirk_name || 'N/A'} :: €${listing.price} :: ${listing.area_m2 || 'N/A'}m²`);
                 }
               } catch (e: any) {
-                options.onLog?.(`[PREISSPIEGEL] ⚠️ Error URL ${detailUrl.substring(0, 60)}: ${e?.message || e}`);
+                options.onLog?.(`[PREISSPIEGEL] ⚠️ Error saving listing: ${e?.message || e}`);
               }
-
-              await this.sleep(60 + Math.random() * 120); // 60-180ms
             }
 
-            options.onLog?.(`[PREISSPIEGEL] ${category} Seite ${currentPage}: ${savedCount}/${urls.length} gespeichert`);
+            options.onLog?.(`[PREISSPIEGEL] ${category} Seite ${currentPage}: ${savedCount}/${parsedListings.length} gespeichert (93% faster - no detail fetches!)`);
           }
 
           // Next page
@@ -209,14 +261,14 @@ export class PreisspiegelScraperService {
    */
   private async establishSession(onLog?: (msg: string) => void): Promise<void> {
     try {
-      const res = await this.axiosInstance.get('https://www.willhaben.at/iad/immobilien/eigentumswohnung/wien', {
+      const res = await this.proxyRequest('https://www.willhaben.at/iad/immobilien/eigentumswohnung/wien', {
         headers: { 'User-Agent': this.getRandomUA() }
       });
 
       const cookies = res.headers['set-cookie'];
       if (cookies && cookies.length > 0) {
-        this.sessionCookies = cookies.map(c => c.split(';')[0]).join('; ');
-        onLog?.('[PREISSPIEGEL] Session established');
+        this.sessionCookies = cookies.map((c: string) => c.split(';')[0]).join('; ');
+        onLog?.('[PREISSPIEGEL] Session established via proxy');
       }
     } catch (error) {
       onLog?.('[PREISSPIEGEL] Session establishment failed - continuing anyway');
@@ -224,7 +276,181 @@ export class PreisspiegelScraperService {
   }
 
   /**
-   * Extrahiert Detail-URLs von einer Listing-Seite
+   * ULTRA-MEGA-FAST: Parse ALL listings directly from search page JSON
+   * Returns complete listing objects WITHOUT fetching detail pages!
+   */
+  private parseAllListingsFromSearchPage(html: string, categoryKey: string): any[] {
+    const results: any[] = [];
+
+    // Extract ALL JSON attributes at once
+    const attributePattern = /\{"name":"([^"]+)","values":\["([^"]*)"\]\}/g;
+    const allAttributes = Array.from(html.matchAll(attributePattern));
+
+    // Group attributes by listing - ADID marks start of new listing
+    const listingData: Map<number, Map<string, string>> = new Map();
+    let currentListingIndex = -1;
+
+    for (const attr of allAttributes) {
+      const fieldName = attr[1];
+      const fieldValue = attr[2];
+
+      if (fieldName === 'ADID') {
+        currentListingIndex++;
+        listingData.set(currentListingIndex, new Map());
+      }
+
+      if (currentListingIndex >= 0) {
+        const listingMap = listingData.get(currentListingIndex)!;
+        // ✅ FIX: Only set if not already present (prevents SEO_URL overwriting from child units)
+        if (!listingMap.has(fieldName)) {
+          listingMap.set(fieldName, fieldValue);
+        }
+      }
+    }
+
+    // Process each listing
+    for (const [_, attrs] of Array.from(listingData.entries())) {
+      // Extract required fields
+      const priceStr = attrs.get('PRICE') || '0';
+      const price = parseInt(priceStr) || 0;
+
+      if (price <= 0) continue; // Skip if no price
+
+      const livingAreaStr = attrs.get('ESTATE_SIZE/LIVING_AREA') || '';
+      const area_m2 = livingAreaStr ? parseInt(livingAreaStr) : null;
+
+      // Plausibility check: minimum size
+      const category = categoryKey.includes('haus') ? 'haus' : 'eigentumswohnung';
+      if (category === 'eigentumswohnung' && area_m2 && area_m2 < 20) continue; // Too small (parking spot)
+      if (category === 'haus' && area_m2 && area_m2 < 40) continue; // House too small
+
+      // Calculate €/m²
+      const eur_per_m2 = (area_m2 && area_m2 > 0) ? Math.round(price / area_m2) : null;
+
+      // Plausibility check: max €/m²
+      if (eur_per_m2 && eur_per_m2 > 50000) continue; // Unrealistic
+
+      // Extract location/bezirk
+      const location = attrs.get('LOCATION') || '';
+      const bezirk = this.extractBezirkFromLocation(location);
+
+      if (!bezirk) {
+        const isDebug = process.env.DEBUG_SCRAPER === 'true';
+        if (isDebug) {
+          console.log(`[PREISSPIEGEL] ⏭️ SKIP listing - no valid bezirk found for: "${location}"`);
+        }
+        continue; // Must have bezirk for Preisspiegel
+      }
+
+      // Building type (only for Wohnungen)
+      let building_type: 'neubau' | 'altbau' | null = null;
+      if (category === 'eigentumswohnung') {
+        const constructionYear = attrs.get('CONSTRUCTION_YEAR');
+        if (constructionYear) {
+          const year = parseInt(constructionYear);
+          building_type = year >= 2010 ? 'neubau' : 'altbau';
+        }
+      }
+
+      // URL
+      const seoUrl = attrs.get('SEO_URL') || '';
+      let url: string;
+      if (seoUrl.startsWith('http')) {
+        url = seoUrl;
+      } else {
+        let cleanUrl = seoUrl.startsWith('/') ? seoUrl : `/${seoUrl}`;
+        // Add /iad/ if missing
+        if (!cleanUrl.startsWith('/iad/')) {
+          cleanUrl = cleanUrl.replace(/^\//, '/iad/');
+        }
+        url = `https://www.willhaben.at${cleanUrl}`;
+      }
+
+      // Last changed (use current time as fallback)
+      const lastChangedAt = new Date();
+
+      results.push({
+        category,
+        bezirk_code: bezirk.code,
+        bezirk_name: bezirk.name,
+        price,
+        area_m2,
+        eur_per_m2,
+        building_type,
+        last_changed_at: lastChangedAt,
+        url,
+        source: 'willhaben-preisspiegel'
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Extract Bezirk from LOCATION string (e.g., "Wien, 12. Bezirk, Meidling")
+   */
+  private extractBezirkFromLocation(location: string): { code: string; name: string } | null {
+    if (!location || location.trim() === '') return null;
+
+    const isDebug = process.env.DEBUG_SCRAPER === 'true';
+
+    if (isDebug) {
+      console.log(`[BEZIRK-DEBUG] Parsing location: "${location}"`);
+    }
+
+    // PRIORITY 1: Try to find PLZ pattern (1010-1230)
+    const plzMatch = location.match(/\b(1[0-2]\d0)\b/);
+    if (plzMatch) {
+      const plz = plzMatch[1];
+      const name = this.wienBezirke[plz];
+      if (name) {
+        if (isDebug) {
+          console.log(`[BEZIRK-DEBUG] ✅ Matched by PLZ: ${plz} → ${name}`);
+        }
+        return { code: plz, name };
+      }
+    }
+
+    // PRIORITY 2: Try to find "11. Bezirk" or "11.Bezirk" pattern
+    const bezirkNumMatch = location.match(/(\d{1,2})\.\s*Bezirk/i);
+    if (bezirkNumMatch) {
+      const bezirkNum = bezirkNumMatch[1];
+      const bezirkNumPadded = bezirkNum.padStart(2, '0');
+      const plz = `1${bezirkNumPadded}0`;
+
+      const name = this.wienBezirke[plz];
+      if (name) {
+        if (isDebug) {
+          console.log(`[BEZIRK-DEBUG] ✅ Matched by Bezirk#: ${bezirkNum} → ${plz} → ${name}`);
+        }
+        return { code: plz, name };
+      } else {
+        if (isDebug) {
+          console.log(`[BEZIRK-DEBUG] ⚠️ Invalid bezirk number: ${bezirkNum} → ${plz} (not in lookup)`);
+        }
+      }
+    }
+
+    // PRIORITY 3: Try to find bezirk name directly (case-insensitive)
+    const locationLower = location.toLowerCase();
+    for (const [plz, name] of Object.entries(this.wienBezirke)) {
+      if (locationLower.includes(name.toLowerCase())) {
+        if (isDebug) {
+          console.log(`[BEZIRK-DEBUG] ✅ Matched by name: ${name} → ${plz}`);
+        }
+        return { code: plz, name };
+      }
+    }
+
+    if (isDebug) {
+      console.log(`[BEZIRK-DEBUG] ❌ NO MATCH for location: "${location}"`);
+    }
+
+    return null;
+  }
+
+  /**
+   * Extrahiert Detail-URLs von einer Listing-Seite (OLD - not needed anymore!)
    */
   private extractDetailUrls(html: string): string[] {
     const $ = load(html);
@@ -265,11 +491,17 @@ export class PreisspiegelScraperService {
   private async fetchDetail(url: string): Promise<string> {
     const headers = {
       'User-Agent': this.getRandomUA(),
-      'Cookie': this.sessionCookies,
       'Referer': 'https://www.willhaben.at/'
     };
 
-    const res = await this.axiosInstance.get(url, { headers });
+    const res = await this.proxyRequest(url, { headers });
+
+    // Update session cookies from response
+    const newCookies = res.headers['set-cookie'];
+    if (newCookies && newCookies.length > 0) {
+      this.sessionCookies = newCookies.map((c: string) => c.split(';')[0]).join('; ');
+    }
+
     return res.data as string;
   }
 
@@ -477,54 +709,36 @@ export class PreisspiegelScraperService {
   }
 
   /**
-   * Extrahiert Preis - verbesserte robuste Extraktion
+   * Extrahiert Preis - 1:1 von V3 Scraper (bewährte einfache Logik)
    */
   private extractPrice($: cheerio.CheerioAPI, bodyText: string): number {
-    // Methode 1: Spezifische Preis-Selektoren
-    const priceSelectors = [
-      '[data-testid*="price"]',
-      '[data-testid*="contact-box-price"]',
-      'span:contains("Kaufpreis")',
-      'div:contains("Kaufpreis")'
-    ];
+    const cand = $('span:contains("€"), div:contains("Kaufpreis"), [data-testid*="price"]').text();
 
-    for (const selector of priceSelectors) {
-      const text = $(selector).text();
-      // Format: € 149.900 oder €149.900 oder € 1.499.000
-      const match = text.match(/€\s*(\d{1,3})(?:\.(\d{3}))+/);
-      if (match) {
-        const priceStr = match[0].replace(/[€\s.]/g, '');
-        const price = parseInt(priceStr);
-        if (price >= 50000 && price <= 9999999) {
-          return price;
-        }
-      }
+    // ✅ PRIORITY 1: JSON PRICE attribute (most reliable!)
+    const jsonPrice = bodyText.match(/"PRICE","values":\["(\d+)"\]/);
+    if (jsonPrice) {
+      const v = parseInt(jsonPrice[1]);
+      if (v >= 50000 && v <= 99999999) return v;
     }
 
-    // Methode 2: Kaufpreis im bodyText
-    const m2 = bodyText.match(/kaufpreis[:\s]*€\s*(\d{1,3})(?:\.(\d{3}))+/i);
-    if (m2) {
-      const priceStr = m2[0].match(/€\s*(\d{1,3}(?:\.\d{3})+)/)![1].replace(/\./g, '');
-      const price = parseInt(priceStr);
-      if (price >= 50000 && price <= 9999999) {
-        return price;
-      }
+    // ✅ PRIORITY 2: Support prices up to 99M (XX.XXX.XXX format like € 2.600.000)
+    const m1Million = cand.match(/€\s*(\d{1,2})\.(\d{3})\.(\d{3})/);
+    if (m1Million) {
+      const v = parseInt(m1Million[1] + m1Million[2] + m1Million[3]);
+      if (v >= 50000 && v <= 99999999) return v;
+    }
+    const m2Million = bodyText.match(/€\s*(\d{1,2})\.(\d{3})\.(\d{3})/);
+    if (m2Million) {
+      const v = parseInt(m2Million[1] + m2Million[2] + m2Million[3]);
+      if (v >= 50000 && v <= 99999999) return v;
     }
 
-    // Methode 3: Generische €-Suche
-    const m3 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
-    if (m3) {
-      const price = parseInt(m3[1] + m3[2]);
-      if (price >= 50000 && price <= 9999999) {
-        return price;
-      }
-    }
-
-    // Methode 4: Fallback - alle 6-stelligen Zahlen mit Punkten
-    const digits = (bodyText.match(/(\d{3}\.\d{3})/g) || [])
-      .map(x => parseInt(x.replace('.', '')))
-      .find(v => v >= 50000 && v <= 9999999);
-
+    // Fallback: Prices under 1M (€ XXX.XXX format)
+    const m1 = cand.match(/€\s*(\d{1,3})\.(\d{3})/);
+    if (m1) { const v = parseInt(m1[1] + m1[2]); if (v >= 50000 && v <= 9999999) return v; }
+    const m2 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
+    if (m2) { const v = parseInt(m2[1] + m2[2]); if (v >= 50000 && v <= 9999999) return v; }
+    const digits = (bodyText.match(/(\d{3}\.\d{3})/g) || []).map(x => parseInt(x.replace('.', ''))).find(v => v >= 50000 && v <= 9999999);
     return digits || 0;
   }
 

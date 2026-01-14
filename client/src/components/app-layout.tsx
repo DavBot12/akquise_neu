@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Building, ChartLine, TrendingUp, LogOut, User, Users, ListChecks, Archive, Activity, BarChart3 } from "lucide-react";
+import { Building, ChartLine, TrendingUp, LogOut, User, Users, ListChecks, Archive, Activity, BarChart3, UserCog, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
@@ -49,6 +49,12 @@ export default function AppLayout({ user, onLogout, children }: AppLayoutProps) 
       icon: Users,
       adminOnly: true,
     },
+    {
+      path: "/admin/users",
+      label: "Benutzerverwaltung",
+      icon: UserCog,
+      adminOnly: true,
+    },
   ];
 
   // Filter nav items based on admin status
@@ -91,7 +97,7 @@ export default function AppLayout({ user, onLogout, children }: AppLayoutProps) 
         </nav>
 
         {/* User Info & Logout */}
-        <div className="p-4 border-t">
+        <div className="p-4 border-t space-y-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-muted-foreground" />
@@ -103,6 +109,16 @@ export default function AppLayout({ user, onLogout, children }: AppLayoutProps) 
               </span>
             )}
           </div>
+          <Link href="/settings">
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              size="sm"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Einstellungen
+            </Button>
+          </Link>
           <Button
             variant="outline"
             onClick={onLogout}
@@ -124,3 +140,5 @@ export default function AppLayout({ user, onLogout, children }: AppLayoutProps) 
     </div>
   );
 }
+
+  
