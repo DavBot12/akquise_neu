@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import { storage } from '../storage';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
 import { proxyManager } from './proxy-manager';
+import { sleep } from './scraper-utils';
 
 interface ContinuousScrapingOptions {
   onProgress: (message: string) => void;
@@ -157,13 +158,13 @@ export class ContinuousScraper247Service {
         // Pause zwischen Zyklen
         const cycleDelay = 60000 + Math.random() * 60000; // 1-2 Min
         options.onProgress(`[24/7] CYCLE COMPLETE - Pause ${Math.round(cycleDelay/60000)}min bis naechster Zyklus`);
-        await this.sleep(cycleDelay);
+        await sleep(cycleDelay);
         
       } catch (error) {
         options.onProgress(`[24/7] ERROR Cycle ${this.currentCycle}: ${error}`);
 
         // Bei Fehler Pause
-        await this.sleep(120000); // 2 Minuten
+        await sleep(120000); // 2 Minuten
       }
     }
 
@@ -218,7 +219,7 @@ export class ContinuousScraper247Service {
             } else {
               skippedCount++;
             }
-            await this.sleep(60 + Math.random() * 120); // 60-180ms wie V3
+            await sleep(60 + Math.random() * 120); // 60-180ms wie V3
           }
 
           options.onProgress(`[24/7] ${category} Seite ${current}: ${foundCount} private, ${skippedCount} gefiltert`);
@@ -234,7 +235,7 @@ export class ContinuousScraper247Service {
           if (retries > 0) {
             const backoff = (4 - retries) * 5000; // 5s, 10s, 15s
             options.onProgress(`[24/7] Error ${category}: ${error?.message || error} - Retry in ${backoff/1000}s (${retries} left)`);
-            await this.sleep(backoff);
+            await sleep(backoff);
           } else {
             options.onProgress(`[24/7] FATAL ${category}: ${error?.message || error} - Skipping page ${current}`);
             current++;
@@ -437,7 +438,7 @@ export class ContinuousScraper247Service {
         this.sessionCookies = cookies.map((cookie: string) => cookie.split(';')[0]).join('; ');
       }
       onProgress('[24/7] Session established via proxy');
-      await this.sleep(2000);
+      await sleep(2000);
     } catch (error) {
       // Ignoriere Session-Fehler im 24/7 Modus
     }
@@ -445,10 +446,6 @@ export class ContinuousScraper247Service {
 
   private getRandomUserAgent(): string {
     return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
-  }
-
-  private async sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // Extraction methods

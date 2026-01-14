@@ -134,15 +134,15 @@ export function extractPhoneFromHtml(html: string, $: any): string | null {
   const phoneNoPattern = /\{"id":"phoneNo"[^}]*"value":"([^"]+)"\}/g;
   const phoneNumberPattern = /\{"name":"PHONE_NUMBER","values":\["([^"]+)"\]\}/g;
 
-  for (const match of html.matchAll(contactPhonePattern)) {
+  Array.from(html.matchAll(contactPhonePattern)).forEach(match => {
     if (match[1]) directNums.push(match[1]);
-  }
-  for (const match of html.matchAll(phoneNoPattern)) {
+  });
+  Array.from(html.matchAll(phoneNoPattern)).forEach(match => {
     if (match[1]) directNums.push(match[1]);
-  }
-  for (const match of html.matchAll(phoneNumberPattern)) {
+  });
+  Array.from(html.matchAll(phoneNumberPattern)).forEach(match => {
     if (match[1]) directNums.push(match[1]);
-  }
+  });
 
   // PRIORITY 2: HTML tel: links
   $('a[href^="tel:"]').each((_: number, a: any) => {

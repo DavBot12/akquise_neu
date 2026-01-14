@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { load } from 'cheerio';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
 import { proxyManager } from './proxy-manager';
+import { sleep, withJitter } from './scraper-utils';
 
 /**
  * NEWEST SCRAPER SERVICE
@@ -24,9 +25,6 @@ interface NewestScraperOptions {
   onListingFound?: (listing: any) => Promise<void>;
   onPhoneFound?: (payload: { url: string; phone: string }) => void;
 }
-
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-function withJitter(base = 800, jitter = 700) { return base + Math.floor(Math.random() * jitter); }
 
 export class NewestScraperService {
   private isRunning = false;

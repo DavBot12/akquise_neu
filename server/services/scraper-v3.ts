@@ -4,6 +4,7 @@ import { chromium } from 'playwright-core';
 import { storage } from '../storage';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
 import { proxyManager } from './proxy-manager';
+import { sleep, withJitter } from './scraper-utils';
 
 export type ScraperV3Options = {
   categories: string[]; // e.g. ['eigentumswohnung','grundstueck']
@@ -19,9 +20,6 @@ export type ScraperV3Options = {
   usePlaywrightPhone?: boolean;
   maxPhoneFallbackPerRun?: number;
 };
-
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-function withJitter(base = 800, jitter = 700) { return base + Math.floor(Math.random() * jitter); }
 
 export class ScraperV3Service {
   private axiosInstance: AxiosInstance;

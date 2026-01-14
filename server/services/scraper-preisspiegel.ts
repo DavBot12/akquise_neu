@@ -4,6 +4,7 @@ import { load } from 'cheerio';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
 import { proxyManager } from './proxy-manager';
 import { storage } from '../storage';
+import { sleep } from './scraper-utils';
 
 interface PreisspiegelScraperOptions {
   onLog?: (msg: string) => void;
@@ -241,12 +242,12 @@ export class PreisspiegelScraperService {
           // Next page
           currentPage++;
           await storage.setScraperNextPage(`preisspiegel-${key}`, currentPage);
-          await this.sleep(1000 + Math.random() * 800); // 1-1.8s zwischen Seiten
+          await sleep(1000 + Math.random() * 800); // 1-1.8s zwischen Seiten
 
         } catch (error: any) {
           options.onLog?.(`[PREISSPIEGEL] ❌ Error Seite ${currentPage}: ${error?.message || error}`);
           currentPage++;
-          await this.sleep(5000); // 5s bei Fehler
+          await sleep(5000); // 5s bei Fehler
         }
       }
 
@@ -792,9 +793,6 @@ export class PreisspiegelScraperService {
     return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
 }
 
 // Singleton instance
