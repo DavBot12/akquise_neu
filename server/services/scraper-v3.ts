@@ -4,7 +4,19 @@ import { chromium } from 'playwright-core';
 import { storage } from '../storage';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
 import { proxyManager } from './proxy-manager';
-import { sleep, withJitter } from './scraper-utils';
+import {
+  sleep,
+  withJitter,
+  extractPrice,
+  extractArea,
+  extractTitle,
+  extractDescription,
+  extractImages,
+  extractLastChanged,
+  extractLocationFromJson,
+  extractLocationFromDom,
+  extractPhoneFromHtml,
+} from './scraper-utils';
 
 export type ScraperV3Options = {
   categories: string[]; // e.g. ['eigentumswohnung','grundstueck']
@@ -162,7 +174,8 @@ export class ScraperV3Service {
       }
       // Fallback to reading the whole HTML
       const content = await page.content();
-      const phone = this.extractPhone(content);
+      const $content = load(content);
+      const phone = extractPhoneFromHtml(content, $content);
       await context.close();
       return phone || null;
     } catch {
@@ -269,8 +282,9 @@ export class ScraperV3Service {
                   if (onListingFound) await onListingFound(listing);
                 } catch {}
 
-                // extract phone naïvely
-                let phone = this.extractPhone(detail);
+                // extract phone from HTML (already done in parseDetailWithReason, but try again for Playwright fallback check)
+                const $detail = load(detail);
+                let phone = extractPhoneFromHtml(detail, $detail);
                 if (!phone && usePlaywrightPhone && phoneFallbackBudget > 0) {
                   try {
                     const pf = await this.playwrightPhoneFallback(u);
@@ -458,7 +472,7 @@ export class ScraperV3Service {
     }
 
     // Check if listing was deleted/not found
-    const title = this.extractTitle($);
+    const title = extractTitle($);
     if (title && (title.includes('Die Seite wurde nicht gefunden') || title.includes('nicht gefunden'))) {
       return { listing: null, reason: 'listing deleted/not found' };
     }
@@ -468,14 +482,14 @@ export class ScraperV3Service {
       return { listing: null, reason: 'page not found (404)' };
     }
 
-    const description = this.extractDescription($);
+    const description = extractDescription($);
 
-    const price = this.extractPrice($, bodyText);
+    const price = extractPrice($, bodyText);
     if (price <= 0) return { listing: null, reason: 'no price' };
-    const areaStr = this.extractArea($, bodyText);
+    const areaStr = extractArea($, bodyText);
     const area = areaStr ? parseInt(areaStr) : 0;
     const eurPerM2 = area > 0 ? Math.round(price / area) : 0;
-    const images = this.extractImages($);
+    const images = extractImages($, html);
 
     const region = key.includes('wien') ? 'wien' : 'niederoesterreich';
     const category = key.includes('eigentumswohnung')
@@ -484,12 +498,12 @@ export class ScraperV3Service {
         ? 'haus'
         : 'grundstueck';
 
-    const locJson = this.extractLocationFromJson(html);
-    const location = locJson || this.extractLocation($, url) || (key.includes('wien') ? 'Wien' : 'Niederösterreich');
+    const locJson = extractLocationFromJson(html);
+    const location = locJson || extractLocationFromDom($, url) || (key.includes('wien') ? 'Wien' : 'Niederösterreich');
     // Try to extract phone directly from the same HTML so listing includes it
-    const phoneDirect = this.extractPhone(html);
+    const phoneDirect = extractPhoneFromHtml(html, $);
     // Extract "Zuletzt geändert" date
-    const lastChangedAt = this.extractLastChanged($, html);
+    const lastChangedAt = extractLastChanged($, html);
     return {
       listing: {
       title,
@@ -510,243 +524,4 @@ export class ScraperV3Service {
     };
   }
 
-  private extractDescription($: ReturnType<typeof load>): string {
-    const t = $('[data-testid="ad-detail-ad-description"], [data-testid="object-description-text"]').text().trim();
-    if (t && t.length > 30 && !t.includes('{"props"')) return t.substring(0, 1000);
-    const all = $('body').text();
-    // FIX: Don't skip first characters! Look for text after "Objektbeschreibung:" or newline
-    const m = all.match(/Objektbeschreibung[\s:]*\n?\s*([\s\S]{30,1200})/i);
-    const desc = m?.[1]?.trim() || '';
-    if (desc.includes('{"props"')) return '';
-    return desc;
-  }
-
-  private extractTitle($: ReturnType<typeof load>): string {
-    const sel = ['[data-testid="ad-detail-ad-title"] h1','h1'];
-    for (const s of sel) { const el = $(s); if (el.length) return el.text().trim(); }
-    return '';
-  }
-
-  private extractLocationFromJson(html: string): string | '' {
-    try {
-      // Look for address_location object fields commonly present in Willhaben pageProps
-      const streetMatch = html.match(/"street"\s*:\s*"([^"]{3,80})"/i);
-      const postalMatch = html.match(/"postalCode"\s*:\s*"(\d{4})"/i);
-      const cityMatch = html.match(/"postalName"\s*:\s*"([^"]{3,80})"/i);
-      if (postalMatch && (streetMatch || cityMatch)) {
-        const street = streetMatch ? streetMatch[1] : '';
-        const city = cityMatch ? cityMatch[1] : '';
-        const formatted = `${postalMatch[1]} ${city}${street ? ", " + street : ''}`.trim();
-        if (formatted.length > 6) return formatted;
-      }
-      return '';
-    } catch {
-      return '';
-    }
-  }
-
-  private extractPrice($: ReturnType<typeof load>, bodyText: string): number {
-    const cand = $('span:contains("€"), div:contains("Kaufpreis"), [data-testid*="price"]').text();
-
-    // ✅ PRIORITY 1: JSON PRICE attribute (most reliable!)
-    const jsonPrice = bodyText.match(/"PRICE","values":\["(\d+)"\]/);
-    if (jsonPrice) {
-      const v = parseInt(jsonPrice[1]);
-      if (v >= 50000 && v <= 99999999) return v;
-    }
-
-    // ✅ PRIORITY 2: Support prices up to 99M (XX.XXX.XXX format like € 2.600.000)
-    const m1Million = cand.match(/€\s*(\d{1,2})\.(\d{3})\.(\d{3})/);
-    if (m1Million) {
-      const v = parseInt(m1Million[1] + m1Million[2] + m1Million[3]);
-      if (v >= 50000 && v <= 99999999) return v;
-    }
-    const m2Million = bodyText.match(/€\s*(\d{1,2})\.(\d{3})\.(\d{3})/);
-    if (m2Million) {
-      const v = parseInt(m2Million[1] + m2Million[2] + m2Million[3]);
-      if (v >= 50000 && v <= 99999999) return v;
-    }
-
-    // Fallback: Prices under 1M (€ XXX.XXX format)
-    const m1 = cand.match(/€\s*(\d{1,3})\.(\d{3})/);
-    if (m1) { const v = parseInt(m1[1] + m1[2]); if (v>=50000 && v<=9999999) return v; }
-    const m2 = bodyText.match(/€\s*(\d{1,3})\.(\d{3})/);
-    if (m2) { const v = parseInt(m2[1] + m2[2]); if (v>=50000 && v<=9999999) return v; }
-    const digits = (bodyText.match(/(\d{3}\.\d{3})/g)||[]).map(x=>parseInt(x.replace('.',''))).find(v=>v>=50000 && v<=9999999);
-    return digits || 0;
-  }
-
-  private extractArea($: ReturnType<typeof load>, bodyText: string): string | '' {
-    const m1 = $('span:contains("m²"), div:contains("Wohnfläche")').text().match(/(\d{1,4})\s*m²/i);
-    if (m1) return m1[1];
-    const m2 = bodyText.match(/(\d{1,3})\s*m²/i);
-    return m2?.[1] || '';
-  }
-
-  private extractImages($: ReturnType<typeof load>): string[] {
-    const images: string[] = [];
-    $('img[src*="cache.willhaben.at"]').each((_, el)=>{ const src = $(el).attr('src'); if (src && !src.includes('_thumb')) images.push(src); });
-    const html = $.html();
-    (html.match(/https:\/\/cache\.willhaben\.at\/mmo\/[^"'\s]+\.jpg/gi)||[]).forEach(u=>{ if (!u.includes('_thumb')) images.push(u); });
-    return Array.from(new Set(images)).slice(0,10);
-  }
-
-  private extractLocation($: ReturnType<typeof load>, url: string): string {
-    // Primary selector
-    const el = $('[data-testid="ad-detail-ad-location"]').text().trim();
-    if (el && el.length>5) return el;
-
-    // Willhaben header/label fallback like "Objektstandort"
-    const header = $('h2:contains("Objektstandort"), div:contains("Objektstandort")').first();
-    if (header.length) {
-      const next = header.next();
-      const txt = (next.text() || header.parent().text() || '').trim();
-      if (txt && txt.length > 5) return txt.replace(/\s+/g,' ');
-    }
-
-    // URL-based fallback for Vienna district slugs
-    const m = url.match(/wien-(\d{4})-([^\/]+)/i);
-    if (m) return `${m[1]} Wien, ${m[2].replace(/-/g,' ')}`;
-
-    // Body text heuristic for addresses/streets
-    const body = $('body').text();
-    const street = body.match(/\b([A-ZÄÖÜ][a-zäöüß]+(?:gasse|straße|strasse|platz|allee|ring))\b[^\n,]*/);
-    if (street) return street[0].trim().substring(0, 100);
-
-    return '';
-  }
-
-  private extractLastChanged($: ReturnType<typeof load>, html: string): Date | null {
-    try {
-      // Methode 1: Suche im DOM via Cheerio mit data-testid
-      const editDateEl = $('[data-testid="ad-detail-ad-edit-date-top"]').text();
-      if (editDateEl) {
-        // Format: "Zuletzt geändert: 07.01.2026, 16:11 Uhr"
-        const match = editDateEl.match(/(\d{2})\.(\d{2})\.(\d{4}),\s*(\d{2}):(\d{2})/);
-        if (match) {
-          const [, day, month, year, hour, minute] = match;
-          // Create date in local timezone (Vienna)
-          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-          return date;
-        }
-      }
-
-      // Methode 2: Regex fallback im gesamten HTML
-      const regexMatch = html.match(/Zuletzt geändert:\s*<!--\s*-->(\d{2})\.(\d{2})\.(\d{4}),\s*(\d{2}):(\d{2})\s*Uhr/);
-      if (regexMatch) {
-        const [, day, month, year, hour, minute] = regexMatch;
-        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-        return date;
-      }
-
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  private extractPhone(html: string): string | null {
-    const $ = load(html);
-
-    // 0) Direct tel: links and known testids
-    const normalize = (s: string) => s.replace(/[^+\d]/g, '');
-    const score = (n: string) => (n.startsWith('+43') ? 3 : 0) + (n.startsWith('06') ? 2 : 0) + (n.length >= 10 ? 1 : 0);
-    const blocked = new Set([
-      '0606891308',
-      '0667891221',
-      '0674400169',
-      '078354969801',
-      '4378354969801',
-      '+4378354969801',
-      '43667891221',
-      '+43667891221'
-    ]);
-    const isBlocked = (n: string) => {
-      const d = n.replace(/[^+\d]/g, '');
-      const alt = d.replace(/^\+43/, '0').replace(/^43/, '0');
-      const bare = d.replace(/^\+/, '');
-      return blocked.has(d) || blocked.has(alt) || blocked.has(bare);
-    };
-
-    const directNums: string[] = [];
-
-    // ✅ PRIORITY 1: JSON patterns (most reliable!)
-    // Pattern 1: {"name":"CONTACT/PHONE","values":["06509903513"]}
-    const contactPhonePattern = /\{"name":"CONTACT\/PHONE","values":\["([^"]+)"\]\}/g;
-    const contactPhoneMatches = Array.from(html.matchAll(contactPhonePattern));
-    for (const match of contactPhoneMatches) {
-      const phone = match[1];
-      if (phone && phone.length > 0) {
-        directNums.push(phone);
-      }
-    }
-
-    // Pattern 2: {"id":"phoneNo","description":"Telefon","value":"06509903513"}
-    const phoneNoPattern = /\{"id":"phoneNo"[^}]*"value":"([^"]+)"\}/g;
-    const phoneNoMatches = Array.from(html.matchAll(phoneNoPattern));
-    for (const match of phoneNoMatches) {
-      const phone = match[1];
-      if (phone && phone.length > 0) {
-        directNums.push(phone);
-      }
-    }
-
-    // If we found phones via JSON, use them immediately
-    const jsonPhones = directNums.map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
-    if (jsonPhones.length > 0) {
-      const best = jsonPhones.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
-      if (best?.n) return best.n;
-    }
-
-    // Fallback: DOM extraction
-    $('a[href^="tel:"]').each((_, a) => {
-      const href = $(a).attr('href') || '';
-      const txt = $(a).text() || '';
-      if (href) directNums.push(href.replace(/^tel:/i, ''));
-      if (txt) directNums.push(txt);
-    });
-    $('[data-testid="top-contact-box-phone-number-virtual"], [data-testid="contact-box-phone-number-virtual"]').each((_, el) => {
-      const t = $(el).text();
-      if (t) directNums.push(t);
-    });
-    const normalizedDirect = directNums.map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
-    if (normalizedDirect.length > 0) {
-      const best = normalizedDirect.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
-      if (best?.n) return best.n;
-    }
-
-    // 1) DOM-near extraction: look for elements containing 'Telefon' and read adjacent text
-    let domNumber: string | null = null;
-    $('*:contains("Telefon")').each((_, el) => {
-      const text = $(el).text().trim();
-      if (!/^Telefon/i.test(text)) return;
-      // try same element
-      const matchSame = text.match(/Telefon\s*([+\d\s\-()\/]{8,20})/i);
-      if (matchSame && matchSame[1]) {
-        domNumber = matchSame[1];
-        return false as any;
-      }
-      // try next siblings
-      const nextText = ($(el).next().text() || '') + ' ' + ($(el).parent().text() || '');
-      const matchNext = nextText.match(/([+\d\s\-()\/]{8,20})/);
-      if (matchNext && matchNext[1]) {
-        domNumber = matchNext[1];
-        return false as any;
-      }
-    });
-
-    if (domNumber) {
-      const n = normalize(domNumber);
-      if (n.length >= 8) return n.startsWith('43') ? `+${n}` : n;
-    }
-
-    // 2) Fallback regex across HTML (strip script/style to avoid __NEXT_DATA__ JSON phones)
-    const htmlNoScripts = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
-    // Austrian mobile only: 0650-0699 (accept +43/0043/43/0 prefixes)
-    const candidateRegex = /(?:(?:\+43|0043|43|0)\s*)6[5-9]\s*[\d\s\-/()]{7,12}/g;
-    const candidates = (htmlNoScripts.match(candidateRegex) || []).map(normalize).filter(n => n.length >= 8 && !isBlocked(n));
-    if (candidates.length === 0) return null;
-    const best = candidates.map(n => ({ n: n.startsWith('43') ? `+${n}` : n, s: score(n) })).sort((a,b)=>b.s-a.s)[0];
-    return best?.n || null;
-  }
 }
