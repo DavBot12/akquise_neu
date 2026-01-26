@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AkquiseModal } from "@/components/akquise-modal";
-import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2 } from "lucide-react";
+import { ListingDetailModal } from "@/components/listing-detail-modal";
+import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import type { Listing } from "@shared/schema";
@@ -19,6 +20,7 @@ interface ListingCardProps {
 export default function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, user }: ListingCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAkquiseModal, setShowAkquiseModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const { toast } = useToast();
   
   const hasImages = listing.images && listing.images.length > 0;
@@ -32,6 +34,9 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
   const formatPrice = (price: number) => {
+    if (price === 0) {
+      return 'Preis auf Anfrage';
+    }
     return new Intl.NumberFormat('de-AT', {
       style: 'currency',
       currency: 'EUR',
@@ -88,26 +93,35 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
     }
   };
 
+  const formatPublishedAt = (date: Date | null) => {
+    if (!date) return null;
+    const published = date instanceof Date ? date : new Date(date);
+    return published.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const getPriceEvaluationBadge = (evaluation: string) => {
     switch (evaluation) {
       case "unter_schnitt":
         return (
-          <Badge className="bg-success text-white">
-            <Check className="mr-1 h-3 w-3" />
+          <Badge className="bg-sira-success text-white">
             Unter dem Schnitt
           </Badge>
         );
       case "ueber_schnitt":
         return (
-          <Badge className="bg-error text-white">
-            <ExternalLink className="mr-1 h-3 w-3" />
+          <Badge className="bg-sira-danger text-white">
             Über dem Schnitt
           </Badge>
         );
       default:
         return (
-          <Badge className="bg-warning text-white">
-            <Clock className="mr-1 h-3 w-3" />
+          <Badge className="bg-sira-warning text-white">
             Im Schnitt
           </Badge>
         );
@@ -115,12 +129,12 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow h-full flex flex-col">
+    <Card className="overflow-hidden hover:shadow-lg transition-smooth h-full flex flex-col border-sira-light-gray">
       <div className="relative">
         <img
           src={images[currentImageIndex]}
           alt={listing.title}
-          className="w-full h-40 object-cover"
+          className="w-full h-48 object-cover"
         />
         {images.length > 1 && (
           <>
@@ -148,95 +162,113 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           </>
         )}
       </div>
-      
-      <CardContent className="p-3 flex-1 flex flex-col">
-        <h3 className="font-semibold text-base text-foreground mb-2 line-clamp-2">
+
+      <CardContent className="p-5 flex-1 flex flex-col">
+        <h3 className="text-card-title text-sira-navy mb-4 line-clamp-2">
           {listing.title}
         </h3>
 
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-xl font-bold text-primary">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-2xl font-semibold text-sira-navy">
             {formatPrice(listing.price)}
           </div>
           <div className="text-right">
-            <div className="text-xs text-gray-600">{listing.area ? `${listing.area} m²` : "N/A"}</div>
-            <div className="text-sm font-semibold text-gray-800">
-              {listing.eur_per_m2 ? `${formatPrice(Number(listing.eur_per_m2))}/m²` : "N/A"}
+            <div className="text-xs text-sira-medium-gray">{listing.area ? `${listing.area} m²` : "N/A"}</div>
+            <div className="text-sm font-semibold text-sira-text-gray">
+              {listing.price === 0 ? "—" : listing.eur_per_m2 ? `${formatPrice(Number(listing.eur_per_m2))}/m²` : "N/A"}
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center text-gray-600 mb-2">
-          <MapPin className="mr-2 h-3 w-3 text-gray-400" />
-          <span className="text-xs">{listing.location}</span>
+
+        <div className="flex items-center text-sira-text-gray mb-4">
+          <MapPin className="mr-2 h-4 w-4 text-sira-medium-gray" />
+          <span className="text-sm">{listing.location}</span>
         </div>
 
-        <div className="flex items-center text-gray-600 mb-2">
-          <Phone className="mr-2 h-3 w-3 text-gray-400" />
+        <div className="flex items-center text-sira-text-gray mb-5">
+          <Phone className="mr-2 h-4 w-4 text-sira-medium-gray" />
           {listing.phone_number ? (
             <a
               href={`tel:${listing.phone_number}`}
-              className="text-xs text-primary hover:underline"
+              className="text-sm text-sira-navy hover:underline transition-smooth"
             >
               {listing.phone_number}
             </a>
           ) : (
-            <span className="text-xs text-gray-500">anschreiben</span>
+            <span className="text-sm text-sira-medium-gray">Anschreiben</span>
           )}
         </div>
 
         {listing.description && listing.description.length > 0 ? (
-          <p className="text-gray-600 text-xs mb-2 line-clamp-2">
+          <p className="text-sira-text-gray text-sm mb-4 line-clamp-3">
             {listing.description}
           </p>
         ) : (
-          <p className="text-gray-400 text-xs mb-2 italic">
+          <p className="text-sira-medium-gray text-sm mb-4 italic">
             Keine Beschreibung verfügbar
           </p>
         )}
 
-        <div className="flex flex-col gap-0.5 text-xs text-gray-500 mb-3">
+        <div className="flex flex-col gap-2 text-sm text-sira-medium-gray mb-4">
           <div className="flex items-center justify-between">
-            <span>Gescraped: {formatScrapedAt(listing.scraped_at)}</span>
+            <span className="text-xs">Gescraped: {formatScrapedAt(listing.scraped_at)}</span>
             <div className="flex items-center gap-2">
-              <span className="text-primary">Privat</span>
+              <span className="text-xs font-medium text-sira-navy">Privat</span>
               {listing.source === 'derstandard' ? (
-                <Badge variant="outline" className="text-xs px-2 py-0 border-blue-500 text-blue-600">
+                <Badge variant="outline" className="text-xs px-2 py-0.5 border-sira-info text-sira-info">
                   derStandard
                 </Badge>
+              ) : listing.source === 'immoscout' ? (
+                <Badge variant="outline" className="text-xs px-2 py-0.5 border-sira-warning text-sira-warning">
+                  ImmoScout24
+                </Badge>
               ) : (
-                <Badge variant="outline" className="text-xs px-2 py-0 border-green-500 text-green-600">
+                <Badge variant="outline" className="text-xs px-2 py-0.5 border-sira-success text-sira-success">
                   Willhaben
                 </Badge>
               )}
             </div>
           </div>
           {listing.first_seen_at && (
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-sira-medium-gray">
               Erstmals gesehen: {formatFirstSeen(listing.first_seen_at)}
             </div>
           )}
+          {listing.published_at && listing.source === 'willhaben' && (
+            <div className="text-xs text-sira-medium-gray">
+              Inserat veröffentlicht am: {formatPublishedAt(listing.published_at)}
+            </div>
+          )}
           {listing.last_changed_at && (
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-sira-medium-gray">
               Zuletzt geändert: {formatLastChanged(listing.last_changed_at)}
             </div>
           )}
         </div>
-        
-        <div className="flex space-x-2">
+
+        <div className="flex gap-2 mt-auto">
           <Button
-            className="flex-1"
+            className="flex-1 bg-sira-navy hover:bg-sira-navy/90 text-white transition-smooth"
             onClick={() => setShowAkquiseModal(true)}
             disabled={isMarkingCompleted}
           >
-            <Check className="mr-1 h-4 w-4" />
             {listing.akquise_erledigt ? "Erledigt" : "Akquise erledigt"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDetailModal(true)}
+            title="Details anzeigen"
+            className="border-sira-light-gray hover:bg-sira-background hover:text-sira-navy transition-smooth"
+          >
+            <Eye className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => window.open(listing.url, '_blank')}
             title="Original-Anzeige öffnen"
+            className="border-sira-light-gray hover:bg-sira-background hover:text-sira-navy transition-smooth"
           >
             <ExternalLink className="h-4 w-4" />
           </Button>
@@ -254,13 +286,20 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
                 }
               }}
               title="Als unattraktiv markieren"
+              className="border-sira-light-gray hover:bg-red-50 hover:text-sira-danger transition-smooth"
             >
-              <Trash2 className="h-4 w-4 text-red-600" />
+              <Trash2 className="h-4 w-4" />
             </Button>
           )}
         </div>
       </CardContent>
-      
+
+      <ListingDetailModal
+        listing={listing}
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+      />
+
       <AkquiseModal
         isOpen={showAkquiseModal}
         onClose={() => setShowAkquiseModal(false)}

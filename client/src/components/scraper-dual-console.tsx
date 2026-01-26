@@ -14,7 +14,7 @@ import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ScraperDualConsole() {
-  const [scraperSource, setScraperSource] = useState<"willhaben" | "derstandard">("willhaben");
+  const [scraperSource, setScraperSource] = useState<"willhaben" | "derstandard" | "immoscout">("willhaben");
   const [selectedCategories, setSelectedCategories] = useState([
     "eigentumswohnung-wien",
     "haus-wien",
@@ -26,27 +26,24 @@ export default function ScraperDualConsole() {
   const [delay, setDelay] = useState(2000);
   const [keyword, setKeyword] = useState("privat");
   const [logs, setLogs] = useState<string[]>([
-    "[INFO] Dual-Scraper System bereit - Beide filtern NUR Privatverkäufe!",
+    "[INFO] Triple-Scraper System bereit - Filtert ausschließlich Privatverkäufe",
   ]);
   const [scraperStatus, setScraperStatus] = useState("Bereit");
   const [scraper247Status, setScraper247Status] = useState({
     isRunning: false,
     currentCycle: 0
   });
-  const [newestScraperStatus, setNewestScraperStatus] = useState<{isRunning: boolean, currentCycle: number, nextCycleTime: string | null}>({isRunning: false, currentCycle: 0, nextCycleTime: null});
+  const [newestScraperStatus, setNewestScraperStatus] = useState<{ isRunning: boolean, currentCycle: number, nextCycleTime: string | null }>({ isRunning: false, currentCycle: 0, nextCycleTime: null });
 
   const logContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Reset Kategorien beim Wechsel der Source
   useEffect(() => {
-    if (scraperSource === "willhaben") {
-      setSelectedCategories([
-        "eigentumswohnung-wien",
-        "haus-wien",
-        "eigentumswohnung-niederoesterreich",
-        "haus-niederoesterreich"
-      ]);
+    if (scraperSource === "derstandard") {
+      setSelectedCategories(["wien-kaufen-wohnung"]);
+    } else if (scraperSource === "immoscout") {
+      setSelectedCategories(["wien-wohnung-kaufen"]);
     } else {
       setSelectedCategories([
         "eigentumswohnung-wien",
@@ -64,7 +61,7 @@ export default function ScraperDualConsole() {
   });
 
   // Poll Newest Scraper status
-  const { data: newestStatus } = useQuery<{isRunning: boolean, currentCycle: number, nextCycleTime: string | null}>({
+  const { data: newestStatus } = useQuery<{ isRunning: boolean, currentCycle: number, nextCycleTime: string | null }>({
     queryKey: ["newest-scraper-status"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/scraper/status-newest");
@@ -104,7 +101,7 @@ export default function ScraperDualConsole() {
         setScraperStatus(data.status);
       } else if (data.type === "newListing") {
         toast({
-          title: "Neue Anzeige gefunden!",
+          title: "Neue Anzeige gefunden",
           description: `${data.listing.title} - €${data.listing.price.toLocaleString()}`,
         });
       }
@@ -129,16 +126,25 @@ export default function ScraperDualConsole() {
   // V3 Scraper (manual)
   const startPrivatScrapingMutation = useMutation({
     mutationFn: async () => {
-      // Wähle Endpoint basierend auf Source
-      const endpoint = scraperSource === "willhaben"
-        ? "/api/scraper/start"
-        : "/api/derstandard-scraper/start";
+      // Willhaben: manueller Scraper
+      if (scraperSource === "willhaben") {
+        return await apiRequest("POST", "/api/scraper/start", {
+          categories: selectedCategories,
+          maxPages,
+          delay,
+          keyword,
+        });
+      }
+
+      // derStandard & ImmoScout: manueller Scraper mit Kategorien
+      const endpoint = scraperSource === "derstandard"
+        ? "/api/derstandard-scraper/start"
+        : "/api/immoscout-scraper/start";
 
       return await apiRequest("POST", endpoint, {
-        categories: selectedCategories,
+        intervalMinutes: 0, // 0 = einmalig ausführen (one-time execution)
         maxPages,
-        delay,
-        keyword: scraperSource === "willhaben" ? keyword : undefined, // Keyword nur für Willhaben
+        categories: selectedCategories, // Pass selected categories to backend
       });
     },
     onSuccess: () => {
@@ -147,7 +153,7 @@ export default function ScraperDualConsole() {
         title: "V3 Scraper gestartet",
         description: scraperSource === "willhaben"
           ? `Scraper läuft mit keyword="${keyword}"`
-          : `derStandard Scraper gestartet`,
+          : `${scraperSource} Scraper gestartet`,
       });
     },
     onError: () => {
@@ -196,10 +202,11 @@ export default function ScraperDualConsole() {
   // Newest Scraper Mutations
   const startNewestScraperMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/scraper/start-newest", {
+      const res = await apiRequest("POST", "/api/scraper/start-newest", {
         intervalMinutes: 30,
         maxPages: 3
       });
+      return await res.json();
     },
     onSuccess: () => {
       setNewestScraperStatus(prev => ({ ...prev, isRunning: true }));
@@ -208,10 +215,11 @@ export default function ScraperDualConsole() {
         description: "Neueste Inserate werden alle 30 Min gescrapt.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('[NEWEST-SCRAPER] Start error:', error);
       toast({
         title: "Fehler",
-        description: "Newest Scraper konnte nicht gestartet werden.",
+        description: error?.message || "Newest Scraper konnte nicht gestartet werden.",
         variant: "destructive",
       });
     },
@@ -219,7 +227,8 @@ export default function ScraperDualConsole() {
 
   const stopNewestScraperMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/scraper/stop-newest", {});
+      const res = await apiRequest("POST", "/api/scraper/stop-newest", {});
+      return await res.json();
     },
     onSuccess: () => {
       setNewestScraperStatus(prev => ({ ...prev, isRunning: false }));
@@ -228,10 +237,11 @@ export default function ScraperDualConsole() {
         description: "Scraper wurde gestoppt.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('[NEWEST-SCRAPER] Stop error:', error);
       toast({
         title: "Fehler",
-        description: "Newest Scraper konnte nicht gestoppt werden.",
+        description: error?.message || "Newest Scraper konnte nicht gestoppt werden.",
         variant: "destructive",
       });
     },
@@ -250,55 +260,67 @@ export default function ScraperDualConsole() {
   };
 
   // Kategorien basierend auf Source
-  const categories = scraperSource === "willhaben"
+  const categories = scraperSource === "derstandard"
     ? [
-        { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
-        { id: "haus-wien", label: "Häuser Wien" },
-        { id: "grundstueck-wien", label: "Grundstücke Wien" },
-        { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
-        { id: "haus-niederoesterreich", label: "Häuser NÖ" },
-        { id: "grundstueck-niederoesterreich", label: "Grundstücke NÖ" },
-      ]
+      { id: "wien-kaufen-wohnung", label: "Eigentumswohnungen Wien" },
+      { id: "noe-kaufen-wohnung", label: "Eigentumswohnungen NÖ" },
+      { id: "noe-kaufen-haus", label: "Häuser NÖ" },
+    ]
+    : scraperSource === "immoscout"
+    ? [
+      { id: "wien-wohnung-kaufen", label: "Eigentumswohnungen Wien" },
+      { id: "noe-wohnung-kaufen", label: "Eigentumswohnungen NÖ" },
+      { id: "noe-haus-kaufen", label: "Häuser NÖ" },
+    ]
+    : scraperSource === "willhaben"
+    ? [
+      { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
+      { id: "haus-wien", label: "Häuser Wien" },
+      { id: "grundstueck-wien", label: "Grundstücke Wien" },
+      { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
+      { id: "haus-niederoesterreich", label: "Häuser NÖ" },
+      { id: "grundstueck-niederoesterreich", label: "Grundstücke NÖ" },
+    ]
     : [
-        { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
-        { id: "haus-wien", label: "Häuser Wien" },
-        { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
-        { id: "haus-niederoesterreich", label: "Häuser NÖ" },
-      ];
+      { id: "eigentumswohnung-wien", label: "Eigentumswohnungen Wien" },
+      { id: "haus-wien", label: "Häuser Wien" },
+      { id: "eigentumswohnung-niederoesterreich", label: "Eigentumswohnungen NÖ" },
+      { id: "haus-niederoesterreich", label: "Häuser NÖ" },
+    ];
 
   return (
     <>
-      <div className="p-6 border-b border-gray-200 bg-white">
+      <div className="p-8 border-b border-sira-light-gray bg-white">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Triple Scraper System</h2>
-            <p className="text-gray-600 mt-1">Privatverkauf + 24/7 Kontinuierlich + Newest (sort=1)</p>
+            <h1 className="text-page-heading text-sira-navy">Triple Scraper System</h1>
+            <p className="text-sira-text-gray mt-2">Automatisierte Erfassung von Privatverkäufen</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex gap-3">
             <Badge
-              className={`px-3 py-1 ${
-                scraperStatus === "Läuft"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-500 text-white"
-              }`}
+              variant="outline"
+              className={`px-3 py-1.5 ${scraperStatus === "Läuft"
+                ? "border-sira-info text-sira-info bg-blue-50"
+                : "border-sira-medium-gray text-sira-medium-gray"
+                }`}
             >
               Privatverkauf: {scraperStatus}
             </Badge>
             <Badge
-              className={`px-3 py-1 ${
-                scraper247Status.isRunning
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-500 text-white"
-              }`}
+              variant="outline"
+              className={`px-3 py-1.5 ${scraper247Status.isRunning
+                ? "border-sira-success text-sira-success bg-green-50"
+                : "border-sira-medium-gray text-sira-medium-gray"
+                }`}
             >
               24/7: {scraper247Status.isRunning ? "Läuft" : "Gestoppt"}
             </Badge>
             <Badge
-              className={`px-3 py-1 ${
-                newestScraperStatus.isRunning
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-500 text-white"
-              }`}
+              variant="outline"
+              className={`px-3 py-1.5 ${newestScraperStatus.isRunning
+                ? "border-sira-info text-sira-info bg-blue-50"
+                : "border-sira-medium-gray text-sira-medium-gray"
+                }`}
             >
               Newest: {newestScraperStatus.isRunning ? "Läuft" : "Gestoppt"}
             </Badge>
@@ -306,53 +328,60 @@ export default function ScraperDualConsole() {
         </div>
       </div>
 
-      <div className="p-6 h-full">
+      <div className="p-8 h-full bg-sira-background">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          
+
           {/* Scraper Controls */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Settings className="mr-2 h-5 w-5 text-gray-400" />
-                Scraper Controls
+          <Card className="border-sira-light-gray">
+            <CardHeader className="border-b border-sira-light-gray">
+              <CardTitle className="text-section-heading text-sira-navy flex items-center">
+                <Settings className="mr-2 h-5 w-5 text-sira-medium-gray" />
+                Steuerung
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              
-              {/* V3 Scraper */}
-              <div className="border rounded-lg p-4 bg-blue-50">
-                <h4 className="font-semibold text-blue-800 mb-3">🎯 V3 Scraper (Händisch)</h4>
+            <CardContent className="space-y-6 pt-6">
 
-                <div className="space-y-3">
-                  {/* Source Auswahl - ausgeblendet, derStandard deaktiviert */}
-                  {/* <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Quelle wählen
+              {/* V3 Scraper */}
+              <div className="border border-sira-light-gray rounded-lg p-5 bg-white">
+                <h4 className="text-card-title text-sira-navy mb-4">Manueller Scraper</h4>
+
+                <div className="space-y-4">
+                  {/* Source Auswahl */}
+                  <div>
+                    <Label className="text-sm font-medium text-sira-text-gray mb-2 block">
+                      Quelle
                     </Label>
-                    <Select value={scraperSource} onValueChange={(val) => setScraperSource(val as "willhaben" | "derstandard")}>
-                      <SelectTrigger className="w-full">
+                    <Select value={scraperSource} onValueChange={(val) => setScraperSource(val as "willhaben" | "derstandard" | "immoscout")}>
+                      <SelectTrigger className="w-full border-sira-light-gray focus:border-sira-navy focus:ring-sira-navy">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="willhaben">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="border-green-500 text-green-600">Willhaben</Badge>
+                            <Badge variant="outline" className="border-sira-success text-sira-success">Willhaben</Badge>
                           </div>
                         </SelectItem>
                         <SelectItem value="derstandard">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="border-blue-500 text-blue-600">derStandard</Badge>
+                            <Badge variant="outline" className="border-sira-info text-sira-info">derStandard</Badge>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="immoscout">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="border-sira-warning text-sira-warning">ImmoScout24</Badge>
                           </div>
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {scraperSource === "willhaben" ? "Scrape von Willhaben.at" : "Scrape von derStandard.at"}
+                    <p className="text-xs text-sira-medium-gray mt-2">
+                      {scraperSource === "willhaben" && "Erfassung von Willhaben.at"}
+                      {scraperSource === "derstandard" && "Erfassung von derStandard.at"}
+                      {scraperSource === "immoscout" && "Erfassung von Immobilienscout24.at"}
                     </p>
-                  </div> */}
+                  </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-sira-text-gray mb-2 block">
                       Kategorien
                     </Label>
                     <div className="space-y-2">
@@ -365,7 +394,7 @@ export default function ScraperDualConsole() {
                               handleCategoryChange(category.id, checked as boolean)
                             }
                           />
-                          <Label htmlFor={category.id} className="text-sm">
+                          <Label htmlFor={category.id} className="text-sm text-sira-text-gray">
                             {category.label}
                           </Label>
                         </div>
@@ -373,19 +402,20 @@ export default function ScraperDualConsole() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-sm font-medium">Max. Seiten</Label>
+                      <Label className="text-sm font-medium text-sira-text-gray">Max. Seiten</Label>
                       <Input
                         type="number"
                         value={maxPages}
                         onChange={(e) => setMaxPages(parseInt(e.target.value) || 3)}
                         min={1}
                         max={10}
+                        className="border-sira-light-gray focus:border-sira-navy focus:ring-sira-navy"
                       />
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Delay (ms)</Label>
+                      <Label className="text-sm font-medium text-sira-text-gray">Delay (ms)</Label>
                       <Input
                         type="number"
                         value={delay}
@@ -393,6 +423,7 @@ export default function ScraperDualConsole() {
                         min={1000}
                         max={5000}
                         step={500}
+                        className="border-sira-light-gray focus:border-sira-navy focus:ring-sira-navy"
                       />
                     </div>
                   </div>
@@ -400,52 +431,51 @@ export default function ScraperDualConsole() {
                   {/* Keyword-Filter nur für Willhaben */}
                   {scraperSource === "willhaben" && (
                     <div>
-                      <Label className="text-sm font-medium">Keyword-Filter</Label>
+                      <Label className="text-sm font-medium text-sira-text-gray">Keyword-Filter</Label>
                       <Input
                         type="text"
                         value={keyword}
                         onChange={(e) => setKeyword(e.target.value)}
                         placeholder="privat"
-                        className="font-mono text-sm"
+                        className="font-mono text-sm border-sira-light-gray focus:border-sira-navy focus:ring-sira-navy"
                       />
                     </div>
                   )}
 
                   <Button
-                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    className="w-full bg-sira-navy hover:bg-sira-navy/90 text-white transition-smooth"
                     onClick={() => startPrivatScrapingMutation.mutate()}
                     disabled={selectedCategories.length === 0 || startPrivatScrapingMutation.isPending || scraperStatus === "Läuft"}
                   >
                     <Play className="mr-2 h-4 w-4" />
-                    {startPrivatScrapingMutation.isPending ? "Startet..." : "Sofort scrapen"}
+                    {startPrivatScrapingMutation.isPending ? "Startet..." : "Jetzt starten"}
                   </Button>
                 </div>
               </div>
 
               {/* 24/7 Scraper */}
-              <div className="border rounded-lg p-4 bg-green-50">
-                <h4 className="font-semibold text-green-800 mb-3">🚀 24/7 Automatisch (Private Only)</h4>
+              <div className="border border-sira-light-gray rounded-lg p-5 bg-white">
+                <h4 className="text-card-title text-sira-navy mb-4">Automatischer Dauerbetrieb</h4>
 
-                <div className="space-y-3">
-                  <div className="text-sm text-gray-600">
-                    • Läuft kontinuierlich im Hintergrund<br/>
-                    • NUR Privatverkäufe (keine Makler!)<br/>
-                    • Commercial + Private-Filter aktiv<br/>
-                    • Perfekt für Akquise-Pipeline
+                <div className="space-y-4">
+                  <div className="text-sm text-sira-text-gray space-y-1">
+                    <p>Kontinuierliche Erfassung im Hintergrund</p>
+                    <p>Ausschließlich Privatverkäufe</p>
+                    <p>Mehrstufige Filterung aktiv</p>
+                    <p>Optimiert für Akquise-Pipeline</p>
                   </div>
 
                   {scraper247Status.isRunning && (
-                    <div className="text-sm font-medium text-green-700">
+                    <div className="text-sm font-medium text-sira-navy">
                       Zyklus #{scraper247Status.currentCycle} aktiv
                     </div>
                   )}
 
                   <Button
-                    className={`w-full ${
-                      scraper247Status.isRunning
-                        ? 'bg-red-600 hover:bg-red-700'
-                        : 'bg-green-600 hover:bg-green-700'
-                    }`}
+                    className={`w-full transition-smooth ${scraper247Status.isRunning
+                      ? 'bg-sira-danger hover:bg-sira-danger/90 text-white'
+                      : 'bg-sira-success hover:bg-sira-success/90 text-white'
+                      }`}
                     onClick={() => scraper247Status.isRunning
                       ? stop247ScrapingMutation.mutate()
                       : start247ScrapingMutation.mutate()
@@ -453,30 +483,30 @@ export default function ScraperDualConsole() {
                     disabled={start247ScrapingMutation.isPending || stop247ScrapingMutation.isPending}
                   >
                     <Clock className="mr-2 h-4 w-4" />
-                    {scraper247Status.isRunning ? "24/7 Stoppen" : "24/7 Starten"}
+                    {scraper247Status.isRunning ? "Stoppen" : "Starten"}
                   </Button>
                 </div>
               </div>
 
               {/* Newest Scraper */}
-              <div className="border rounded-lg p-4 bg-blue-50">
-                <h4 className="font-semibold text-blue-800 mb-3">🚀 Newest Scraper (sort=1)</h4>
+              <div className="border border-sira-light-gray rounded-lg p-5 bg-white">
+                <h4 className="text-card-title text-sira-navy mb-4">Neueste Inserate</h4>
 
-                <div className="space-y-3">
-                  <div className="text-sm text-gray-600">
-                    • Scrapt alle 30 Min die neuesten Inserate<br/>
-                    • Nur erste 1-3 Seiten (sort=1)<br/>
-                    • Nur NEUE private Listings<br/>
-                    • Perfekt für frische Leads
+                <div className="space-y-4">
+                  <div className="text-sm text-sira-text-gray space-y-1">
+                    <p>Erfassung alle 30 Minuten</p>
+                    <p>Erste 1-3 Seiten sortiert nach Datum</p>
+                    <p>Nur neue private Angebote</p>
+                    <p>Optimiert für aktuelle Leads</p>
                   </div>
 
                   {newestScraperStatus.isRunning && (
                     <div className="text-sm space-y-1">
-                      <div className="font-medium text-blue-700">
+                      <div className="font-medium text-sira-navy">
                         Zyklus #{newestScraperStatus.currentCycle} aktiv
                       </div>
                       {newestScraperStatus.nextCycleTime && (
-                        <div className="text-xs text-blue-600">
+                        <div className="text-xs text-sira-medium-gray">
                           Nächster Zyklus: {new Date(newestScraperStatus.nextCycleTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
                         </div>
                       )}
@@ -484,11 +514,10 @@ export default function ScraperDualConsole() {
                   )}
 
                   <Button
-                    className={`w-full ${
-                      newestScraperStatus.isRunning
-                        ? 'bg-red-600 hover:bg-red-700'
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    }`}
+                    className={`w-full transition-smooth ${newestScraperStatus.isRunning
+                      ? 'bg-sira-danger hover:bg-sira-danger/90 text-white'
+                      : 'bg-sira-navy hover:bg-sira-navy/90 text-white'
+                      }`}
                     onClick={() => newestScraperStatus.isRunning
                       ? stopNewestScraperMutation.mutate()
                       : startNewestScraperMutation.mutate()
@@ -496,7 +525,7 @@ export default function ScraperDualConsole() {
                     disabled={startNewestScraperMutation.isPending || stopNewestScraperMutation.isPending}
                   >
                     <Clock className="mr-2 h-4 w-4" />
-                    {newestScraperStatus.isRunning ? "Newest Stoppen" : "Newest Starten"}
+                    {newestScraperStatus.isRunning ? "Stoppen" : "Starten"}
                   </Button>
                 </div>
               </div>
@@ -505,39 +534,39 @@ export default function ScraperDualConsole() {
           </Card>
 
           {/* Console Log */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
+          <Card className="lg:col-span-2 border-sira-light-gray">
+            <CardHeader className="border-b border-sira-light-gray">
               <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center">
-                  <Terminal className="mr-2 h-5 w-5 text-gray-400" />
-                  Live Console
+                <CardTitle className="text-section-heading text-sira-navy flex items-center">
+                  <Terminal className="mr-2 h-5 w-5 text-sira-medium-gray" />
+                  Live Protokoll
                 </CardTitle>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={clearLogs}
+                  className="border-sira-light-gray hover:bg-sira-background transition-smooth"
                 >
-                  Clear
+                  Leeren
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-96 w-full rounded-lg bg-gray-900 p-4">
-                <div 
+            <CardContent className="pt-6">
+              <ScrollArea className="h-96 w-full rounded-lg bg-sira-navy p-4">
+                <div
                   ref={logContainerRef}
                   className="text-sm font-mono space-y-1"
                 >
                   {logs.map((log, index) => (
-                    <div 
-                      key={index} 
-                      className={`${
-                        log.includes('[ERROR]') || log.includes('❌') ? 'text-red-400' :
-                        log.includes('[SUCCESS]') || log.includes('✅') || log.includes('🏆') ? 'text-green-400' :
-                        log.includes('[WARNING]') || log.includes('⚠️') ? 'text-yellow-400' :
-                        log.includes('[INFO]') || log.includes('🔍') || log.includes('🚀') ? 'text-blue-400' :
-                        log.includes('[24/7]') ? 'text-green-300' :
-                        'text-gray-300'
-                      }`}
+                    <div
+                      key={index}
+                      className={`${log.includes('[ERROR]') ? 'text-red-400' :
+                        log.includes('[SUCCESS]') ? 'text-green-400' :
+                          log.includes('[WARNING]') ? 'text-yellow-400' :
+                            log.includes('[INFO]') ? 'text-blue-400' :
+                              log.includes('[24/7]') ? 'text-green-300' :
+                                'text-gray-300'
+                        }`}
                     >
                       {log}
                     </div>
@@ -547,7 +576,7 @@ export default function ScraperDualConsole() {
               </ScrollArea>
             </CardContent>
           </Card>
-          
+
         </div>
       </div>
     </>

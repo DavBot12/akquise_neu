@@ -17,8 +17,9 @@ export default function Dashboard({ user }: DashboardProps) {
   const [regionFilter, setRegionFilter] = useState("Alle Regionen");
   const [bezirkFilter, setBezirkFilter] = useState("Alle Bezirke");
   const [categoryFilter, setCategoryFilter] = useState("Alle Kategorien");
+  const [sourceFilter, setSourceFilter] = useState("Alle Plattformen");
   const [phoneFilter, setPhoneFilter] = useState("Alle");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5500000]);
   const [sortBy, setSortBy] = useState<"scraped_at" | "last_changed_at" | "first_seen_at">("last_changed_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -43,16 +44,17 @@ export default function Dashboard({ user }: DashboardProps) {
 
   // Fetch active listings
   const { data: listings = [], isLoading: listingsLoading } = useQuery<Listing[]>({
-    queryKey: ["/api/listings", regionFilter, bezirkFilter, categoryFilter, phoneFilter, priceRange],
+    queryKey: ["/api/listings", regionFilter, bezirkFilter, categoryFilter, sourceFilter, phoneFilter, priceRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
       if (bezirkFilter !== "Alle Bezirke") params.append("district", bezirkFilter);
       if (categoryFilter !== "Alle Kategorien") params.append("category", categoryFilter);
+      if (sourceFilter !== "Alle Plattformen") params.append("source", sourceFilter);
       if (phoneFilter === "Nur mit Telefonnummer") params.append("has_phone", "true");
       if (phoneFilter === "Nur ohne Telefonnummer") params.append("has_phone", "false");
       if (priceRange[0] > 0) params.append("min_price", priceRange[0].toString());
-      if (priceRange[1] < 1500000) params.append("max_price", priceRange[1].toString());
+      if (priceRange[1] < 5500000) params.append("max_price", priceRange[1].toString());
       params.append("akquise_erledigt", "false");
 
       const url = `/api/listings${params.toString() ? '?' + params.toString() : ''}`;
@@ -124,15 +126,16 @@ export default function Dashboard({ user }: DashboardProps) {
   });
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">Aktive Immobilien-Inserate</p>
-      </div>
+    <div className="min-h-screen bg-sira-background">
+      <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-6">
+        {/* Page Header */}
+        <div className="mb-6">
+          <h1 className="text-page-heading text-sira-navy">Dashboard</h1>
+          <p className="text-sira-text-gray mt-2">Aktive Immobilien-Inserate</p>
+        </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Aktive Inserate</CardTitle>
@@ -166,10 +169,10 @@ export default function Dashboard({ user }: DashboardProps) {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
 
-      {/* Filters */}
-      <Card>
+        {/* Filters */}
+        <Card>
         <CardHeader>
           <CardTitle>Filter</CardTitle>
         </CardHeader>
@@ -194,7 +197,7 @@ export default function Dashboard({ user }: DashboardProps) {
                 <SelectContent>
                   <SelectItem value="Alle Bezirke">Alle Bezirke</SelectItem>
                   {Array.from({ length: 23 }, (_, i) => i + 1).map(num => (
-                    <SelectItem key={num} value={`${num}. Bezirk`}>{num}. Bezirk</SelectItem>
+                    <SelectItem key={num} value={`${num}`}>{num}. Bezirk</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -209,6 +212,18 @@ export default function Dashboard({ user }: DashboardProps) {
                 <SelectItem value="eigentumswohnung">Wohnung</SelectItem>
                 <SelectItem value="haus">Haus</SelectItem>
                 <SelectItem value="grundstueck">Grundstück</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Alle Plattformen">Alle Plattformen</SelectItem>
+                <SelectItem value="willhaben">Willhaben</SelectItem>
+                <SelectItem value="derstandard">derStandard</SelectItem>
+                <SelectItem value="immoscout">ImmoScout24</SelectItem>
               </SelectContent>
             </Select>
 
@@ -231,7 +246,7 @@ export default function Dashboard({ user }: DashboardProps) {
                 value={priceRange}
                 onValueChange={(value) => setPriceRange(value as [number, number])}
                 min={0}
-                max={1500000}
+                max={5500000}
                 step={10000}
                 className="w-full"
               />
@@ -261,10 +276,10 @@ export default function Dashboard({ user }: DashboardProps) {
             </Select>
           </div>
         </CardContent>
-      </Card>
+        </Card>
 
-      {/* Listings */}
-      <div>
+        {/* Listings */}
+        <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">
             {sortedListings.length} {sortedListings.length === 1 ? 'Inserat' : 'Inserate'}
@@ -295,6 +310,7 @@ export default function Dashboard({ user }: DashboardProps) {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

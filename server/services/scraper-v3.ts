@@ -13,6 +13,7 @@ import {
   extractDescription,
   extractImages,
   extractLastChanged,
+  extractPublishedDate,
   extractLocationFromJson,
   extractLocationFromDom,
   extractPhoneFromHtml,
@@ -504,6 +505,8 @@ export class ScraperV3Service {
     const phoneDirect = extractPhoneFromHtml(html, $);
     // Extract "Zuletzt geändert" date
     const lastChangedAt = extractLastChanged($, html);
+    // Extract "Veröffentlicht am" date (Willhaben only)
+    const publishedAt = extractPublishedDate(html);
     return {
       listing: {
       title,
@@ -519,6 +522,7 @@ export class ScraperV3Service {
       eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
       akquise_erledigt: false,
       last_changed_at: lastChangedAt,
+      published_at: publishedAt,
       },
       reason: 'ok',
     };

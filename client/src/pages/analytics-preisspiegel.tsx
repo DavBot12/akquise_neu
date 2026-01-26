@@ -23,14 +23,16 @@ export default function AnalyticsPreisspiegel({ user }: AnalyticsPreisspiegelPro
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Preisspiegel</h1>
-        <p className="text-muted-foreground mt-2">
-          Wien Marktdaten - Durchschnittspreise pro Bezirk
-        </p>
+    <div className="min-h-screen bg-sira-background">
+      <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="mb-6">
+          <h1 className="text-page-heading text-sira-navy">Preisspiegel</h1>
+          <p className="text-sira-text-gray mt-2">
+            Wien Marktdaten - Durchschnittspreise pro Bezirk
+          </p>
+        </div>
+        <PreisspiegelTest />
       </div>
-      <PreisspiegelTest />
     </div>
   );
 }

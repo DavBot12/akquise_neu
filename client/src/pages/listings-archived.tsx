@@ -46,15 +46,18 @@ export default function ListingsArchived({ user }: ListingsArchivedProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Archivierte Inserate</h2>
-        <p className="text-sm text-muted-foreground">
-          {deletedListings.length} {deletedListings.length === 1 ? 'Inserat' : 'Inserate'}
-        </p>
-      </div>
+    <div className="min-h-screen bg-sira-background">
+      <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-page-heading text-sira-navy">Archivierte Inserate</h1>
+            <p className="text-sira-text-gray mt-2">
+              {deletedListings.length} {deletedListings.length === 1 ? 'Inserat' : 'Inserate'}
+            </p>
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {deletedListings.map((listing: any) => (
           <div key={listing.id} className="relative">
             <ListingCard
@@ -84,6 +87,7 @@ export default function ListingsArchived({ user }: ListingsArchivedProps) {
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );

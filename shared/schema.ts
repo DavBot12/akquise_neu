@@ -17,6 +17,7 @@ export const listings = pgTable("listings", {
   scraped_at: timestamp("scraped_at").defaultNow().notNull(),
   first_seen_at: timestamp("first_seen_at").defaultNow().notNull(), // Wann das System das Inserat erstmals sah
   last_changed_at: timestamp("last_changed_at"), // "Zuletzt geändert" Datum von Willhaben
+  published_at: timestamp("published_at"), // "Veröffentlicht am" Datum (nur Willhaben)
   akquise_erledigt: boolean("akquise_erledigt").default(false).notNull(),
   is_deleted: boolean("is_deleted").default(false).notNull(),
   deletion_reason: text("deletion_reason"),
@@ -24,7 +25,7 @@ export const listings = pgTable("listings", {
   price_evaluation: text("price_evaluation").$type<"unter_schnitt" | "im_schnitt" | "ueber_schnitt">(),
   category: text("category").notNull(), // eigentumswohnung or grundstueck or haus
   region: text("region").notNull(), // wien or niederoesterreich
-  source: text("source").notNull().default("willhaben"), // willhaben or derstandard
+  source: text("source").notNull().default("willhaben"), // willhaben, derstandard, or immoscout
 });
 
 export const contacts = pgTable("contacts", {

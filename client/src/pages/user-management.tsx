@@ -136,18 +136,28 @@ export default function UserManagementPage() {
   };
 
   if (isLoading) {
-    return <div className="p-8">Lade Benutzer...</div>;
+    return (
+      <div className="min-h-screen bg-sira-background">
+        <div className="max-w-[1600px] mx-auto p-6 md:p-8">
+          <div className="text-sira-text-gray">Lade Benutzer...</div>
+        </div>
+      </div>
+    );
   }
 
   const pendingUsers = users.filter(u => !u.is_approved && !u.is_admin);
   const approvedUsers = users.filter(u => u.is_approved || u.is_admin);
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-3xl font-bold">Benutzerverwaltung</h1>
+    <div className="min-h-screen bg-sira-background">
+      <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="mb-6">
+          <h1 className="text-page-heading text-sira-navy">Benutzerverwaltung</h1>
+          <p className="text-sira-text-gray mt-2">Verwalte Benutzer und Freigaben</p>
+        </div>
 
-      {pendingUsers.length > 0 && (
-        <Card>
+        {pendingUsers.length > 0 && (
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               Wartende Freigaben
@@ -190,10 +200,10 @@ export default function UserManagementPage() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      )}
+          </Card>
+        )}
 
-      <Card>
+        <Card>
         <CardHeader>
           <CardTitle>Alle Benutzer</CardTitle>
         </CardHeader>
@@ -264,7 +274,8 @@ export default function UserManagementPage() {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

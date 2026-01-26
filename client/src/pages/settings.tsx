@@ -75,82 +75,87 @@ export default function SettingsPage({ user }: SettingsProps) {
   };
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-3xl font-bold">Einstellungen</h1>
+    <div className="min-h-screen bg-sira-background">
+      <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="mb-6">
+          <h1 className="text-page-heading text-sira-navy">Einstellungen</h1>
+          <p className="text-sira-text-gray mt-2">Verwalte deine persönlichen Einstellungen</p>
+        </div>
 
-      <Card className="max-w-md">
-        <CardHeader>
-          <CardTitle>Darstellung</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="theme">Farbschema</Label>
-            <Select value={theme} onValueChange={setTheme}>
-              <SelectTrigger id="theme">
-                <SelectValue placeholder="Theme auswählen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">Hell</SelectItem>
-                <SelectItem value="dark">Dunkel</SelectItem>
-                <SelectItem value="system">System</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="max-w-md">
-        <CardHeader>
-          <CardTitle>Passwort ändern</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleChangePassword} className="space-y-4">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Darstellung</CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="space-y-2">
-              <Label htmlFor="new-password">Neues Passwort</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={4}
-              />
+              <Label htmlFor="theme">Farbschema</Label>
+              <Select value={theme} onValueChange={setTheme}>
+                <SelectTrigger id="theme">
+                  <SelectValue placeholder="Theme auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Hell</SelectItem>
+                  <SelectItem value="dark">Dunkel</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Passwort bestätigen</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={4}
-              />
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Passwort ändern</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Neues Passwort</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={4}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Passwort bestätigen</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={4}
+                />
+              </div>
+
+              <Button type="submit" disabled={isLoading} className="w-full">
+                {isLoading ? "Wird geändert..." : "Passwort ändern"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Konto-Informationen</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div>
+              <Label className="text-muted-foreground">Benutzername</Label>
+              <p className="font-medium">{user.username}</p>
             </div>
-
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? "Wird geändert..." : "Passwort ändern"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card className="max-w-md">
-        <CardHeader>
-          <CardTitle>Konto-Informationen</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div>
-            <Label className="text-muted-foreground">Benutzername</Label>
-            <p className="font-medium">{user.username}</p>
-          </div>
-          <div>
-            <Label className="text-muted-foreground">Rolle</Label>
-            <p className="font-medium">{user.is_admin ? "Administrator" : "Benutzer"}</p>
-          </div>
-        </CardContent>
-      </Card>
+            <div>
+              <Label className="text-muted-foreground">Rolle</Label>
+              <p className="font-medium">{user.is_admin ? "Administrator" : "Benutzer"}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

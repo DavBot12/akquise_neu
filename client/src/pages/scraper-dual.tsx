@@ -16,14 +16,16 @@ export default function ScraperDual({ user }: ScraperDualProps) {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Dual Scraper</h1>
-        <p className="text-muted-foreground mt-2">
-          24/7 Scraper + Newest Scraper + Manueller V3 Scraper
-        </p>
+    <div className="min-h-screen bg-sira-background">
+      <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-6">
+        <div className="mb-6">
+          <h1 className="text-page-heading text-sira-navy">Dual Scraper</h1>
+          <p className="text-sira-text-gray mt-2">
+            24/7 Scraper + Newest Scraper + Manueller V3 Scraper
+          </p>
+        </div>
+        <ScraperDualConsole />
       </div>
-      <ScraperDualConsole />
     </div>
   );
 }

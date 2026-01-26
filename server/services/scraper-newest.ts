@@ -10,6 +10,7 @@ import {
   extractDescription,
   extractImages,
   extractLastChanged,
+  extractPublishedDate,
   extractLocationFromJson,
   extractLocationFromDom,
   extractPhoneFromHtml,
@@ -565,6 +566,7 @@ export class NewestScraperService {
     const location = locJson || extractLocationFromDom($, url) || (key.includes('wien') ? 'Wien' : 'Niederösterreich');
     const phoneDirect = extractPhoneFromHtml(html, $);
     const lastChangedAt = extractLastChanged($, html);
+    const publishedAt = extractPublishedDate(html);
 
     return {
       listing: {
@@ -581,6 +583,7 @@ export class NewestScraperService {
         eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
         akquise_erledigt: false,
         last_changed_at: lastChangedAt,
+        published_at: publishedAt,
       },
       reason: 'ok',
     };

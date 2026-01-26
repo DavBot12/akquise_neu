@@ -253,13 +253,90 @@ export function extractTitle($: any): string {
 // ============================================
 
 export function extractDescription($: any): string {
+  // Strategy 1: data-testid attributes (most reliable)
   const t = $('[data-testid="ad-detail-ad-description"], [data-testid="object-description-text"]').text().trim();
-  if (t && t.length > 30 && !t.includes('{"props"')) return t.substring(0, 1000);
+  if (t && t.length > 10 && !t.includes('{"props"')) return cleanDescription(t);
+
+  // Strategy 2: Common description selectors
+  const commonSelectors = [
+    '.description-text',
+    '.ad-description',
+    '[itemprop="description"]',
+    '.object-description',
+    '#description',
+    'section:has(h2:contains("Beschreibung"))',
+    'div:has(h3:contains("Objektbeschreibung"))'
+  ];
+
+  for (const sel of commonSelectors) {
+    const txt = $(sel).text().trim();
+    if (txt && txt.length > 10 && !txt.includes('{"props"')) {
+      return cleanDescription(txt);
+    }
+  }
+
+  // Strategy 3: Find description headers and extract following content
+  const headers = $('h2, h3, h4').filter((_: number, el: any) => {
+    const text = $(el).text().toLowerCase();
+    return text.includes('beschreibung') || text.includes('objektbeschreibung');
+  });
+
+  if (headers.length > 0) {
+    const header = headers.first();
+    let fullText = '';
+
+    // Get all siblings after the header until next header or section
+    let current = header.next();
+    while (current.length > 0 && !current.is('h2, h3, h4, section')) {
+      fullText += ' ' + current.text();
+      current = current.next();
+    }
+
+    const cleaned = fullText.trim();
+    if (cleaned.length > 10) {
+      return cleanDescription(cleaned);
+    }
+  }
+
+  // Strategy 4: Regex fallback (lower minimum to catch short descriptions)
   const all = $('body').text();
-  const m = all.match(/Objektbeschreibung[\s:]*\n?\s*([\s\S]{30,1200})/i);
-  const desc = m?.[1]?.trim() || '';
-  if (desc.includes('{"props"')) return '';
-  return desc;
+  const patterns = [
+    /Objektbeschreibung[\s:]*\n?\s*([\s\S]{10,5000}?)(?=\n\s*(?:Kontakt|Ausstattung|Lage|€|Weitere|Services|Rechtlicher|Anbieter))/i,
+    /Beschreibung[\s:]*\n?\s*([\s\S]{10,5000}?)(?=\n\s*(?:Kontakt|Ausstattung|Lage|€|Weitere|Services|Rechtlicher|Anbieter))/i,
+    /Objektbeschreibung[\s:]*\n?\s*([\s\S]{10,5000})/i,
+  ];
+
+  for (const pattern of patterns) {
+    const m = all.match(pattern);
+    if (m && m[1]) {
+      const desc = m[1].trim();
+      if (desc.length > 10 && !desc.includes('{"props"')) {
+        return cleanDescription(desc);
+      }
+    }
+  }
+
+  return '';
+}
+
+function cleanDescription(text: string): string {
+  // Clean up common artifacts and cut-off points
+  let cleaned = text
+    .replace(/Kontakt aufnehmen[\s\S]*/i, '')
+    .replace(/Weitere Informationen[\s\S]*/i, '')
+    .replace(/Jetzt kontaktieren[\s\S]*/i, '')
+    .replace(/Services zu dieser Immobilie[\s\S]*/i, '')
+    .replace(/Rechtlicher Hinweis[\s\S]*/i, '')
+    .replace(/Kreditrechner[\s\S]*/i, '')
+    .replace(/Anbieterdetails[\s\S]*/i, '')
+    .replace(/willhaben-Code:[\s\S]*/i, '')
+    .replace(/Finanzierungsbeispiel[\s\S]*/i, '')
+    .trim();
+
+  // Remove multiple newlines and excessive whitespace
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ');
+
+  return cleaned.substring(0, 5000);
 }
 
 // ============================================
@@ -339,6 +416,28 @@ export function extractLastChanged($: any, html: string): Date | null {
     if (regexMatch) {
       const [, day, month, year, hour, minute] = regexMatch;
       return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================
+// PUBLISHED DATE EXTRACTION (Willhaben only)
+// ============================================
+
+export function extractPublishedDate(html: string): Date | null {
+  try {
+    // Extract from JSON-LD or embedded data: "publishedDate":"2026-01-20T19:10:00+0100"
+    const match = html.match(/"publishedDate"\s*:\s*"([^"]+)"/i);
+    if (match) {
+      const dateStr = match[1];
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
     }
 
     return null;

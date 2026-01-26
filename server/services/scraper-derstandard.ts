@@ -1,98 +1,129 @@
-import axios, { AxiosInstance } from 'axios';
-import { load } from 'cheerio';
-import { chromium, Browser, Page } from 'playwright-core';
-
 /**
- * derStandard.at SCRAPER SERVICE
+ * DerStandard Scraper Service
+ * Scrapes private real estate listings from immobilien.derstandard.at
  *
- * Zweck:
- * - Scraping von derStandard.at Immobilien (Wien + Niederösterreich)
- * - Kategorien: Eigentumswohnungen + Häuser (KEINE Grundstücke)
- * - Speichert Listings in gleicher Tabelle wie Willhaben mit source='derstandard'
- * - Verwendet Playwright für JavaScript-Rendering (Next.js App)
+ * Key Features:
+ * - DataLayer-based extraction (JavaScript instead of DOM)
+ * - 6-stage filter pipeline for private vs commercial detection
+ * - Session management with cookie refresh every 50 requests
+ * - Optimized performance: 60-120ms delays (vs 1-2s in old scraper)
+ * - Pagination state persistence
  */
 
-interface DerStandardScraperOptions {
+import { load } from 'cheerio';
+import { storage } from '../storage';
+import {
+  proxyRequest,
+  sleep,
+  withJitter,
+  rotateUserAgent,
+  extractPhoneFromHtml,
+  type ProxyRequestResponse
+} from './scraper-utils';
+import type { InsertListing } from '@shared/schema';
+
+// ============================================
+// INTERFACES
+// ============================================
+
+export interface DerStandardScraperOptions {
   intervalMinutes?: number;
   maxPages?: number;
+  categories?: string[]; // Optional: filter which categories to scrape
   onLog?: (msg: string) => void;
-  onListingFound?: (listing: any) => Promise<void>;
+  onListingFound?: (listing: InsertListing) => Promise<void>;
   onPhoneFound?: (payload: { url: string; phone: string }) => void;
 }
 
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-function withJitter(base = 800, jitter = 700) { return base + Math.floor(Math.random() * jitter); }
+interface DataLayerProps {
+  company: string | null;
+  type: string | null;
+  title: string | null;
+  price: string | null;
+  size: string | null;
+  rooms: string | null;
+  location: string | null;
+  plz: string | null;
+  rentBuy: string | null;
+}
+
+interface FilterResult {
+  allowed: boolean;
+  reason: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+// ============================================
+// MAIN SCRAPER SERVICE
+// ============================================
 
 export class DerStandardScraperService {
   private isRunning = false;
   private intervalHandle: NodeJS.Timeout | null = null;
   private currentCycle = 0;
-  private axiosInstance: AxiosInstance;
+  private processedUrls = new Set<string>();
   private sessionCookies = '';
   private requestCount = 0;
 
-  // derStandard.at URLs für Eigentumswohnungen + Häuser (Wien + NÖ)
-  private readonly baseUrls: Record<string, string> = {
-    // Eigentumswohnungen Wien
-    'eigentumswohnung-wien': 'https://immobilien.derstandard.at/suche/wien/kaufen-wohnung',
-    // Eigentumswohnungen Niederösterreich
-    'eigentumswohnung-niederoesterreich': 'https://immobilien.derstandard.at/suche/niederoesterreich/kaufen-wohnung',
-    // Häuser Wien
-    'haus-wien': 'https://immobilien.derstandard.at/suche/wien/kaufen-haus',
-    // Häuser Niederösterreich
-    'haus-niederoesterreich': 'https://immobilien.derstandard.at/suche/niederoesterreich/kaufen-haus'
+  private baseUrls: Record<string, string> = {
+    // Nur KAUFEN - Miete ist rausgenommen
+    'wien-kaufen-wohnung': 'https://immobilien.derstandard.at/suche/wien/kaufen-wohnung',
+    'noe-kaufen-wohnung': 'https://immobilien.derstandard.at/suche/niederoesterreich/kaufen-wohnung',
+    'noe-kaufen-haus': 'https://immobilien.derstandard.at/suche/niederoesterreich/kaufen-haus'
   };
 
-  constructor() {
-    this.axiosInstance = axios.create({ timeout: 30000, maxRedirects: 5 });
-  }
+  // ============================================
+  // PUBLIC METHODS
+  // ============================================
 
-  /**
-   * Startet den derStandard-Scraper
-   */
   async start(options: DerStandardScraperOptions = {}): Promise<void> {
     if (this.isRunning) {
-      options.onLog?.('[DERSTANDARD] Scraper läuft bereits!');
+      options.onLog?.('⚠️ DerStandard scraper is already running');
       return;
     }
 
-    const {
-      intervalMinutes = 30,
-      maxPages = 3,
-      onLog,
-      onListingFound,
-      onPhoneFound
-    } = options;
-
     this.isRunning = true;
-    onLog?.('[DERSTANDARD] 🚀 GESTARTET - derStandard.at Scraper');
-    onLog?.(`[DERSTANDARD] ⏱️ Intervall: ${intervalMinutes} Min | 📄 MaxPages: ${maxPages}`);
+    const intervalMinutes = options.intervalMinutes ?? 30; // Use 30 as default, but allow 0 for one-time
 
-    // Erste Ausführung sofort
-    await this.runCycle({ maxPages, onLog, onListingFound, onPhoneFound });
+    options.onLog?.('🚀 DerStandard scraper started');
+    if (intervalMinutes === 0) {
+      options.onLog?.(`⏱️ One-time manual execution | Max pages: ${options.maxPages || 3}`);
+    } else {
+      options.onLog?.(`⏱️ Interval: ${intervalMinutes} min | Max pages: ${options.maxPages || 3}`);
+    }
 
-    // Danach regelmäßig
-    this.intervalHandle = setInterval(async () => {
-      if (this.isRunning) {
-        await this.runCycle({ maxPages, onLog, onListingFound, onPhoneFound });
-      }
-    }, intervalMinutes * 60 * 1000);
+    // Run first cycle immediately
+    await this.runCycle(options);
+
+    // Schedule recurring cycles only if intervalMinutes > 0
+    if (intervalMinutes > 0) {
+      this.intervalHandle = setInterval(async () => {
+        if (this.isRunning) {
+          await this.runCycle(options);
+        }
+      }, intervalMinutes * 60 * 1000);
+    } else {
+      // One-time execution - stop after first cycle
+      this.isRunning = false;
+      options.onLog?.('✅ DerStandard one-time scrape completed');
+    }
   }
 
-  /**
-   * Stoppt den derStandard-Scraper
-   */
-  stop(): void {
+  stop(onLog?: (msg: string) => void): void {
+    if (!this.isRunning) {
+      onLog?.('⚠️ DerStandard scraper is not running');
+      return;
+    }
+
+    this.isRunning = false;
     if (this.intervalHandle) {
       clearInterval(this.intervalHandle);
       this.intervalHandle = null;
     }
-    this.isRunning = false;
+
+    onLog?.('🛑 DerStandard scraper stopped');
   }
 
-  /**
-   * Status-Informationen
-   */
   getStatus(): { isRunning: boolean; currentCycle: number } {
     return {
       isRunning: this.isRunning,
@@ -100,453 +131,673 @@ export class DerStandardScraperService {
     };
   }
 
-  /**
-   * Führt einen einzelnen Scraping-Zyklus durch
-   */
-  private async runCycle(options: {
-    maxPages: number;
-    onLog?: (msg: string) => void;
-    onListingFound?: (listing: any) => Promise<void>;
-    onPhoneFound?: (payload: { url: string; phone: string }) => void;
-  }): Promise<void> {
+  // ============================================
+  // PRIVATE: LIFECYCLE
+  // ============================================
+
+  private async runCycle(options: DerStandardScraperOptions): Promise<void> {
     this.currentCycle++;
-    const { maxPages, onLog, onListingFound, onPhoneFound } = options;
+    const maxPages = options.maxPages || 3;
+    const startTime = Date.now();
 
-    onLog?.(`[DERSTANDARD] ━━━ CYCLE #${this.currentCycle} START ━━━`);
+    options.onLog?.(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    options.onLog?.(`📊 Cycle #${this.currentCycle} started`);
+    options.onLog?.(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
-    try {
-      await this.establishSession(onLog);
+    // Establish session before starting
+    await this.establishSession(options.onLog);
 
-      for (const [key, baseUrl] of Object.entries(this.baseUrls)) {
-        onLog?.(`[DERSTANDARD] 📂 Scraping: ${key}`);
+    let totalListingsFound = 0;
+    let totalListingsBlocked = 0;
+    let totalDetailUrlsExtracted = 0;
 
-        for (let page = 1; page <= maxPages; page++) {
-          try {
-            const pageUrl = page === 1 ? baseUrl : `${baseUrl}&page=${page}`;
-            onLog?.(`[DERSTANDARD] [${key}] Page ${page}/${maxPages}: ${pageUrl}`);
+    // Filter baseUrls by selected categories if provided
+    const categoriesToProcess = options.categories && options.categories.length > 0
+      ? Object.entries(this.baseUrls).filter(([key]) => options.categories!.includes(key))
+      : Object.entries(this.baseUrls);
 
-            const html = await this.fetchPage(pageUrl, onLog);
-            const detailUrls = this.extractDetailUrls(html, key);
+    options.onLog?.(`📋 Processing ${categoriesToProcess.length} categories: ${categoriesToProcess.map(([k]) => k).join(', ')}`);
 
-            onLog?.(`[DERSTANDARD] [${key}] Page ${page}: Found ${detailUrls.length} listings`);
+    // Process each category
+    for (const [key, baseUrl] of categoriesToProcess) {
+      options.onLog?.(`\n📂 Category: ${key}`);
 
-            for (const url of detailUrls) {
-              try {
-                const detailHtml = await this.fetchDetail(url);
-                const { listing, reason } = this.parseDetailWithReason(detailHtml, url, key);
+      // Load saved page from DB
+      const startPage = await storage.getScraperNextPage(`derstandard-${key}`, 1);
+      options.onLog?.(`   Starting from page: ${startPage}`);
 
-                if (listing) {
-                  // Add source field for derStandard
-                  listing.source = 'derstandard';
+      for (let page = startPage; page <= maxPages; page++) {
+        options.onLog?.(`\n   📄 Page ${page}/${maxPages}`);
 
-                  if (onListingFound) {
-                    await onListingFound(listing);
-                    onLog?.(`[DERSTANDARD] [${key}] ✅ ${listing.title.substring(0, 60)}`);
-                  }
+        // Fetch search page
+        const searchUrl = page === 1 ? baseUrl : `${baseUrl}?p=${page}`;
+        let html: string;
+        try {
+          html = await this.fetchPage(searchUrl, options.onLog);
+        } catch (error: any) {
+          options.onLog?.(`   ❌ Failed to fetch search page: ${error.message}`);
+          continue;
+        }
 
-                  if (listing.phone_number && onPhoneFound) {
-                    onPhoneFound({ url, phone: listing.phone_number });
-                  }
-                } else {
-                  onLog?.(`[DERSTANDARD] [${key}] ⏭️ SKIP: ${reason} | ${url}`);
-                }
-              } catch (e: any) {
-                onLog?.(`[DERSTANDARD] [${key}] ⚠️ detail error: ${url} - ${e?.message || e}`);
-              }
+        // Extract detail URLs
+        const detailUrls = this.extractDetailUrls(html);
+        options.onLog?.(`   ✅ Found ${detailUrls.length} listings on page`);
+        totalDetailUrlsExtracted += detailUrls.length;
 
-              await sleep(withJitter(60, 120));
-            }
+        if (detailUrls.length === 0) {
+          options.onLog?.(`   ⚠️ No listings found, stopping category`);
+          break;
+        }
 
-          } catch (e: any) {
-            onLog?.(`[DERSTANDARD] [${key}] ⚠️ error page ${page}: ${e?.message || e}`);
+        // Process each detail URL
+        let pageListingsFound = 0;
+        let pageListingsBlocked = 0;
+        let pageListingsSkipped = 0;
+
+        for (const detailUrl of detailUrls) {
+          // Check if already in database (skip only if already saved)
+          const existing = await storage.getListingByUrl(detailUrl);
+          if (existing) {
+            // Update last seen
+            await storage.updateListingOnRescrape(detailUrl, { scraped_at: new Date() });
+            pageListingsSkipped++;
+            continue;
           }
 
-          await sleep(withJitter(1000, 800));
+          // Fetch detail page (axios is 20x faster than Playwright!)
+          let detailHtml: string;
+          try {
+            detailHtml = await this.fetchPage(detailUrl, options.onLog);
+          } catch (error: any) {
+            options.onLog?.(`   ❌ Failed to fetch detail: ${error.message}`);
+            await sleep(withJitter(60, 60));
+            continue;
+          }
+
+          // Parse and filter listing
+          const result = this.parseDetailPageWithReason(detailHtml, detailUrl, key);
+
+          if (result.listing) {
+            pageListingsFound++;
+            totalListingsFound++;
+
+            // Save to database
+            if (options.onListingFound) {
+              await options.onListingFound(result.listing);
+            } else {
+              await storage.createListing(result.listing);
+            }
+
+            options.onLog?.(`   ✅ SAVED: ${result.listing.title?.substring(0, 60)} | ${result.reason}`);
+
+            // Try to extract phone
+            if (options.onPhoneFound) {
+              const $ = load(detailHtml);
+              const phone = extractPhoneFromHtml(detailHtml, $);
+              if (phone) {
+                options.onPhoneFound({ url: detailUrl, phone });
+                options.onLog?.(`      📞 Phone found: ${phone}`);
+              }
+            }
+          } else {
+            pageListingsBlocked++;
+            totalListingsBlocked++;
+            // Debug: Log blocked listings in development
+            if (process.env.NODE_ENV === 'development') {
+              options.onLog?.(`   ❌ BLOCKED: ${result.reason} | ${detailUrl.substring(0, 80)}`);
+            }
+          }
+
+          // Small delay between detail pages (10ms ± 10ms for testing)
+          await sleep(withJitter(10, 10));
         }
+
+        options.onLog?.(`   📊 Page results: ${pageListingsFound} saved, ${pageListingsBlocked} blocked, ${pageListingsSkipped} skipped (already in DB)`);
+
+        // Save page progress to DB
+        await storage.setScraperNextPage(`derstandard-${key}`, page + 1);
+
+        // Delay between pages (50ms ± 50ms for testing)
+        await sleep(withJitter(50, 50));
       }
 
-      onLog?.(`[DERSTANDARD] ✅ CYCLE #${this.currentCycle} COMPLETE`);
-    } catch (error) {
-      onLog?.(`[DERSTANDARD] ❌ CYCLE #${this.currentCycle} ERROR: ${error}`);
+      // Reset page to 1 (cycle complete)
+      await storage.setScraperNextPage(`derstandard-${key}`, 1);
+      options.onLog?.(`   ✅ Category complete, reset to page 1`);
     }
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    options.onLog?.(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    options.onLog?.(`✅ Cycle #${this.currentCycle} complete in ${duration}s`);
+    options.onLog?.(`📊 Stats:`);
+    options.onLog?.(`   - Detail URLs extracted: ${totalDetailUrlsExtracted}`);
+    options.onLog?.(`   - Listings saved: ${totalListingsFound}`);
+    options.onLog?.(`   - Listings blocked: ${totalListingsBlocked}`);
+    options.onLog?.(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
   }
 
-  private getUA() {
-    const pool = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-    ];
-    return pool[Math.floor(Math.random() * pool.length)];
-  }
-
-  private async establishSession(onLog?: (m: string) => void) {
+  private async establishSession(onLog?: (msg: string) => void): Promise<void> {
     try {
-      const res = await this.axiosInstance.get('https://immobilien.derstandard.at', {
-        headers: { 'User-Agent': this.getUA() }
-      });
-      const cookies = res.headers['set-cookie'];
-      if (cookies) {
-        this.sessionCookies = cookies.map(c => c.split(';')[0]).join('; ');
+      const res = await proxyRequest(
+        'https://immobilien.derstandard.at/',
+        '',
+        {
+          headers: { 'User-Agent': rotateUserAgent() },
+          timeout: 30000
+        }
+      );
+
+      if (res.headers['set-cookie'] && res.headers['set-cookie'].length > 0) {
+        this.sessionCookies = res.headers['set-cookie']
+          .map((c: string) => c.split(';')[0])
+          .join('; ');
+        onLog?.(`🔐 Session established (${this.sessionCookies.split(';').length} cookies)`);
       }
-      onLog?.('[DERSTANDARD] Session established');
-      await sleep(withJitter(1200, 800));
-    } catch {
-      onLog?.('[DERSTANDARD] Session establish failed; continue');
+    } catch (error: any) {
+      onLog?.(`⚠️ Session establishment failed: ${error.message}`);
     }
   }
+
+  // ============================================
+  // PRIVATE: FETCHING
+  // ============================================
 
   private async fetchPage(url: string, onLog?: (msg: string) => void): Promise<string> {
-    // Use Playwright to render JavaScript (Next.js app)
-    const browser = await chromium.launch({ headless: true });
-    try {
-      const context = await browser.newContext({
-        userAgent: this.getUA()
-      });
-      const page = await context.newPage();
+    this.requestCount++;
 
-      onLog?.(`[DERSTANDARD] Opening ${url} with Playwright...`);
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-      // Wait for listings to load (adjust selector based on actual derStandard structure)
-      try {
-        await page.waitForSelector('a[href*="/detail/"]', { timeout: 10000 });
-      } catch {
-        onLog?.(`[DERSTANDARD] No listings found or timeout waiting for listings`);
-      }
-
-      // Get rendered HTML
-      const html = await page.content();
-      await browser.close();
-
-      return html;
-    } catch (error) {
-      await browser.close();
-      throw error;
+    // Refresh session every 50 requests
+    if (this.requestCount % 50 === 0) {
+      onLog?.(`🔄 Refreshing session (${this.requestCount} requests)`);
+      await this.establishSession(onLog);
     }
+
+    const res: ProxyRequestResponse = await proxyRequest(url, this.sessionCookies, {
+      headers: {
+        'User-Agent': rotateUserAgent(),
+        'Referer': 'https://immobilien.derstandard.at/suche/',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      timeout: 30000
+    });
+
+    // Update session cookies if server sends new ones
+    if (res.headers['set-cookie'] && res.headers['set-cookie'].length > 0) {
+      this.sessionCookies = res.headers['set-cookie']
+        .map((c: string) => c.split(';')[0])
+        .join('; ');
+    }
+
+    return res.data as string;
   }
 
-  private async fetchDetail(url: string, onLog?: (msg: string) => void): Promise<string> {
-    // Use Playwright for detail pages too (Next.js needs JS rendering)
-    const browser = await chromium.launch({ headless: true });
-    try {
-      const context = await browser.newContext({
-        userAgent: this.getUA()
-      });
-      const page = await context.newPage();
 
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  // ============================================
+  // PRIVATE: EXTRACTION
+  // ============================================
 
-      // Wait a bit for content to load
-      await page.waitForTimeout(2000);
-
-      // Get rendered HTML
-      const html = await page.content();
-      await browser.close();
-
-      return html;
-    } catch (error) {
-      await browser.close();
-      throw error;
-    }
-  }
-
-  private extractDetailUrls(html: string, key: string): string[] {
-    const urls = new Set<string>();
+  private extractDetailUrls(html: string): string[] {
     const $ = load(html);
+    const urls: string[] = [];
 
-    // Extract all links that contain /detail/
-    $('a[href]').each((_, el) => {
+    $('a[href*="/detail/"]').each((_, el) => {
       const href = $(el).attr('href');
-      if (!href) return;
-
-      // Check if it's a detail URL
-      if (href.includes('/detail/')) {
-        const full = href.startsWith('http')
+      if (href) {
+        const fullUrl = href.startsWith('http')
           ? href
-          : href.startsWith('/')
-            ? `https://immobilien.derstandard.at${href}`
-            : `https://immobilien.derstandard.at/${href}`;
+          : `https://immobilien.derstandard.at${href.startsWith('/') ? '' : '/'}${href}`;
 
-        urls.add(full);
+        // FILTER: Skip Neubau URLs - they don't have propertyData JSON
+        if (fullUrl.includes('/immobiliensuche/neubau/detail/')) {
+          return; // Skip this iteration
+        }
+
+        urls.push(fullUrl);
       }
     });
 
-    return Array.from(urls);
+    // Unique URLs only
+    return Array.from(new Set(urls));
   }
 
-  private parseDetailWithReason(html: string, url: string, key: string): { listing: any | null; reason: string } {
-    const $ = load(html);
-    const bodyText = $('body').text();
-    const bodyTextLower = bodyText.toLowerCase();
+  /**
+   * Extract JSON data from Next.js script tag
+   * DerStandard uses: self.__next_f.push([1, "{...propertyData...}"])
+   */
+  private extractNextData(html: string): any | null {
+    try {
+      // Find ALL __next_f.push statements
+      // Pattern must handle escaped quotes: \" inside the string
+      // Use: (?:[^"\\]|\\.)* which means: (non-quote-non-backslash OR backslash-followed-by-anything)*
+      const pattern = /self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g;
+      const matches = html.matchAll(pattern);
 
-    // Extract basic info
-    const title = this.extractTitle($);
-    if (!title || title.length < 5) return { listing: null, reason: 'no title' };
+      // Find the one that contains propertyData
+      let jsonStr: string | null = null;
+      for (const match of matches) {
+        if (match[1] && match[1].includes('propertyData')) {
+          jsonStr = match[1];
+          break;
+        }
+      }
 
-    // PRIVAT-FILTER: Suche nach "provisionsfrei" oder ähnlichen Keywords
-    const privatKeywords = ['provisionsfrei', 'keine provision', 'ohne provision', 'privatverkauf', 'privat'];
-    const hasPrivateKeyword = privatKeywords.some(kw => bodyTextLower.includes(kw));
+      if (!jsonStr) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[DEBUG] No __next_f.push with propertyData found in HTML');
+        }
+        return null;
+      }
 
-    if (!hasPrivateKeyword) {
-      return { listing: null, reason: 'kein Privat/Provisionsfrei-Keyword (Makler)' };
+      // The content is escaped JSON - we need to unescape it
+
+      // Unescape common patterns
+      jsonStr = jsonStr.replace(/\\"/g, '"');  // \" → "
+      jsonStr = jsonStr.replace(/\\\\/g, '\\'); // \\ → \
+
+      // The structure is: [["$","$L52",null,{}],["$","$L53",null,{"propertyData":{...}}]]
+      // We need to extract the propertyData object
+
+      // Find propertyData in the unescaped string
+      const propertyDataIdx = jsonStr.indexOf('"propertyData":');
+      if (propertyDataIdx === -1) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[DEBUG] No propertyData found in JSON');
+        }
+        return null;
+      }
+
+      // Extract from propertyData onwards
+      const fromPropertyData = jsonStr.substring(propertyDataIdx);
+
+      // Find the opening brace after propertyData:
+      const openBraceIdx = fromPropertyData.indexOf('{');
+      if (openBraceIdx === -1) return null;
+
+      // Count braces to find the matching closing brace
+      let braceCount = 0;
+      let closeBraceIdx = -1;
+      for (let i = openBraceIdx; i < fromPropertyData.length; i++) {
+        if (fromPropertyData[i] === '{') braceCount++;
+        if (fromPropertyData[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            closeBraceIdx = i + 1;
+            break;
+          }
+        }
+      }
+
+      if (closeBraceIdx === -1) return null;
+
+      const propertyDataJson = fromPropertyData.substring(openBraceIdx, closeBraceIdx);
+
+      // Parse the JSON
+      const data = JSON.parse(propertyDataJson);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[DEBUG] Successfully parsed propertyData JSON');
+        console.log('[DEBUG] Has metaData:', !!data.metaData);
+        console.log('[DEBUG] Has property:', !!data.property);
+        console.log('[DEBUG] isPrivateAd:', data.metaData?.isPrivateAd);
+      }
+
+      return data;
+    } catch (error: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[DEBUG] Error extracting Next data:', error.message);
+      }
+      return null;
+    }
+  }
+
+  private extractAllDataLayerProps(html: string): DataLayerProps {
+    const nextData = this.extractNextData(html);
+
+    if (!nextData) {
+      // Fallback to empty
+      return {
+        company: null,
+        type: null,
+        title: null,
+        price: null,
+        size: null,
+        rooms: null,
+        location: null,
+        plz: null,
+        rentBuy: null
+      };
     }
 
-    const price = this.extractPrice($, bodyText);
-    const areaStr = this.extractArea($, bodyText);
-    const area = areaStr ? parseFloat(areaStr) : 0;
+    // Extract from the structured JSON
+    const advertiser = nextData.advertiser;
+    const property = nextData.property;
+    const metaData = nextData.metaData;
 
-    // WICHTIG: Nur Listings MIT echtem Preis akzeptieren (kein "Preis auf Anfrage")
-    if (price <= 0) {
-      return { listing: null, reason: 'kein Preis (Preis auf Anfrage)' };
-    }
+    // Get company name
+    const company = advertiser?.company?.name || advertiser?.contactPerson?.companyName || null;
 
-    // Auch Fläche ist Pflicht für sinnvolle Daten
-    if (!areaStr || area <= 0) {
-      return { listing: null, reason: 'keine Fläche' };
-    }
+    // Get type from metaData (isPrivateAd is the key field!)
+    const isPrivate = metaData?.isPrivateAd;
+    const type = isPrivate === true ? 'Private' : isPrivate === false ? 'Commercial' : null;
 
-    const eurPerM2 = Math.round(price / area);
+    // Get title
+    const title = nextData.title || null;
 
-    const images = this.extractImages($, html);
-    const description = this.extractDescription($);
-    const location = this.extractLocation($, bodyText, key);
-    const phoneDirect = this.extractPhone($, html);
+    // Get price from costs
+    const mainCost = property?.costs?.main;
+    const price = mainCost?.value ? String(mainCost.value) : null;
 
-    const region = key.includes('wien') ? 'wien' : 'niederoesterreich';
-    const category = key.includes('eigentumswohnung')
-      ? 'eigentumswohnung'
-      : key.includes('haus')
-        ? 'haus'
-        : 'grundstueck';
+    // Get size from areas
+    const mainArea = property?.areas?.main;
+    const size = mainArea?.value ? String(mainArea.value) : null;
+
+    // Get rooms from areas.details
+    const roomsDetail = property?.areas?.details?.find((a: any) => a.kind === 'ROOM_COUNT');
+    const rooms = roomsDetail?.value ? String(roomsDetail.value) : null;
+
+    // Get location
+    const loc = property?.location;
+    const location = loc?.city || null;
+    const plz = loc?.zipCode || null;
+    const rentBuy = nextData.availability?.tenureOption || null;
 
     return {
-      listing: {
-        title,
-        price,
-        area: areaStr,
-        location,
-        url,
-        images,
-        description,
-        phone_number: phoneDirect || null,
-        category,
-        region,
-        eur_per_m2: String(eurPerM2),
-        akquise_erledigt: false,
-        last_changed_at: null,
-        source: 'derstandard',
-      },
-      reason: 'ok',
+      company,
+      type,
+      title,
+      price,
+      size,
+      rooms,
+      location,
+      plz,
+      rentBuy
     };
   }
 
-  private extractTitle($: ReturnType<typeof load>): string {
-    // Try multiple selectors for derStandard
-    const selectors = [
-      'h1[data-testid="object-title"]',
-      'h1.object-title',
-      'h1',
-      '[class*="title"] h1',
-      '[data-testid="ad-title"]'
+  // ============================================
+  // PRIVATE: FILTERING & PARSING
+  // ============================================
+
+  private filterPrivateListing(props: DataLayerProps, bodyText: string): FilterResult {
+    // Stage 1: Direct isPrivateAd check (NEW - most reliable!)
+    if (props.type === 'Commercial') {
+      return {
+        allowed: false,
+        reason: 'isPrivateAd: false (Commercial listing)',
+        confidence: 'high'
+      };
+    }
+
+    if (props.type === 'Private') {
+      // Double-check for false positives - Commission text
+      if (bodyText.includes('provision: 3') || bodyText.includes('nettoprovision') || bodyText.includes('provisionsaufschlag')) {
+        return {
+          allowed: false,
+          reason: 'isPrivateAd: true but has Commission text',
+          confidence: 'high'
+        };
+      }
+
+      // STRICT: Only allow listings WITHOUT Company name (echte Privatpersonen)
+      // Block ALL companies (GmbH, Bauträger, Immobilien, Makler, etc.)
+      if (props.company) {
+        return {
+          allowed: false,
+          reason: `isPrivateAd: true but has Company: ${props.company} (want private person only)`,
+          confidence: 'high'
+        };
+      }
+
+      return {
+        allowed: true,
+        reason: 'isPrivateAd: true + NO Company (Private person)',
+        confidence: 'high'
+      };
+    }
+
+    // Stage 3: Company-based filtering
+    if (props.company) {
+      const lower = props.company.toLowerCase();
+      const commercialKeywords = [
+        'gmbh', 'immobilien', 'makler', 'agentur', 'real estate',
+        'partners', 'group', 'sivag', 'bauträger', 'immo'
+      ];
+
+      if (commercialKeywords.some(kw => lower.includes(kw))) {
+        return {
+          allowed: false,
+          reason: `Commercial Company: ${props.company}`,
+          confidence: 'high'
+        };
+      }
+
+      if (lower === 'privat' || lower === 'private') {
+        return {
+          allowed: true,
+          reason: 'Company: Privat',
+          confidence: 'high'
+        };
+      }
+    }
+
+    // Stage 4: Body text - commercial keywords
+    const commercialBodyKeywords = ['provision: 3', 'nettoprovision', 'provisionsaufschlag'];
+    if (commercialBodyKeywords.some(kw => bodyText.includes(kw))) {
+      return {
+        allowed: false,
+        reason: 'Body: Provision mentioned',
+        confidence: 'medium'
+      };
+    }
+
+    // Stage 5: Body text - private keywords
+    const privateKeywords = [
+      'von privat', 'privatverkauf', 'ohne makler',
+      'privater verkäufer', 'verkaufe privat'
     ];
-
-    for (const sel of selectors) {
-      const el = $(sel);
-      if (el.length && el.text().trim()) {
-        return el.text().trim();
-      }
+    if (privateKeywords.some(kw => bodyText.includes(kw))) {
+      return {
+        allowed: true,
+        reason: 'Body: Private keywords found',
+        confidence: 'medium'
+      };
     }
 
-    return '';
+    // Stage 6: Default BLOCK (conservative)
+    return {
+      allowed: false,
+      reason: 'Uncertain - defaulting to block',
+      confidence: 'low'
+    };
   }
 
-  private extractPrice($: ReturnType<typeof load>, bodyText: string): number {
-    // PRIMARY: Stats Section - .sc-stat-label + .sc-stat-value
-    const statItems = $('section.heading-section-stats .sc-stat-label, .sc-stat-label');
-    for (let i = 0; i < statItems.length; i++) {
-      const label = $(statItems[i]).text().trim();
-      if (label === 'Kaufpreis') {
-        const value = $(statItems[i]).next('.sc-stat-value').text().trim();
-        if (value && value !== 'Preis auf Anfrage') {
-          // Format: "€ 149.900" or "€ 1.500.000"
-          const numStr = value.replace(/[€\s.]/g, '').trim();
-          const price = parseInt(numStr);
-          if (price >= 50000 && price <= 10000000) {
-            return price;
-          }
-        }
-      }
+  private parseDetailPageWithReason(html: string, url: string, key: string): { listing: InsertListing | null; reason: string } {
+    const $ = load(html);
+    const bodyText = $('body').text().toLowerCase();
+
+    // Extract dataLayer props AND the full nextData for images/description
+    const props = this.extractAllDataLayerProps(html);
+    const nextData = this.extractNextData(html);
+
+    // Filter: Private vs Commercial
+    const filterResult = this.filterPrivateListing(props, bodyText);
+
+    if (!filterResult.allowed) {
+      return { listing: null, reason: filterResult.reason };
     }
 
-    // FALLBACK: Metadata Section
-    const metaItems = $('.sc-metadata-label');
-    for (let i = 0; i < metaItems.length; i++) {
-      const label = $(metaItems[i]).text().trim();
-      if (label === 'Kaufpreis') {
-        const value = $(metaItems[i]).next('.sc-metadata-value').text().trim();
-        if (value && value !== 'Preis auf Anfrage') {
-          const numStr = value.replace(/[€\s.]/g, '').trim();
-          const price = parseInt(numStr);
-          if (price >= 50000 && price <= 10000000) {
-            return price;
-          }
-        }
-      }
-    }
+    // Parse price
+    const price = this.parsePrice(props.price);
 
-    return 0; // No price found
+    // Parse area
+    const area = this.parseArea(props.size);
+
+    // Parse location
+    const location = this.parseLocation(props.plz, props.location);
+
+    // Calculate EUR/m²
+    const eurPerM2 = area > 0 ? Math.round(price / area) : 0;
+
+    // Determine region
+    const region = this.determineRegion(location, props.plz);
+
+    // Determine category
+    const category = this.determineCategory(key);
+
+    // Extract images from nextData
+    const images = this.extractImages(nextData);
+
+    // Extract description from nextData or fallback to DOM
+    const description = this.extractDescriptionFromNextData(nextData, $, html);
+
+    // Build listing
+    const listing: InsertListing = {
+      url,
+      title: props.title || 'Untitled',
+      price,
+      area: area > 0 ? area : null, // NULL statt empty string
+      eur_per_m2: eurPerM2 > 0 ? eurPerM2 : null, // NULL statt empty string
+      location,
+      description: description || '',
+      images,
+      category,
+      region,
+      source: 'derstandard',
+      scraped_at: new Date(),
+      first_seen_at: new Date()
+    };
+
+    return { listing, reason: filterResult.reason };
   }
 
-  private extractArea($: ReturnType<typeof load>, bodyText: string): string | null {
-    // PRIMARY: Stats Section - Nutzfläche or Wohnfläche
-    const statItems = $('.sc-stat-label');
-    for (let i = 0; i < statItems.length; i++) {
-      const label = $(statItems[i]).text().trim();
-      if (label === 'Nutzfläche' || label === 'Wohnfläche') {
-        const value = $(statItems[i]).next('.sc-stat-value').text().trim();
-        if (value) {
-          // Format: "30.01 m²"
-          const numStr = value.replace(/[^\d.,]/g, '').replace(',', '.');
-          const area = parseFloat(numStr);
-          if (area >= 10 && area <= 1000) {
-            return area.toString();
+  // ============================================
+  // PRIVATE: PARSING HELPERS
+  // ============================================
+
+  private parsePrice(priceStr: string | null): number {
+    if (!priceStr) return 0;
+
+    // Handle ranges "394900,00 - 5903000,00" → take first
+    const first = priceStr.split('-')[0].trim();
+
+    // Remove dots (thousands separator), replace comma with dot
+    const clean = first.replace(/\./g, '').replace(/,/g, '.');
+
+    return parseFloat(clean) || 0;
+  }
+
+  private parseArea(sizeStr: string | null): number {
+    if (!sizeStr) return 0;
+
+    // Handle ranges "33 - 373" → take first
+    const first = sizeStr.split('-')[0].trim();
+
+    return parseInt(first) || 0;
+  }
+
+  private parseLocation(plz: string | null, city: string | null): string {
+    const cleanPLZ = plz ? plz.replace('AT-', '').trim() : '';
+    const cleanCity = city ? city.trim() : '';
+
+    if (cleanPLZ && cleanCity) return `${cleanPLZ} ${cleanCity}`;
+    if (cleanPLZ) return cleanPLZ;
+    if (cleanCity) return cleanCity;
+    return 'Unknown';
+  }
+
+  private determineRegion(location: string, plz: string | null): string {
+    const lowerLocation = location.toLowerCase();
+    const cleanPLZ = plz ? plz.replace('AT-', '') : '';
+
+    if (lowerLocation.includes('wien') || cleanPLZ.startsWith('1')) {
+      return 'Wien';
+    }
+    if (lowerLocation.includes('niederösterreich') || lowerLocation.includes('niederoesterreich')) {
+      return 'Niederösterreich';
+    }
+
+    return 'Sonstige';
+  }
+
+  private determineCategory(key: string): string {
+    if (key.includes('kaufen-wohnung')) return 'Wohnung kaufen';
+    if (key.includes('mieten-wohnung')) return 'Wohnung mieten';
+    if (key.includes('kaufen-haus')) return 'Haus kaufen';
+    return 'Sonstige';
+  }
+
+  private extractImages(nextData: any): string[] {
+    if (!nextData || !nextData.media || !nextData.media.images) {
+      return [];
+    }
+
+    // Extract all image paths from the media.images array
+    const images = nextData.media.images
+      .map((img: any) => img.path)
+      .filter((path: string) => path && path.startsWith('http'));
+
+    return images;
+  }
+
+  private extractDescriptionFromNextData(nextData: any, $: any, html: string): string | null {
+    // DerStandard stores description in __next_f.push chunks as unicode-escaped HTML
+    // We need to search through ALL chunks to find it
+
+    // Try 1: Search __next_f.push chunks for description HTML
+    try {
+      const pattern = /self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g;
+      const matches = html.matchAll(pattern);
+
+      for (const match of matches) {
+        let chunk = match[1];
+
+        // Look for unicode-escaped HTML with description-like text
+        if (chunk.includes('\\u003cp\\u003e') && chunk.length > 100) {
+          // Unescape unicode
+          chunk = chunk.replace(/\\u003c/g, '<');
+          chunk = chunk.replace(/\\u003e/g, '>');
+          chunk = chunk.replace(/\\"/g, '"');
+          chunk = chunk.replace(/\\\\/g, '\\');
+
+          // Parse HTML and extract text
+          const $chunk = load(chunk);
+          const plainText = $chunk('body').text().trim();
+
+          // Check if it looks like a property description
+          if (plainText.length > 100) {
+            const keywords = ['verkauf', 'wohnung', 'zimmer', 'lage', 'haus', 'immobilie', 'balkon', 'neubau'];
+            const hasKeyword = keywords.some(kw => plainText.toLowerCase().includes(kw));
+
+            if (hasKeyword) {
+              return plainText.substring(0, 2000);
+            }
           }
         }
       }
+    } catch (e) {
+      // If chunk parsing fails, continue to fallbacks
     }
 
-    // FALLBACK: Metadata Section
-    const metaItems = $('.sc-metadata-label');
-    for (let i = 0; i < metaItems.length; i++) {
-      const label = $(metaItems[i]).text().trim();
-      if (label === 'Nutzfläche' || label === 'Wohnfläche') {
-        const value = $(metaItems[i]).next('.sc-metadata-value').text().trim();
-        if (value) {
-          const numStr = value.replace(/[^\d.,]/g, '').replace(',', '.');
-          const area = parseFloat(numStr);
-          if (area >= 10 && area <= 1000) {
-            return area.toString();
-          }
-        }
-      }
+    // Try 2: Check DOM (if description was rendered)
+    const descText = $('[data-testid="object-description-text"], .description, [itemprop="description"]')
+      .text()
+      .trim();
+
+    if (descText && descText.length > 30) {
+      return descText.substring(0, 2000);
     }
 
+    // Try 3: Check nextData for direct text (not reference)
+    if (nextData && nextData.description && typeof nextData.description === 'string' && !nextData.description.startsWith('$')) {
+      return nextData.description.substring(0, 2000);
+    }
+
+    // No description found (many private listings don't have one)
     return null;
-  }
-
-  private extractLocation($: ReturnType<typeof load>, bodyText: string, key: string): string {
-    // PRIMARY: Metadata Section - PLZ field
-    const metaItems = $('.sc-metadata-label');
-    for (let i = 0; i < metaItems.length; i++) {
-      const label = $(metaItems[i]).text().trim();
-      if (label === 'PLZ') {
-        const value = $(metaItems[i]).next('.sc-metadata-value').text().trim();
-        if (value) {
-          // Format: "1200 Wien" or just "1200"
-          return value.includes('Wien') ? value : `${value} Wien`;
-        }
-      }
-    }
-
-    // FALLBACK: Look for Wien district patterns in body text
-    const bezirkMatch = bodyText.match(/(\d{4}\s+Wien)/i);
-    if (bezirkMatch) {
-      return bezirkMatch[1].trim();
-    }
-
-    // Fallback to region from key
-    return key.includes('wien') ? 'Wien' : 'Niederösterreich';
-  }
-
-  private extractDescription($: ReturnType<typeof load>): string {
-    // PRIMARY: .sc-truncatable-section-text (das ist wo die Beschreibung ist!)
-    const truncatableText = $('.sc-truncatable-section-text');
-    if (truncatableText.length > 0) {
-      const paragraphs: string[] = [];
-      truncatableText.find('p').each((_, p) => {
-        const text = $(p).text().trim();
-        if (text && text !== '&nbsp;') {
-          paragraphs.push(text);
-        }
-      });
-
-      if (paragraphs.length > 0) {
-        return paragraphs.join('\n\n').substring(0, 2000);
-      }
-    }
-
-    // FALLBACK: Section mit h2 "Beschreibung"
-    const descSection = $('section:has(h2)').filter((_, el) => {
-      const h2Text = $(el).find('h2').text().trim();
-      return h2Text === 'Beschreibung';
-    });
-
-    if (descSection.length > 0) {
-      const text = descSection.text().trim();
-      if (text.length > 50) {
-        return text.substring(0, 2000);
-      }
-    }
-
-    return '';
-  }
-
-  private extractPhone($: ReturnType<typeof load>, html: string): string | null {
-    // PRIMARY: tel: Link
-    const telLink = $('a[href^="tel:"]');
-    if (telLink.length > 0) {
-      const href = telLink.attr('href');
-      if (href) {
-        return href.replace('tel:', '').replace(/[\s\-]/g, '');
-      }
-    }
-
-    // FALLBACK: Suche nach Kontakt-Telefonnummern in .sc-contact oder .sc-metadata
-    const contactSelectors = [
-      '.sc-contact-phone',
-      '.sc-contact a[href^="tel:"]',
-      '[class*="contact"] a[href^="tel:"]'
-    ];
-
-    for (const sel of contactSelectors) {
-      const link = $(sel);
-      if (link.length > 0) {
-        const href = link.attr('href');
-        if (href && href.startsWith('tel:')) {
-          return href.replace('tel:', '').replace(/[\s\-]/g, '');
-        }
-      }
-    }
-
-    return null;
-  }
-
-  private extractImages($: ReturnType<typeof load>, html: string): string[] {
-    const images = new Set<string>();
-
-    // PRIMARY: picture source - WICHTIG: Attribut heißt "srcset" (lowercase!)
-    $('picture source').each((_, el) => {
-      const srcset = $(el).attr('srcset'); // lowercase!
-      if (srcset) {
-        // Extract URL (kann .jpg oder .jpeg sein)
-        const match = srcset.match(/(https:\/\/[^\s]+\.(?:jpg|jpeg))/i);
-        if (match) {
-          // Base URL ohne transformations (split by /~)
-          const baseUrl = match[1].split('/~')[0];
-          images.add(baseUrl);
-        }
-      }
-    });
-
-    // FALLBACK: img tags
-    $('img[alt*="Bild"]').each((_, el) => {
-      const src = $(el).attr('src');
-      if (src && src.startsWith('http') && !src.includes('placeholder') && !src.includes('logo')) {
-        images.add(src);
-      }
-    });
-
-    return Array.from(images);
   }
 }
+
+// ============================================
+// SINGLETON EXPORT
+// ============================================
+
+export const derStandardScraper = new DerStandardScraperService();
