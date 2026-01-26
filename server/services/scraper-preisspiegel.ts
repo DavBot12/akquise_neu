@@ -126,7 +126,7 @@ export class PreisspiegelScraperService {
 
           const headers = {
             'User-Agent': rotateUserAgent(),
-            'Referer': currentPage > 1 ? `${baseUrl}&page=${currentPage-1}` : 'https://www.willhaben.at/'
+            'Referer': currentPage > 1 ? `${baseUrl}&page=${currentPage - 1}` : 'https://www.willhaben.at/'
           };
 
           const res = await proxyRequest(url, this.sessionCookies, { headers });
@@ -163,7 +163,7 @@ export class PreisspiegelScraperService {
               }
             }
 
-            options.onLog?.(`[PREISSPIEGEL] ${category} Seite ${currentPage}: ${savedCount}/${parsedListings.length} gespeichert (93% faster - no detail fetches!)`);
+            options.onLog?.(`[PREISSPIEGEL] ${category} Seite ${currentPage}: ${savedCount}/${parsedListings.length} gespeichert`);
           }
 
           // Next page
@@ -258,28 +258,6 @@ export class PreisspiegelScraperService {
       // Plausibility check: max €/m²
       if (eur_per_m2 && eur_per_m2 > 50000) continue; // Unrealistic
 
-      // Extract location/bezirk
-      const location = attrs.get('LOCATION') || '';
-      const bezirk = this.extractBezirkFromLocation(location);
-
-      if (!bezirk) {
-        const isDebug = process.env.DEBUG_SCRAPER === 'true';
-        if (isDebug) {
-          console.log(`[PREISSPIEGEL] ⏭️ SKIP listing - no valid bezirk found for: "${location}"`);
-        }
-        continue; // Must have bezirk for Preisspiegel
-      }
-
-      // Building type (only for Wohnungen)
-      let building_type: 'neubau' | 'altbau' | null = null;
-      if (category === 'eigentumswohnung') {
-        const constructionYear = attrs.get('CONSTRUCTION_YEAR');
-        if (constructionYear) {
-          const year = parseInt(constructionYear);
-          building_type = year >= 2010 ? 'neubau' : 'altbau';
-        }
-      }
-
       // URL
       const seoUrl = attrs.get('SEO_URL') || '';
       let url: string;
@@ -292,6 +270,34 @@ export class PreisspiegelScraperService {
           cleanUrl = cleanUrl.replace(/^\//, '/iad/');
         }
         url = `https://www.willhaben.at${cleanUrl}`;
+      }
+
+      // Extract location/bezirk
+      // PRIORITY 1: Extract from URL (Most reliable, prevents attribute shifting issues)
+      let bezirk = this.extractBezirkFromUrl(url);
+
+      // PRIORITY 2: Fallback to LOCATION attribute
+      if (!bezirk) {
+        const location = attrs.get('LOCATION') || '';
+        bezirk = this.extractBezirkFromLocation(location);
+      }
+
+      if (!bezirk) {
+        const isDebug = process.env.DEBUG_SCRAPER === 'true';
+        if (isDebug) {
+          console.log(`[PREISSPIEGEL] ⏭️ SKIP listing - no valid bezirk found for: "${url}"`);
+        }
+        continue; // Must have bezirk for Preisspiegel
+      }
+
+      // Building type (only for Wohnungen)
+      let building_type: 'neubau' | 'altbau' | null = null;
+      if (category === 'eigentumswohnung') {
+        const constructionYear = attrs.get('CONSTRUCTION_YEAR');
+        if (constructionYear) {
+          const year = parseInt(constructionYear);
+          building_type = year >= 2010 ? 'neubau' : 'altbau';
+        }
       }
 
       // Last changed (use current time as fallback)
@@ -312,6 +318,37 @@ export class PreisspiegelScraperService {
     }
 
     return results;
+  }
+
+  /**
+   * Extract Bezirk from URL pattern (e.g., .../wien/wien-1030-landstrasse/...)
+   * This is much more reliable than the shuffled JSON attributes
+   */
+  private extractBezirkFromUrl(url: string): { code: string; name: string } | null {
+    if (!url) return null;
+
+    // Pattern: /wien-1030-landstrasse/ or just /wien/ (catch-all)
+    // We look for "-1030-" structure
+    const match = url.match(/wien-(\d{4})-([a-z0-9-]+)/i);
+    if (match) {
+      const plz = match[1];
+      const officialName = this.wienBezirke[plz];
+      if (officialName) {
+        return { code: plz, name: officialName };
+      }
+    }
+
+    // Fallback: Check for just PLZ 1010-1230 in URL as a word boundary
+    const plzMatch = url.match(/\b(1[0-2]\d0)\b/);
+    if (plzMatch) {
+      const plz = plzMatch[1];
+      const officialName = this.wienBezirke[plz];
+      if (officialName) {
+        return { code: plz, name: officialName };
+      }
+    }
+
+    return null;
   }
 
   /**

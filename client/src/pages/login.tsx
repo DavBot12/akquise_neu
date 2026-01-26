@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-
 
 interface LoginPageProps {
   onLogin: (user: { id: number; username: string; is_admin?: boolean }) => void;
@@ -28,7 +27,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      
+
       const data = await response.json();
 
       if (data.success) {
@@ -38,14 +37,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             title: "Registrierung erfolgreich",
             description: data.message || "Ihr Account wartet auf Freigabe durch den Administrator.",
           });
-          // Switch to login form but don't auto-login
           setIsLogin(true);
-          setPassword(""); // Clear password
+          setPassword("");
         } else if (data.user) {
-          // Normal login flow
           toast({
             title: isLogin ? "Anmeldung erfolgreich" : "Registrierung erfolgreich",
-            description: `Willkommen, ${data.user.username}!`,
+            description: `Willkommen, ${data.user.username}`,
           });
           onLogin(data.user);
         } else {
@@ -66,49 +63,92 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">
-            {isLogin ? "Anmelden" : "Registrieren"}
-          </CardTitle>
+    <div className="min-h-screen flex items-center justify-center bg-sira-navy p-4">
+      {/* Background Pattern (subtle) */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `linear-gradient(to right, #FFFFFF 1px, transparent 1px), linear-gradient(to bottom, #FFFFFF 1px, transparent 1px)`,
+          backgroundSize: '60px 60px'
+        }} />
+      </div>
+
+      {/* Login Card */}
+      <Card className="w-full max-w-md border-0 shadow-2xl relative">
+        <CardHeader className="space-y-6 text-center pt-12 pb-8">
+          <img
+            src="/sira-logo.png"
+            alt="SIRA Akquise"
+            className="h-16 w-auto mx-auto"
+          />
+          <div>
+            <h1 className="text-page-heading text-sira-navy">
+              {isLogin ? "Anmelden" : "Registrieren"}
+            </h1>
+            <p className="text-sm text-sira-medium-gray mt-2">
+              {isLogin
+                ? "Melden Sie sich bei Ihrem Konto an"
+                : "Erstellen Sie ein neues Konto"}
+            </p>
+          </div>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+        <CardContent className="pb-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="username">Benutzername</Label>
+              <Label
+                htmlFor="username"
+                className="text-sm font-medium text-sira-text-gray"
+              >
+                Benutzername
+              </Label>
               <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                className="h-11 border-sira-light-gray focus:border-sira-navy focus:ring-sira-navy"
+                placeholder="Ihr Benutzername"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="password">Passwort</Label>
+              <Label
+                htmlFor="password"
+                className="text-sm font-medium text-sira-text-gray"
+              >
+                Passwort
+              </Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="h-11 border-sira-light-gray focus:border-sira-navy focus:ring-sira-navy"
+                placeholder="Ihr Passwort"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+
+            <Button
+              type="submit"
+              className="w-full h-11 bg-sira-navy hover:bg-sira-navy/90 text-white font-medium transition-smooth mt-6"
+              disabled={isLoading}
+            >
               {isLoading ? "Wird verarbeitet..." : (isLogin ? "Anmelden" : "Registrieren")}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <Button
-              variant="link"
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm"
+              className="text-sm text-sira-text-gray hover:text-sira-navy transition-smooth"
             >
-              {isLogin 
-                ? "Noch kein Konto? Registrieren" 
+              {isLogin
+                ? "Noch kein Konto? Registrieren"
                 : "Bereits ein Konto? Anmelden"}
-            </Button>
+            </button>
           </div>
         </CardContent>
       </Card>

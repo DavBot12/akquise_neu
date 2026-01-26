@@ -60,6 +60,7 @@ export interface IStorage {
     scraped_at?: Date;
     last_changed_at?: Date | null;
     price?: number;
+    images?: string[];
   }): Promise<void>;
   updateListingAkquiseStatus(id: number, akquise_erledigt: boolean): Promise<void>;
   markListingAsDeleted(id: number, userId: number, reason?: string): Promise<void>;
@@ -107,16 +108,16 @@ export interface IStorage {
     erfolgsrate: number;
     last_login: Date | null;
   }>>;
-  
+
   // User statistics for sidebar
   getPersonalStats(userId: number): Promise<any>;
   getAllUserStats(): Promise<any[]>;
-  
+
   // Real login tracking
   createUserSession(userId: number, ipAddress?: string, userAgent?: string): Promise<UserSession>;
   endUserSession(sessionId: number): Promise<void>;
   updateLoginStats(userId: number): Promise<void>;
-  
+
   // Price mirror data (aggregated)
   savePriceMirrorData(data: InsertPriceMirrorData): Promise<PriceMirrorData>;
   getPriceMirrorData(): Promise<PriceMirrorData[]>;
@@ -227,8 +228,12 @@ export class DatabaseStorage implements IStorage {
       if (filters.district) {
         // Match only by PLZ to ensure exact district matching (e.g., 1030 for 3rd, not matching 1130 or 1230)
         const bezirkNr = filters.district.padStart(2, '0');
-        const plz = '1' + bezirkNr + '0'; // e.g., "1030" for 3rd district, "1130" for 13th, "1230" for 23rd
-        conditions.push(sql`${listings.location} LIKE ${plz + '%'}`);
+        const plz = '1' + bezirkNr + '0'; // e.g., "1030"
+        const districtText = `${filters.district}. Bezirk`; // e.g., "3. Bezirk"
+
+        // Match PLZ (start or inside) OR District Name (start or inside space-prefixed)
+        // This handles "1030 Wien", "Wien, 1030", "3. Bezirk, Landstraße", etc.
+        conditions.push(sql`(${listings.location} LIKE ${plz + '%'} OR ${listings.location} LIKE ${'% ' + plz + '%'} OR ${listings.location} LIKE ${districtText + '%'} OR ${listings.location} LIKE ${'% ' + districtText + '%'})`);
       }
       if (filters.price_evaluation) {
         conditions.push(eq(listings.price_evaluation, filters.price_evaluation as any));
@@ -282,6 +287,7 @@ export class DatabaseStorage implements IStorage {
     scraped_at?: Date;
     last_changed_at?: Date | null;
     price?: number;
+    images?: string[];
   }): Promise<void> {
     const updateData: any = {};
 
@@ -293,6 +299,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (updates.price !== undefined) {
       updateData.price = updates.price;
+    }
+    if (updates.images !== undefined) {
+      updateData.images = updates.images;
     }
 
     await db
@@ -565,7 +574,7 @@ export class DatabaseStorage implements IStorage {
       .from(contacts)
       .innerJoin(listing_contacts, eq(contacts.id, listing_contacts.contact_id))
       .where(eq(listing_contacts.listing_id, listingId));
-    
+
     return result.map(row => row.contacts);
   }
 
@@ -575,7 +584,7 @@ export class DatabaseStorage implements IStorage {
       .from(listings)
       .innerJoin(listing_contacts, eq(listings.id, listing_contacts.listing_id))
       .where(eq(listing_contacts.contact_id, contactId));
-    
+
     return result.map(row => row.listings);
   }
 
@@ -602,8 +611,8 @@ export class DatabaseStorage implements IStorage {
   async updateAcquisitionStatus(id: number, status: "erfolg" | "absage" | "in_bearbeitung" | "nicht_erfolgreich", notes?: string): Promise<void> {
     await db
       .update(acquisitions)
-      .set({ 
-        status, 
+      .set({
+        status,
         notes,
         result_date: status !== "in_bearbeitung" ? new Date() : null
       })
@@ -627,7 +636,7 @@ export class DatabaseStorage implements IStorage {
     erfolgsrate: number;
   }> {
     const whereClause = userId ? eq(acquisitions.user_id, userId) : undefined;
-    
+
     const results = await db
       .select({
         status: acquisitions.status,
@@ -655,7 +664,7 @@ export class DatabaseStorage implements IStorage {
     });
 
     stats.erfolgsrate = stats.total > 0 ? (stats.erfolg / stats.total) * 100 : 0;
-    
+
     return stats;
   }
 
@@ -700,7 +709,7 @@ export class DatabaseStorage implements IStorage {
   async getPersonalStats(userId: number): Promise<any> {
     // Get user's acquisition stats
     const acquisitionStats = await this.getAcquisitionStats(userId);
-    
+
     // Get user basic info
     const user = await this.getUser(userId);
     if (!user) return null;
@@ -714,18 +723,18 @@ export class DatabaseStorage implements IStorage {
 
     const totalLogins = user.total_logins || 0;
     const lastLogin = user.last_login?.toISOString() || null;
-    
+
     // Calculate average session duration from real data
     const completedSessions = sessions.filter(s => s.session_duration);
-    const avgSessionDuration = completedSessions.length > 0 
+    const avgSessionDuration = completedSessions.length > 0
       ? Math.round(completedSessions.reduce((sum, s) => sum + (s.session_duration || 0), 0) / completedSessions.length)
       : 0;
 
     // Calculate streak days from last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentSessions = sessions.filter(s => 
+
+    const recentSessions = sessions.filter(s =>
       new Date(s.login_time) > thirtyDaysAgo
     );
 
@@ -739,7 +748,7 @@ export class DatabaseStorage implements IStorage {
     for (const dateStr of loginDates) {
       const loginDate = new Date(dateStr);
       const diffDays = Math.floor((currentDate.getTime() - loginDate.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays <= streakDays + 1) {
         streakDays++;
         currentDate = loginDate;
@@ -756,32 +765,32 @@ export class DatabaseStorage implements IStorage {
       monthStart.setDate(1);
       const monthEnd = new Date(monthStart);
       monthEnd.setMonth(monthEnd.getMonth() + 1);
-      
+
       const monthSessions = sessions.filter(s => {
         const sessionDate = new Date(s.login_time);
         return sessionDate >= monthStart && sessionDate < monthEnd;
       });
-      
+
       monthlyLogins.push(monthSessions.length);
     }
-    
+
     // Generate daily activity for last 30 days (real data)
     const dailyActivity = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
-      
+
       const dayStart = new Date(date);
       dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(date);
       dayEnd.setHours(23, 59, 59, 999);
-      
+
       const daySessions = sessions.filter(s => {
         const sessionDate = new Date(s.login_time);
         return sessionDate >= dayStart && sessionDate <= dayEnd;
       });
-      
+
       const dayAcquisitions = await db
         .select()
         .from(acquisitions)
@@ -789,7 +798,7 @@ export class DatabaseStorage implements IStorage {
           eq(acquisitions.user_id, userId),
           sql`DATE(${acquisitions.contacted_at}) = ${dateStr}`
         ));
-      
+
       dailyActivity.push({
         date: dateStr,
         logins: daySessions.length,
@@ -817,7 +826,7 @@ export class DatabaseStorage implements IStorage {
 
     for (const user of allUsers) {
       const acquisitionStats = await this.getAcquisitionStats(user.id);
-      
+
       // Get real session data
       const sessions = await db
         .select()
@@ -828,7 +837,7 @@ export class DatabaseStorage implements IStorage {
 
       // Calculate if user is online (active session in last 30 minutes)
       const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-      const isOnline = sessions.some(s => 
+      const isOnline = sessions.some(s =>
         !s.logout_time && new Date(s.login_time) > thirtyMinutesAgo
       );
 
@@ -861,7 +870,7 @@ export class DatabaseStorage implements IStorage {
 
       // Calculate average session duration
       const completedSessions = sessions.filter(s => s.session_duration);
-      const avgSessionDuration = completedSessions.length > 0 
+      const avgSessionDuration = completedSessions.length > 0
         ? Math.round(completedSessions.reduce((sum, s) => sum + (s.session_duration || 0), 0) / completedSessions.length)
         : 0;
 
@@ -873,15 +882,15 @@ export class DatabaseStorage implements IStorage {
         monthStart.setDate(1);
         const monthEnd = new Date(monthStart);
         monthEnd.setMonth(monthEnd.getMonth() + 1);
-        
+
         const monthSessions = sessions.filter(s => {
           const sessionDate = new Date(s.login_time);
           return sessionDate >= monthStart && sessionDate < monthEnd;
         });
-        
+
         monthlyLogins.push(monthSessions.length);
       }
-      
+
       userStats.push({
         userId: user.id,
         username: user.username,
@@ -911,7 +920,7 @@ export class DatabaseStorage implements IStorage {
         user_agent: userAgent
       })
       .returning();
-    
+
     return session;
   }
 
@@ -966,7 +975,7 @@ export class DatabaseStorage implements IStorage {
         }
       })
       .returning();
-    
+
     return result;
   }
 

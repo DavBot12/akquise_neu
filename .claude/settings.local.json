@@ -76,7 +76,16 @@
       "Bash(for adid in 1666190026 1659555284 1326686531 938830322 1559436231)",
       "Bash(do echo \"ADID $adid:\")",
       "Bash(for adid in 1121953138 1786011546)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(docker exec:*)",
+      "Bash(xargs kill:*)",
+      "Bash(pgrep:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker ps:*)",
+      "Bash(NODE_ENV=test DATABASE_URL=\"postgres://test_user:test_password@localhost:5433/akquise_test\" npx tsx:*)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(npm run db:generate:*)",
+      "Bash(npm run db:push:dev:*)"
     ]
   }
 }

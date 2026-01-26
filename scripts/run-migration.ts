@@ -1,10 +1,7 @@
-import { Pool } from '@neondatabase/serverless';
-import ws from 'ws';
-import { neonConfig } from '@neondatabase/serverless';
+import pkg from 'pg';
+const { Pool } = pkg;
 import fs from 'fs';
 import path from 'path';
-
-neonConfig.webSocketConstructor = ws;
 
 async function runMigration() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });

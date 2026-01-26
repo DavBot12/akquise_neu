@@ -1,10 +1,8 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
+import pkg from 'pg';
+const { Pool } = pkg;
 import * as dotenv from 'dotenv';
 
 dotenv.config();
-
-neonConfig.webSocketConstructor = ws;
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
