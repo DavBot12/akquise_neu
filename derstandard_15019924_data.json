@@ -1,0 +1,279 @@
+{
+  "__typename": "PropertyEntryResponse",
+  "additionalProperties": null,
+  "advertiser": {
+    "__typename": "AdvertiserResponse",
+    "company": {
+      "__typename": "CompanyResponse",
+      "address": null,
+      "logo": {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/46qC-Q/plain/immoupload/2018/02/ce/ce8f988d-b9cd-489d-bbcb-2f26b920cfd3.jpg"
+      },
+      "name": "APS Immobilien GmbH",
+      "website": "https://www.apsimmo.at/"
+    },
+    "contactPerson": {
+      "__typename": "ContactPersonResponse",
+      "companyName": "APS Immobilien GmbH",
+      "email": "office@apsimmo.at",
+      "firstname": "Lukas",
+      "lastname": "Schwaiger",
+      "phone": "+43 660 3545991",
+      "salutation": null,
+      "photo": {
+        "__typename": "ImageResponse",
+        "path": "https://storage.justimmo.at/thumb/e05e0ec248fa47edbecc26634fbdd89f/fc_h600_w800/4fmazYb7rxtSxEcnJCxGv7.jpg"
+      },
+      "address": {
+        "__typename": "PartialStreetAddressResponse",
+        "city": "Wien",
+        "countryCode": null,
+        "street": "Naglergasse 9/17",
+        "zipCode": "1010"
+      }
+    },
+    "id": "fc14921b-459a-44ab-898b-113d4865adc2"
+  },
+  "availability": {
+    "__typename": "AvailabilityResponse",
+    "availabilityText": null,
+    "availableFrom": null,
+    "publishOn": null,
+    "shortTermInYears": null,
+    "tenureOption": "BUY"
+  },
+  "customerRequests": null,
+  "description": "$54",
+  "expired": null,
+  "id": "15019924",
+  "media": {
+    "__typename": "MediaResponse",
+    "externalUrls": [
+      {
+        "__typename": "ExternalUrlResponse",
+        "type": "VIRTUAL_TOUR",
+        "url": "https://my.realonaut.com/player/5q4rk/de"
+      }
+    ],
+    "files": null,
+    "images": [
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/QJDlwg/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/604e15e4d7d7bc0043b44f5f2f7d6812/fm_h1080_w1920/4SzyGJzjq6ravDt3Gp4KOp20250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/8G09og/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/40609c52bef06fbe2f4fb1e01934ccf4/fm_h1080_w1920/6NbQCclAtiWhoXgUDxqpPf20250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/s8Tytg/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/da5469364cfca3f6d8f3fcbe4ef0c391/fm_h1080_w1920/2TC3GYQwpESNuk4pQlsJyw20250721.jpg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/NRWANw/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/043994b0fc12de7a7ed31560b12e4686/fm_h1080_w1920/3UXCP2kd8sxVlDmdWlIGeQ20250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/_LRCBw/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/cddd2093dfa20a811a74a99d32949615/fm_h1080_w1920/16VSObk6cJLA77ZDswioDV20250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/ZCTfug/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/2bcc640efce0f2b66d5cfb102ca45378/fm_h1080_w1920/43lLJrEkzNvGuVxB3msqSk20250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/LKMKZQ/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/ca9c6328b126493af7bb0f572390701e/fm_h1080_w1920/2hAnrIWpphQV0XJzFGmiL620250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/vVyukA/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/32776d564fc05f66c9679abd187f9b06/fm_h1080_w1920/6gTDxR2DYd9XYIy318SSvR20250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/zY6jnA/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/bc4ce7e2400d9d0e17cfcb6e2e08a7f5/fm_h1080_w1920/3pQ6lT6IgUBdtMDXVEYRFi20250821.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/QiX1rw/plain/immoimporte/justimmo2/storage.justimmo.at/thumb/15586d92908fd75001f5f56f8b7d3fee/fm_h1080_w1920/5qsorgKePD27ZCRNl0VBOR20250821.jpeg",
+        "preSignedUrls": null
+      }
+    ]
+  },
+  "metaData": {
+    "__typename": "MetaDataResponse",
+    "publishedAt": "2026-01-20T17:05:00.000Z",
+    "externalID": "3526",
+    "importId": "13bdc780-f626-11f0-97ad-45ea4c3c5ff3",
+    "importTime": "1768930384888",
+    "isPrivateAd": false,
+    "openimmoID": "15019924",
+    "originalFileName": "import_1234_delta_1768930382694.xml",
+    "partnerId": "der-standard",
+    "priority": "low",
+    "updatedAt": "2026-01-20T17:33:24.050Z"
+  },
+  "property": {
+    "__typename": "PropertyResponse",
+    "amenities": [
+      "KITCHEN",
+      "ELEVATOR"
+    ],
+    "areas": {
+      "__typename": "AreasResponse",
+      "details": [
+        {
+          "__typename": "AreaResponse",
+          "kind": "LIVING_SPACE",
+          "value": 33.04
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "ROOM_COUNT",
+          "value": 1
+        }
+      ],
+      "main": {
+        "__typename": "AreaResponse",
+        "kind": "LIVING_SPACE",
+        "value": 33.04
+      }
+    },
+    "basics": {
+      "__typename": "PropertyBasicsResponse",
+      "propertyPurpose": "RESIDENTIAL",
+      "propertySubtype": "APARTMENT_OTHER",
+      "propertyType": "APARTMENT"
+    },
+    "condition": {
+      "__typename": "PropertyConditionResponse",
+      "buildingType": null,
+      "dateOfLastRenovation": null,
+      "status": "RENOVATED",
+      "yearOfConstruction": null
+    },
+    "costs": {
+      "__typename": "CostsResponse",
+      "details": [
+        {
+          "__typename": "CostResponse",
+          "gross": 149000,
+          "kind": "PURCHASE_PRICE",
+          "net": null,
+          "text": null,
+          "vat": null
+        },
+        {
+          "__typename": "CostResponse",
+          "gross": 128.08,
+          "kind": "MONTHLY_COSTS",
+          "net": null,
+          "text": null,
+          "vat": null
+        },
+        {
+          "__typename": "CostResponse",
+          "gross": null,
+          "kind": "OTHER_COSTS",
+          "net": 44.03,
+          "text": null,
+          "vat": null
+        },
+        {
+          "__typename": "CostResponse",
+          "gross": null,
+          "kind": "OPERATING_COSTS",
+          "net": 75.6,
+          "text": null,
+          "vat": null
+        },
+        {
+          "__typename": "CostResponse",
+          "gross": null,
+          "kind": "REALTOR_COMMISSION",
+          "net": null,
+          "text": "3% des Kaufpreises zzgl. 20% USt.",
+          "vat": null
+        }
+      ],
+      "main": {
+        "__typename": "MainCostResponse",
+        "value": 149000,
+        "kind": "PURCHASE_PRICE",
+        "type": "GROSS"
+      },
+      "totalVat": 8.45
+    },
+    "energyConsumption": {
+      "__typename": "EnergyConsumptionResponse",
+      "fgee": {
+        "__typename": "ClassValueResponse",
+        "class": "E",
+        "value": 2.87
+      },
+      "fuelTypes": [
+        "ELECTRIC"
+      ],
+      "heatingTypes": [],
+      "hwb": {
+        "__typename": "ClassValueResponse",
+        "class": "C",
+        "value": 69.5
+      }
+    },
+    "location": {
+      "__typename": "LocationResponse",
+      "city": "Wien",
+      "coordinates": null,
+      "countryCode": "AUT",
+      "district": "",
+      "osmIds": [
+        16239,
+        109166,
+        1991436
+      ],
+      "state": "Wien",
+      "street": "",
+      "vicinityScore": {
+        "__typename": "VicinityScoreResponse",
+        "greenSpace": 0.91,
+        "kindergarden": 0.43,
+        "school": 0.83,
+        "shopping": 0.31,
+        "trafficConnection": 0.27
+      },
+      "zipCode": "1100",
+      "heap": [
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "oesterreich",
+          "name": "Österreich",
+          "osmAdminLevel": 2
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "wien",
+          "name": "Wien",
+          "osmAdminLevel": 4
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "wien-favoriten",
+          "name": "Favoriten",
+          "osmAdminLevel": 9
+        }
+      ]
+    }
+  },
+  "title": "SOFORT VERMIETBAR - Erstbezug nach Sanierung - positiver E-Befund vorhanden"
+}

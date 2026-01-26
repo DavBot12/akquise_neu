@@ -1,0 +1,179 @@
+derstandard:
+\"isPrivateAd\":true,
+🧠 Welche Daten stecken im Immobilien-JSON?
+
+Das JSON ist keine Webseite – es ist eine vollständige Datenbank eines Inserats.
+
+Es enthält fünf große Informationsblöcke:
+
+1️⃣ Inserat & Anbieter
+
+Aus:
+
+metaData
+
+
+Die KI kann erkennen:
+
+Feld	Bedeutung
+isPrivateAd	true = Privatperson, false = Makler
+externalID	Inseratsnummer
+partnerId	Plattform (z. B. derstandard, willhaben)
+publishedAt	Veröffentlichungsdatum
+updatedAt	letzte Änderung
+priority	Plattform-Wichtigkeit
+
+➡️ Damit weiß die KI:
+
+„Ist das ein Eigentümer oder ein Makler – und wie frisch ist das Inserat?“
+
+2️⃣ Preis & Kosten
+
+Aus:
+
+costs
+
+
+Lesbar sind:
+
+Feld	Bedeutung
+kind	Kaufpreis, Miete, Parkplatz, etc.
+gross	Bruttopreis
+net	Nettopreis (falls vorhanden)
+main.value	Hauptpreis
+main.type	GROSS oder NET
+
+➡️ Die KI kennt:
+
+Kaufpreis, Miete, Nebenkosten, Parkkosten, Kaution, Gesamtpreis
+
+3️⃣ Flächen & Räume
+
+Aus:
+
+property.areas
+
+
+Die KI sieht:
+
+JSON-Typ	Bedeutung
+LIVING_SPACE	Wohnfläche
+PLOT_AREA	Grundfläche
+ROOM_COUNT	Zimmer
+BASEMENT_AREA	Keller
+BALCONY_COUNT	Balkone
+TOTAL_AREA	Gesamtfläche
+
+➡️ Damit kann die KI rechnen:
+
+Preis pro m², Wohnungsgröße, Nutzwert
+
+4️⃣ Objektart & Zustand
+
+Aus:
+
+property.basics  
+property.condition
+
+
+Die KI erkennt:
+
+Feld	Bedeutung
+propertyType	Wohnung, Haus, Gewerbe
+propertySubtype	Dachgeschoss, Studio, Maisonette, etc.
+buildingType	Altbau / Neubau
+status	Erstbezug, sanierungsbedürftig
+yearOfConstruction	Baujahr
+
+➡️ Die KI weiß:
+
+Was für ein Objekt es ist und in welchem Zustand
+
+5️⃣ Ausstattung
+
+Aus:
+
+property.amenities
+
+
+Die KI sieht Flags wie:
+
+Code	Bedeutung
+BALCONY	Balkon
+KITCHEN	Einbauküche
+PARQUET_FLOOR	Parkett
+CELLAR	Keller
+ELEVATOR	Lift
+NO_COMMISSION_FEE	Provisionsfrei
+
+➡️ Daraus kann die KI:
+
+Wohnqualität & Attraktivität bewerten
+
+6️⃣ Energie & Heizung
+
+Aus:
+
+energyConsumption
+
+
+Lesbar:
+
+Feld	Bedeutung
+fuelTypes	Gas, Strom, Öl
+heatingTypes	Etagenheizung, Fußbodenheizung
+hwb	Heizwärmebedarf
+fgee	Energieeffizienz
+
+➡️ Die KI kann erkennen:
+
+Ob das Objekt energetisch schlecht oder gut ist
+
+7️⃣ Standort
+
+Aus:
+
+location
+
+
+Die KI kennt:
+
+Feld	Bedeutung
+city	Stadt
+zipCode	PLZ
+district	Bezirk
+street	Straße
+state	Bundesland
+osmIds	Geodaten
+
+Plus:
+
+vicinityScore
+
+
+→ Schule, Einkauf, Grün, Verkehr
+
+➡️ Die KI kann:
+
+Lagequalität berechnen
+
+8️⃣ Bilder
+
+Aus:
+
+images
+
+
+Die KI hat:
+
+Bild-URLs
+
+Anzahl
+
+Reihenfolge
+
+Typ
+
+➡️ Daraus:
+
+Qualität des Inserats (schlechte Bilder = Akquise-Chance)

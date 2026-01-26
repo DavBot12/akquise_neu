@@ -1,0 +1,230 @@
+{
+  "__typename": "PropertyEntryResponse",
+  "additionalProperties": null,
+  "advertiser": {
+    "__typename": "AdvertiserResponse",
+    "company": null,
+    "contactPerson": {
+      "__typename": "ContactPersonResponse",
+      "companyName": null,
+      "email": "we@enge.studio",
+      "firstname": "Winfried",
+      "lastname": "Enge",
+      "phone": "+436644677430",
+      "salutation": null,
+      "photo": null,
+      "address": null
+    },
+    "id": "957583ba-8dbd-4692-93f4-08cbf1c74041"
+  },
+  "availability": {
+    "__typename": "AvailabilityResponse",
+    "availabilityText": "ab sofort",
+    "availableFrom": null,
+    "publishOn": null,
+    "shortTermInYears": null,
+    "tenureOption": "BUY"
+  },
+  "customerRequests": null,
+  "description": "$54",
+  "expired": null,
+  "id": "15017932",
+  "media": {
+    "__typename": "MediaResponse",
+    "externalUrls": null,
+    "files": null,
+    "images": [
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/CAIq9g/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/b5628acb-9b6e-4dad-89e6-a335cd51f014.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/TBOfrA/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/21ef0158-7567-4680-a5ef-8bcaf40444c9.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/yhnmRg/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/2926f6ff-0c7a-4895-b15a-05c740b52c7c.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/g1hZ7A/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/ceb72731-dcf6-428b-8c61-e0ee6c334f2a.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/z3IYiw/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/9be43878-330c-4410-84b4-082e69c798d2.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/QqSv_Q/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/98d9f66b-e6be-4ba5-aaf4-55bf3bd1df70.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/8XYwGw/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/2b82764c-7352-4b62-a3ed-185aeef1cce0.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/xSrmiA/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/3729b80e-c944-4be8-b3bb-3857be3780fc.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/G0Bbcg/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/4181d76b-2313-41b4-8cdd-799cbbacf9da.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/Fe2SqQ/plain/private-ads/99539150-10df-4e08-a5ca-feffa84dbc80/a1bc8db4-0614-4a12-8e9a-fb90fa77f852.jpeg",
+        "preSignedUrls": null
+      }
+    ]
+  },
+  "metaData": {
+    "__typename": "MetaDataResponse",
+    "publishedAt": "2026-01-20T12:16:00.000Z",
+    "externalID": "15017932",
+    "importId": "2af469b0-f5fc-11f0-8685-b352e0a9c86b",
+    "importTime": "1768912384971",
+    "isPrivateAd": true,
+    "openimmoID": "15017932",
+    "originalFileName": "import_1234_delta_1768912382763.xml",
+    "partnerId": "der-standard",
+    "priority": "low",
+    "updatedAt": "2026-01-20T12:33:27.475Z"
+  },
+  "property": {
+    "__typename": "PropertyResponse",
+    "amenities": [
+      "BATHTUB",
+      "PARQUET_FLOOR",
+      "PARKING_PLACE",
+      "BARRIER_FREE",
+      "CELLAR",
+      "BALCONY",
+      "NO_COMMISSION_FEE"
+    ],
+    "areas": {
+      "__typename": "AreasResponse",
+      "details": [
+        {
+          "__typename": "AreaResponse",
+          "kind": "LIVING_SPACE",
+          "value": 90
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "ROOM_COUNT",
+          "value": 4
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "BALCONY_COUNT",
+          "value": 1
+        }
+      ],
+      "main": {
+        "__typename": "AreaResponse",
+        "kind": "LIVING_SPACE",
+        "value": 90
+      }
+    },
+    "basics": {
+      "__typename": "PropertyBasicsResponse",
+      "propertyPurpose": "RESIDENTIAL",
+      "propertySubtype": "APARTMENT_OTHER",
+      "propertyType": "APARTMENT"
+    },
+    "condition": {
+      "__typename": "PropertyConditionResponse",
+      "buildingType": "NEW_BUILDING",
+      "dateOfLastRenovation": null,
+      "status": "REQUIRES_REFURBISHMENT",
+      "yearOfConstruction": null
+    },
+    "costs": {
+      "__typename": "CostsResponse",
+      "details": [
+        {
+          "__typename": "CostResponse",
+          "gross": 221480,
+          "kind": "PURCHASE_PRICE",
+          "net": null,
+          "text": null,
+          "vat": null
+        }
+      ],
+      "main": {
+        "__typename": "MainCostResponse",
+        "value": 221480,
+        "kind": "PURCHASE_PRICE",
+        "type": "GROSS"
+      },
+      "totalVat": null
+    },
+    "energyConsumption": {
+      "__typename": "EnergyConsumptionResponse",
+      "fgee": null,
+      "fuelTypes": [],
+      "heatingTypes": [],
+      "hwb": null
+    },
+    "location": {
+      "__typename": "LocationResponse",
+      "city": "Neustift-Innermanzing",
+      "coordinates": null,
+      "countryCode": "AUT",
+      "district": "sanktPoltenLand",
+      "osmIds": [
+        16239,
+        77189,
+        63619,
+        282805
+      ],
+      "state": "lowerAustria",
+      "street": "Hauptstraße 53",
+      "vicinityScore": {
+        "__typename": "VicinityScoreResponse",
+        "greenSpace": 0.37,
+        "kindergarden": 0.86,
+        "school": 0.59,
+        "shopping": 0.32,
+        "trafficConnection": 0.42
+      },
+      "zipCode": "3052",
+      "heap": [
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "oesterreich",
+          "name": "Österreich",
+          "osmAdminLevel": 2
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "niederoesterreich",
+          "name": "Niederösterreich",
+          "osmAdminLevel": 4
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "bezirk-st-poelten",
+          "name": "Bezirk St. Pölten",
+          "osmAdminLevel": 6
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "neustift-innermanzing",
+          "name": "Neustift-Innermanzing",
+          "osmAdminLevel": 8
+        }
+      ]
+    }
+  },
+  "title": "[Provisionsfrei] Helle Eigentumswohnung mit Balkon und Blick ins Grüne in Innermanzing"
+}

@@ -1,0 +1,213 @@
+{
+  "__typename": "PropertyEntryResponse",
+  "additionalProperties": null,
+  "advertiser": {
+    "__typename": "AdvertiserResponse",
+    "company": {
+      "__typename": "CompanyResponse",
+      "address": null,
+      "logo": {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/MfC7LQ/plain/immoupload/2022/04/f5/f510e46b-bd91-4fed-acb9-ca7a123a8a75.png"
+      },
+      "name": "IMMOcontract Immobilien Vermittlung GmbH",
+      "website": "https://www.immocontract.at/"
+    },
+    "contactPerson": {
+      "__typename": "ContactPersonResponse",
+      "companyName": "IMMOcontract Immobilien Vermittlung GmbH",
+      "email": "office@danubeflats.at",
+      "firstname": "Projektteam",
+      "lastname": "DANUBEFLATS",
+      "phone": "+43 1 890 0 800",
+      "salutation": null,
+      "photo": null,
+      "address": {
+        "__typename": "PartialStreetAddressResponse",
+        "city": "Wien",
+        "countryCode": null,
+        "street": "Schnirchgasse 17",
+        "zipCode": "1030"
+      }
+    },
+    "id": "9df565f0-a4c0-4fbc-a267-8407987664fa"
+  },
+  "availability": {
+    "__typename": "AvailabilityResponse",
+    "availabilityText": "ab sofort",
+    "availableFrom": null,
+    "publishOn": null,
+    "shortTermInYears": null,
+    "tenureOption": "BUY"
+  },
+  "customerRequests": null,
+  "description": "$54",
+  "expired": null,
+  "id": "14692813",
+  "media": {
+    "__typename": "MediaResponse",
+    "externalUrls": null,
+    "files": null,
+    "images": [
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/1Xa4gw/plain/private-ads/a443c158-7081-411a-b1d7-ee4e31ccc19c/0b58d8bc-3257-4731-a4ab-0d571e54e796.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/gy_XeQ/plain/private-ads/a443c158-7081-411a-b1d7-ee4e31ccc19c/3777c5e3-e12e-4f3c-a6a2-e8e69a0e8d71.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/N4obFg/plain/private-ads/a443c158-7081-411a-b1d7-ee4e31ccc19c/5b8944e1-6cb7-41c0-af1c-8fc8c4f5a551.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/Me-uKw/plain/private-ads/a443c158-7081-411a-b1d7-ee4e31ccc19c/c015cd97-ff28-4d23-bef3-07730b4c9ac6.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/TvEezg/plain/private-ads/a443c158-7081-411a-b1d7-ee4e31ccc19c/655952cc-dc44-481c-a146-a8be8253ac0d.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/8AwM7g/plain/private-ads/a443c158-7081-411a-b1d7-ee4e31ccc19c/13ed1b80-63c6-4b30-a6ec-fe955cbc6870.jpeg",
+        "preSignedUrls": null
+      }
+    ]
+  },
+  "metaData": {
+    "__typename": "MetaDataResponse",
+    "publishedAt": "2025-01-28T23:00:00.000Z",
+    "externalID": "14692813",
+    "importId": "47796eb0-8e4a-11f0-8ce5-5b6487d80545",
+    "importTime": "1757511012635",
+    "isPrivateAd": true,
+    "openimmoID": "14692813",
+    "originalFileName": "import_1234_delta_1757511003651.xml",
+    "partnerId": "der-standard",
+    "priority": "low",
+    "updatedAt": "2025-09-10T13:30:20.021Z"
+  },
+  "property": {
+    "__typename": "PropertyResponse",
+    "amenities": [
+      "ELEVATOR",
+      "PARKING_PLACE",
+      "GARDEN",
+      "BARRIER_FREE",
+      "POOL",
+      "BALCONY",
+      "TERRACE"
+    ],
+    "areas": {
+      "__typename": "AreasResponse",
+      "details": [
+        {
+          "__typename": "AreaResponse",
+          "kind": "LIVING_SPACE",
+          "value": 30
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "BALCONY_COUNT",
+          "value": 1
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "TERRACE_COUNT",
+          "value": 1
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "GARDEN_AREA",
+          "value": 1
+        }
+      ],
+      "main": {
+        "__typename": "AreaResponse",
+        "kind": "LIVING_SPACE",
+        "value": 30
+      }
+    },
+    "basics": {
+      "__typename": "PropertyBasicsResponse",
+      "propertyPurpose": "RESIDENTIAL",
+      "propertySubtype": "APARTMENT_OTHER",
+      "propertyType": "APARTMENT"
+    },
+    "condition": {
+      "__typename": "PropertyConditionResponse",
+      "buildingType": "NEW_BUILD_PROJECT",
+      "dateOfLastRenovation": null,
+      "status": "FIRST_TIME_USE",
+      "yearOfConstruction": null
+    },
+    "costs": {
+      "__typename": "CostsResponse",
+      "details": [],
+      "main": null,
+      "totalVat": null
+    },
+    "energyConsumption": {
+      "__typename": "EnergyConsumptionResponse",
+      "fgee": null,
+      "fuelTypes": [],
+      "heatingTypes": [],
+      "hwb": {
+        "__typename": "ClassValueResponse",
+        "class": "A",
+        "value": 23
+      }
+    },
+    "location": {
+      "__typename": "LocationResponse",
+      "city": "Wien",
+      "coordinates": null,
+      "countryCode": "AUT",
+      "district": "wien22",
+      "osmIds": [
+        16239,
+        109166,
+        1991434
+      ],
+      "state": "wien",
+      "street": "Wagramer Straße 2",
+      "vicinityScore": {
+        "__typename": "VicinityScoreResponse",
+        "greenSpace": 0.3,
+        "kindergarden": 0.78,
+        "school": 0.46,
+        "shopping": 0.24,
+        "trafficConnection": 0.14
+      },
+      "zipCode": "1220",
+      "heap": [
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "oesterreich",
+          "name": "Österreich",
+          "osmAdminLevel": 2
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "wien",
+          "name": "Wien",
+          "osmAdminLevel": 4
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "wien-donaustadt",
+          "name": "Donaustadt",
+          "osmAdminLevel": 9
+        }
+      ]
+    }
+  },
+  "title": "DANUBEFLATS"
+}

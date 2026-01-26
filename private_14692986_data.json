@@ -1,0 +1,223 @@
+{
+  "__typename": "PropertyEntryResponse",
+  "additionalProperties": null,
+  "advertiser": {
+    "__typename": "AdvertiserResponse",
+    "company": {
+      "__typename": "CompanyResponse",
+      "address": null,
+      "logo": {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/MfC7LQ/plain/immoupload/2022/04/f5/f510e46b-bd91-4fed-acb9-ca7a123a8a75.png"
+      },
+      "name": "IMMOcontract Immobilien Vermittlung GmbH",
+      "website": "https://www.immo-contract.com/"
+    },
+    "contactPerson": {
+      "__typename": "ContactPersonResponse",
+      "companyName": "IMMOcontract Immobilien Vermittlung GmbH",
+      "email": "i.lirsch@IMMOcontract.at",
+      "firstname": "Ines",
+      "lastname": "Lirsch-Toifl NBP",
+      "phone": "004318900800",
+      "salutation": null,
+      "photo": null,
+      "address": {
+        "__typename": "PartialStreetAddressResponse",
+        "city": "Wien",
+        "countryCode": null,
+        "street": "Schnirchgasse 17",
+        "zipCode": "1030"
+      }
+    },
+    "id": "9df565f0-a4c0-4fbc-a267-8407987664fa"
+  },
+  "availability": {
+    "__typename": "AvailabilityResponse",
+    "availabilityText": "01.10.2027",
+    "availableFrom": null,
+    "publishOn": null,
+    "shortTermInYears": null,
+    "tenureOption": "BUY"
+  },
+  "customerRequests": {
+    "__typename": "CustomerRequestsResponse",
+    "hideFields": [
+      "PROPERTY_ADDRESS"
+    ]
+  },
+  "description": "$54",
+  "expired": null,
+  "id": "14692986",
+  "media": {
+    "__typename": "MediaResponse",
+    "externalUrls": null,
+    "files": null,
+    "images": [
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/xF6UgA/plain/private-ads/2bbd5968-ebbf-4c00-bbb9-bb78da98a645/789c29e9-57de-4713-b4c4-fe6f4b9cdb0c.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/fYynmg/plain/private-ads/2bbd5968-ebbf-4c00-bbb9-bb78da98a645/980eccdb-dcb3-4dda-83cb-593ad4611da7.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/gtkKsg/plain/private-ads/2bbd5968-ebbf-4c00-bbb9-bb78da98a645/5106af89-e22d-4d32-b910-0d196c062482.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/nun3zg/plain/private-ads/2bbd5968-ebbf-4c00-bbb9-bb78da98a645/eb61c88a-f57e-4407-a8ab-d1a36964b0a2.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/y2DCuA/plain/private-ads/2bbd5968-ebbf-4c00-bbb9-bb78da98a645/87b8c8ec-153e-407a-b64a-f979c28789f7.jpeg",
+        "preSignedUrls": null
+      },
+      {
+        "__typename": "ImageResponse",
+        "path": "https://ic.ds.at/mjyQhQ/plain/private-ads/2bbd5968-ebbf-4c00-bbb9-bb78da98a645/766e3687-d0ec-4546-9ed6-9a2fc8d2f86c.jpeg",
+        "preSignedUrls": null
+      }
+    ]
+  },
+  "metaData": {
+    "__typename": "MetaDataResponse",
+    "publishedAt": "2025-01-29T23:00:00.000Z",
+    "externalID": "14692986",
+    "importId": "eefaf630-fa8a-11ef-afa8-dd2b3e8a1e5c",
+    "importTime": "1741266009363",
+    "isPrivateAd": true,
+    "openimmoID": "14692986",
+    "originalFileName": "import_1234_delta_1741266006014.xml",
+    "partnerId": "der-standard",
+    "priority": "low",
+    "updatedAt": "2025-03-06T13:00:26.979Z"
+  },
+  "property": {
+    "__typename": "PropertyResponse",
+    "amenities": [
+      "PARQUET_FLOOR",
+      "ELEVATOR",
+      "PARKING_PLACE",
+      "GARDEN",
+      "BARRIER_FREE",
+      "BALCONY",
+      "TERRACE"
+    ],
+    "areas": {
+      "__typename": "AreasResponse",
+      "details": [
+        {
+          "__typename": "AreaResponse",
+          "kind": "LIVING_SPACE",
+          "value": 140
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "BALCONY_COUNT",
+          "value": 1
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "TERRACE_COUNT",
+          "value": 1
+        },
+        {
+          "__typename": "AreaResponse",
+          "kind": "GARDEN_AREA",
+          "value": 1
+        }
+      ],
+      "main": {
+        "__typename": "AreaResponse",
+        "kind": "LIVING_SPACE",
+        "value": 140
+      }
+    },
+    "basics": {
+      "__typename": "PropertyBasicsResponse",
+      "propertyPurpose": "RESIDENTIAL",
+      "propertySubtype": "APARTMENT_OTHER",
+      "propertyType": "APARTMENT"
+    },
+    "condition": {
+      "__typename": "PropertyConditionResponse",
+      "buildingType": "NEW_BUILD_PROJECT",
+      "dateOfLastRenovation": null,
+      "status": "FIRST_TIME_USE",
+      "yearOfConstruction": null
+    },
+    "costs": {
+      "__typename": "CostsResponse",
+      "details": [],
+      "main": null,
+      "totalVat": null
+    },
+    "energyConsumption": {
+      "__typename": "EnergyConsumptionResponse",
+      "fgee": null,
+      "fuelTypes": [
+        "HEAT_PUMP",
+        "GEOTHERMAL"
+      ],
+      "heatingTypes": [
+        "DISTRICT_HEATING"
+      ],
+      "hwb": {
+        "__typename": "ClassValueResponse",
+        "class": "C",
+        "value": 48
+      }
+    },
+    "location": {
+      "__typename": "LocationResponse",
+      "city": "Wien",
+      "coordinates": null,
+      "countryCode": "AUT",
+      "district": "wien23",
+      "osmIds": [
+        16239,
+        109166,
+        1991439
+      ],
+      "state": "wien",
+      "street": null,
+      "vicinityScore": {
+        "__typename": "VicinityScoreResponse",
+        "greenSpace": 0.66,
+        "kindergarden": 0.81,
+        "school": 0.14,
+        "shopping": 0.52,
+        "trafficConnection": 0.23
+      },
+      "zipCode": "1230",
+      "heap": [
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "oesterreich",
+          "name": "Österreich",
+          "osmAdminLevel": 2
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "wien",
+          "name": "Wien",
+          "osmAdminLevel": 4
+        },
+        {
+          "__typename": "LocationHeapResponse",
+          "slug": "wien-liesing",
+          "name": "Liesing",
+          "osmAdminLevel": 9
+        }
+      ]
+    }
+  },
+  "title": "City Garden"
+}
