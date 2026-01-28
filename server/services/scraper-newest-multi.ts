@@ -18,6 +18,8 @@ import {
   extractListingIdFromUrl,
 } from './scraper-utils';
 import { storage } from '../storage';
+import { isInAkquiseGebiet, extractPlzAndOrt } from './geo-filter';
+import { calculateQualityScore } from './quality-scorer';
 
 /**
  * MULTI-PLATFORM NEWEST SCRAPER
@@ -258,10 +260,10 @@ export class MultiNewestScraperService {
       await this.scrapeDerStandard(3, 'Full Scrape');
       await this.scrapeImmoScout(3, 'Full Scrape');
 
-      this.onLog?.(`[MULTI-NEWEST] ✅ Full Scrape completed (Cycle ${this.currentCycle})`);
+      // Reset current IDs for next scrape (states are already persisted per category)
+      this.currentFirstListingIds = {};
 
-      // Save state
-      await this.saveLastFirstListingIds();
+      this.onLog?.(`[MULTI-NEWEST] ✅ Full Scrape completed (Cycle ${this.currentCycle})`);
     } catch (error: any) {
       this.onLog?.(`[MULTI-NEWEST] ❌ Full Scrape error: ${error?.message || error}`);
     } finally {
@@ -272,74 +274,267 @@ export class MultiNewestScraperService {
   }
 
   // ============================================
-  // WILLHABEN SCRAPING
+  // WILLHABEN SCRAPING (SMART PAGINATION - 1:1 from scraper-newest.ts)
   // ============================================
 
-  private async scrapeWillhaben(maxPages: number, label: string): Promise<void> {
+  private async scrapeWillhaben(maxPagesOrSmart: number, label: string): Promise<void> {
+    // Check if this is a Quick Check (maxPages=1) or Full Scrape (maxPages=5)
+    const isQuickCheck = maxPagesOrSmart === 1;
+    const MAX_SAFETY_PAGES = 20; // Safety limit for smart pagination
+
     for (const [key, baseUrl] of Object.entries(this.willhabenUrls)) {
       if (!this.isRunning) return;
 
       this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 🔍 ${key}`);
 
-      for (let page = 1; page <= maxPages; page++) {
-        if (!this.isRunning) return;
+      // Get category-specific state
+      const categoryLastFirstId = this.lastFirstListingIds[key];
+      const hasState = categoryLastFirstId !== null && categoryLastFirstId !== undefined;
 
-        const url = `${baseUrl}&page=${page}`;
+      // Quick Check: Only page 1, no smart pagination
+      if (isQuickCheck) {
+        await this.scrapeWillhabenPages(key, baseUrl, 1, 1, label);
+        continue;
+      }
 
-        try {
-          const headers = {
-            'User-Agent': rotateUserAgent(),
-            'Referer': page > 1 ? `${baseUrl}&page=${page-1}` : 'https://www.willhaben.at/',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
-          };
+      // Full Scrape: Use smart pagination if we have state
+      if (hasState) {
+        this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 📌 Smart pagination for ${key} - searching for ID: ${categoryLastFirstId}`);
 
-          const res = await proxyRequest(url, this.sessionCookies, { headers });
-          const html = res.data as string;
+        let foundPreviousFirstId = false;
+        let pageNumber = 1;
 
-          // Filter URLs by ISPRIVATE=1
-          const { filteredUrls, totalOnPage, privateCount, commercialCount } = extractDetailUrlsWithISPRIVATE(html);
-          this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] page ${page}: ${totalOnPage} total → ${privateCount} privat`);
+        while (!foundPreviousFirstId && pageNumber <= MAX_SAFETY_PAGES) {
+          if (!this.isRunning) return;
 
-          // Process each private listing
-          for (const detailUrl of filteredUrls) {
-            if (!this.isRunning) return;
+          const url = `${baseUrl}&page=${pageNumber}`;
 
-            try {
-              const detail = await this.fetchWillhabenDetail(detailUrl);
-              const { listing, reason } = this.parseWillhabenDetail(detail, detailUrl, key);
+          try {
+            const headers = {
+              'User-Agent': rotateUserAgent(),
+              'Referer': pageNumber > 1 ? `${baseUrl}&page=${pageNumber-1}` : 'https://www.willhaben.at/',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+            };
 
-              if (!listing) {
-                // Skip silently
-              } else {
-                // Save listing
-                try {
-                  if (this.onListingFound) {
-                    await this.onListingFound(listing);
-                  }
-                } catch (e) {
-                  // Already exists - normal
-                }
+            const res = await proxyRequest(url, this.sessionCookies, { headers });
+            const html = res.data as string;
 
-                // Extract phone
-                const $detail = load(detail);
-                const phone = extractPhoneFromHtml(detail, $detail);
-                if (phone && this.onPhoneFound) {
-                  this.onPhoneFound({ url: detailUrl, phone });
+            // Filter URLs by ISPRIVATE=1
+            const { filteredUrls, totalOnPage, privateCount, commercialCount } = extractDetailUrlsWithISPRIVATE(html);
+            this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] page ${pageNumber}: ${totalOnPage} total → ${privateCount} privat (ISPRIVATE=1), ${commercialCount} kommerziell (ISPRIVATE=0)`);
+
+            const isDebug = process.env.DEBUG_SCRAPER === 'true';
+
+            // Process each PRIVATE listing
+            for (const detailUrl of filteredUrls) {
+              if (!this.isRunning) return;
+
+              // Extract listing ID
+              const listingId = extractListingIdFromUrl(detailUrl);
+
+              if (isDebug) {
+                this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 📄 Fetching detail: ${listingId} - ${detailUrl.substring(0, 60)}...`);
+              }
+
+              // Store first ID on page 1 for THIS CATEGORY (for next scrape)
+              if (pageNumber === 1 && !this.currentFirstListingIds[key] && listingId) {
+                this.currentFirstListingIds[key] = listingId;
+                if (isDebug) {
+                  this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 📌 Current first ID for ${key}: ${listingId}`);
                 }
               }
 
-              await sleep(withJitter(60, 60)); // 60ms ± 60ms
-            } catch (error: any) {
-              // Skip failed detail pages
+              // Check if we've reached THIS CATEGORY's previous scrape's first ID
+              // Convert both to strings to handle type mismatch (extractListingIdFromUrl returns string, getScraperNextPage returns number)
+              const listingIdStr = listingId?.toString();
+              const savedIdStr = categoryLastFirstId?.toString();
+              this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 🔍 Checking ID: ${listingIdStr} (${typeof listingId}) vs saved: ${savedIdStr} (${typeof categoryLastFirstId}) (match: ${listingIdStr === savedIdStr})`);
+              if (categoryLastFirstId && listingIdStr === savedIdStr) {
+                foundPreviousFirstId = true;
+                this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ✅ Reached previous first ID for ${key}: ${listingIdStr} - Stopping pagination`);
+                break; // Stop processing this page
+              }
+
+              // Fetch detail page
+              try {
+                if (isDebug) {
+                  this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 🌐 Fetching detail page...`);
+                }
+                const detail = await this.fetchWillhabenDetail(detailUrl);
+                if (isDebug) {
+                  this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 📝 Parsing detail page (${detail.length} chars)...`);
+                }
+                const { listing, reason } = this.parseWillhabenDetail(detail, detailUrl, key);
+
+                if (!listing) {
+                  if (isDebug) {
+                    this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ⏭️ SKIP ${detailUrl.substring(0, 80)}... :: ${reason}`);
+                  }
+                } else {
+                  // Save listing
+                  try {
+                    if (this.onListingFound) {
+                      if (isDebug) {
+                        this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 💾 Saving to DB: ${listing.title.substring(0, 40)}...`);
+                      }
+                      await this.onListingFound(listing);
+                      if (isDebug) {
+                        this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ✅ SAVED to DB!`);
+                      }
+                    }
+                  } catch (e) {
+                    if (isDebug) {
+                      this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ℹ️ Listing exists (normal)`);
+                    }
+                  }
+
+                  // Extract phone
+                  const $detail = load(detail);
+                  const phone = extractPhoneFromHtml(detail, $detail);
+                  if (phone) {
+                    if (isDebug) {
+                      this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 📞 Phone found: ${phone}`);
+                    }
+                    if (this.onPhoneFound) {
+                      this.onPhoneFound({ url: detailUrl, phone });
+                    }
+                  }
+
+                  if (isDebug) {
+                    this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ✅ COMPLETE: ${listing.category}/${listing.region} :: €${listing.price} :: ${listing.title.substring(0,50)}`);
+                  }
+                }
+              } catch (detailError: any) {
+                this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ❌ ERROR fetching ${detailUrl.substring(0, 60)}... :: ${detailError?.message || detailError}`);
+              }
+
+              await sleep(withJitter(60, 120));
+            }
+
+            if (foundPreviousFirstId) break; // Stop pagination for this category
+
+          } catch (e: any) {
+            this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ⚠️ error page ${pageNumber}: ${e?.message || e}`);
+          }
+
+          pageNumber++;
+          await sleep(withJitter(120, 80));
+        }
+
+        if (pageNumber > MAX_SAFETY_PAGES) {
+          this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ⚠️ Hit safety limit of ${MAX_SAFETY_PAGES} pages - may need to adjust`);
+        }
+
+        // PERSIST IMMEDIATELY after each category finishes
+        const currentId = this.currentFirstListingIds[key];
+        if (currentId) {
+          await this.persistWillhabenState(key, currentId);
+          this.lastFirstListingIds[key] = currentId;
+          this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 💾 Saved state for ${key}: ${currentId}`);
+        }
+      } else {
+        // First run - use fixed pages to establish baseline
+        this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] First run for ${key} - establishing baseline (fixed 5 pages)`);
+        await this.scrapeWillhabenPages(key, baseUrl, 1, 5, label);
+
+        // Save first ID for next time
+        const currentId = this.currentFirstListingIds[key];
+        if (currentId) {
+          await this.persistWillhabenState(key, currentId);
+          this.lastFirstListingIds[key] = currentId;
+          this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 💾 Saved initial state for ${key}: ${currentId}`);
+        }
+      }
+    }
+  }
+
+  // Helper method to scrape fixed page range (1:1 from scraper-newest.ts logic)
+  private async scrapeWillhabenPages(key: string, baseUrl: string, startPage: number, endPage: number, label: string): Promise<void> {
+    for (let page = startPage; page <= endPage; page++) {
+      if (!this.isRunning) return;
+
+      const url = `${baseUrl}&page=${page}`;
+
+      try {
+        const headers = {
+          'User-Agent': rotateUserAgent(),
+          'Referer': page > 1 ? `${baseUrl}&page=${page-1}` : 'https://www.willhaben.at/',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+        };
+
+        const res = await proxyRequest(url, this.sessionCookies, { headers });
+        const html = res.data as string;
+
+        // Filter URLs by ISPRIVATE=1
+        const { filteredUrls, totalOnPage, privateCount, commercialCount } = extractDetailUrlsWithISPRIVATE(html);
+        this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] page ${page}: ${totalOnPage} total → ${privateCount} privat`);
+
+        const isDebug = process.env.DEBUG_SCRAPER === 'true';
+
+        // Process each private listing
+        for (const detailUrl of filteredUrls) {
+          if (!this.isRunning) return;
+
+          const listingId = extractListingIdFromUrl(detailUrl);
+
+          // Store first ID on page 1
+          if (page === 1 && !this.currentFirstListingIds[key] && listingId) {
+            this.currentFirstListingIds[key] = listingId;
+            if (isDebug) {
+              this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 📌 Stored first ID for ${key}: ${listingId}`);
             }
           }
 
-          await sleep(withJitter(200, 100)); // 200ms ± 100ms between pages
-        } catch (error: any) {
-          this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ❌ Error page ${page}: ${error?.message}`);
+          try {
+            const detail = await this.fetchWillhabenDetail(detailUrl);
+            const { listing, reason } = this.parseWillhabenDetail(detail, detailUrl, key);
+
+            if (!listing) {
+              // Skip silently
+            } else {
+              // Save listing
+              try {
+                if (this.onListingFound) {
+                  await this.onListingFound(listing);
+                }
+              } catch (e) {
+                // Already exists - normal
+              }
+
+              // Extract phone
+              const $detail = load(detail);
+              const phone = extractPhoneFromHtml(detail, $detail);
+              if (phone && this.onPhoneFound) {
+                this.onPhoneFound({ url: detailUrl, phone });
+              }
+            }
+
+            await sleep(withJitter(60, 60));
+          } catch (error: any) {
+            // Skip failed detail pages
+          }
         }
+
+        await sleep(withJitter(200, 100));
+      } catch (error: any) {
+        this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ❌ Error page ${page}: ${error?.message}`);
       }
+    }
+  }
+
+  // State persistence for all platforms
+  private async persistWillhabenState(category: string, listingId: string): Promise<void> {
+    await this.persistState(category, listingId);
+  }
+
+  private async persistState(category: string, listingId: string): Promise<void> {
+    try {
+      const stateKey = `multi-newest-${category}`;
+      await storage.setScraperNextPage(stateKey, listingId);
+    } catch (error) {
+      this.onLog?.(`[MULTI-NEWEST] ⚠️ Error persisting ${category}: ${error}`);
     }
   }
 
@@ -412,26 +607,67 @@ export class MultiNewestScraperService {
 
     const locJson = extractLocationFromJson(html);
     const location = locJson || extractLocationFromDom($, url) || (categoryKey.includes('wien') ? 'Wien' : 'Niederösterreich');
+
     const phoneDirect = extractPhoneFromHtml(html, $);
     const lastChangedAt = extractLastChanged($, html);
     const publishedAt = extractPublishedDate(html);
 
-    return {
-      listing: {
+    // ✅ Geographic filter - check if location is in acquisition area
+    const geoCheck = isInAkquiseGebiet(location, region);
+    if (!geoCheck.allowed) {
+      // Save to geo_blocked_listings table (async, don't wait)
+      const { plz, ort } = extractPlzAndOrt(location);
+      storage.saveGeoBlockedListing({
         title,
         price,
-        area: areaStr || null,
         location,
-        url,
-        images,
+        area: areaStr || null,
+        eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
         description,
         phone_number: phoneDirect || null,
+        images,
+        url,
         category,
         region,
-        eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
-        akquise_erledigt: false,
-        last_changed_at: lastChangedAt,
-        published_at: publishedAt,
+        source: 'willhaben',
+        original_scraped_at: new Date(),
+        original_published_at: publishedAt,
+        original_last_changed_at: lastChangedAt,
+        block_reason: geoCheck.reason,
+        plz,
+        ort,
+      }).catch(err => console.log(`[SCRAPER] Geo-blocked save error (ignoring): ${err.message}`));
+
+      return { listing: null, reason: `Außerhalb Akquise-Gebiet: ${geoCheck.reason} (${location})` };
+    }
+
+    // Build listing object for quality scoring (phoneDirect, lastChangedAt, publishedAt already extracted above)
+    const listing = {
+      title,
+      price,
+      area: areaStr || null,
+      location,
+      url,
+      images,
+      description,
+      phone_number: phoneDirect || null,
+      category,
+      region,
+      eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
+      akquise_erledigt: false,
+      last_changed_at: lastChangedAt,
+      published_at: publishedAt,
+    };
+
+    // Calculate quality score
+    const qualityResult = calculateQualityScore(listing);
+
+    return {
+      listing: {
+        ...listing,
+        quality_score: qualityResult.total,
+        quality_tier: qualityResult.tier,
+        is_gold_find: qualityResult.isGoldFind,
       },
       reason: 'ok',
     };
@@ -441,61 +677,174 @@ export class MultiNewestScraperService {
   // DERSTANDARD SCRAPING
   // ============================================
 
-  private async scrapeDerStandard(maxPages: number, label: string): Promise<void> {
+  private async scrapeDerStandard(maxPagesOrSmart: number, label: string): Promise<void> {
+    const isQuickCheck = maxPagesOrSmart === 1;
+    const MAX_SAFETY_PAGES = 20;
+
     for (const [key, baseUrl] of Object.entries(this.derStandardUrls)) {
       if (!this.isRunning) return;
 
       this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] 🔍 ${key}`);
 
-      for (let page = 1; page <= maxPages; page++) {
-        if (!this.isRunning) return;
+      const categoryLastFirstId = this.lastFirstListingIds[key];
+      const hasState = categoryLastFirstId !== null && categoryLastFirstId !== undefined;
 
-        const url = page === 1 ? baseUrl : `${baseUrl}&page=${page}`;
+      // Quick Check: Only page 1
+      if (isQuickCheck) {
+        await this.scrapeDerStandardPages(key, baseUrl, 1, 1, label);
+        continue;
+      }
 
-        try {
-          const headers = {
-            'User-Agent': rotateUserAgent(),
-            'Referer': 'https://immobilien.derstandard.at/',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
-          };
+      // Full Scrape: Use smart pagination if we have state
+      if (hasState) {
+        this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] 📌 Smart pagination for ${key} - searching for ID: ${categoryLastFirstId}`);
 
-          const res = await proxyRequest(url, this.sessionCookies, { headers });
-          const html = res.data as string;
+        let foundPreviousFirstId = false;
+        let pageNumber = 1;
 
-          // Extract detail URLs
-          const detailUrls = this.extractDerStandardUrls(html);
-          this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] page ${page}: ${detailUrls.length} listings`);
+        while (!foundPreviousFirstId && pageNumber <= MAX_SAFETY_PAGES) {
+          if (!this.isRunning) return;
 
-          // Process each listing
-          for (const detailUrl of detailUrls) {
-            if (!this.isRunning) return;
+          const url = pageNumber === 1 ? baseUrl : `${baseUrl}&page=${pageNumber}`;
 
-            try {
-              const detail = await this.fetchDerStandardDetail(detailUrl);
-              const { listing, reason } = this.parseDerStandardDetail(detail, detailUrl, key);
+          try {
+            const headers = {
+              'User-Agent': rotateUserAgent(),
+              'Referer': 'https://immobilien.derstandard.at/',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+            };
 
-              if (!listing) {
-                // Skip (commercial or filter)
-              } else {
-                try {
-                  if (this.onListingFound) {
-                    await this.onListingFound({ ...listing, source: 'derstandard' });
-                  }
-                } catch (e) {
-                  // Already exists
-                }
+            const res = await proxyRequest(url, this.sessionCookies, { headers });
+            const html = res.data as string;
+            const detailUrls = this.extractDerStandardUrls(html);
+
+            this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] page ${pageNumber}: ${detailUrls.length} listings`);
+
+            for (const detailUrl of detailUrls) {
+              if (!this.isRunning) return;
+
+              // Extract listing ID from URL (/detail/15015102)
+              const listingId = detailUrl.match(/\/detail\/(\d+)/)?.[1];
+
+              // Store first ID on page 1
+              if (pageNumber === 1 && !this.currentFirstListingIds[key] && listingId) {
+                this.currentFirstListingIds[key] = listingId;
               }
 
-              await sleep(withJitter(60, 60));
-            } catch (error: any) {
-              // Skip failed detail pages
+              // Check if we've reached previous first ID
+              // Convert both to strings to handle type mismatch
+              const listingIdStr = listingId?.toString();
+              const savedIdStr = categoryLastFirstId?.toString();
+              if (categoryLastFirstId && listingIdStr === savedIdStr) {
+                foundPreviousFirstId = true;
+                this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] ✅ Reached previous first ID for ${key}: ${listingIdStr} - Stopping`);
+                break;
+              }
+
+              try {
+                const detail = await this.fetchDerStandardDetail(detailUrl);
+                const { listing, reason } = this.parseDerStandardDetail(detail, detailUrl, key);
+
+                if (listing) {
+                  try {
+                    if (this.onListingFound) {
+                      await this.onListingFound({ ...listing, source: 'derstandard' });
+                    }
+                  } catch (e) {
+                    // Already exists
+                  }
+                }
+
+                await sleep(withJitter(60, 60));
+              } catch (error: any) {
+                // Skip failed detail pages
+              }
             }
+
+            if (foundPreviousFirstId) break;
+
+          } catch (e: any) {
+            this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] ⚠️ error page ${pageNumber}: ${e?.message || e}`);
           }
 
-          await sleep(withJitter(200, 100));
-        } catch (error: any) {
-          this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] ❌ Error page ${page}: ${error?.message}`);
+          pageNumber++;
+          await sleep(withJitter(120, 80));
         }
+
+        // Persist state
+        const currentId = this.currentFirstListingIds[key];
+        if (currentId) {
+          await this.persistState(key, currentId);
+          this.lastFirstListingIds[key] = currentId;
+          this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] 💾 Saved state for ${key}: ${currentId}`);
+        }
+      } else {
+        // First run - establish baseline
+        this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] First run for ${key} - establishing baseline (fixed 3 pages)`);
+        await this.scrapeDerStandardPages(key, baseUrl, 1, 3, label);
+
+        const currentId = this.currentFirstListingIds[key];
+        if (currentId) {
+          await this.persistState(key, currentId);
+          this.lastFirstListingIds[key] = currentId;
+          this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] 💾 Saved initial state for ${key}: ${currentId}`);
+        }
+      }
+    }
+  }
+
+  private async scrapeDerStandardPages(key: string, baseUrl: string, startPage: number, endPage: number, label: string): Promise<void> {
+    for (let page = startPage; page <= endPage; page++) {
+      if (!this.isRunning) return;
+
+      const url = page === 1 ? baseUrl : `${baseUrl}&page=${page}`;
+
+      try {
+        const headers = {
+          'User-Agent': rotateUserAgent(),
+          'Referer': 'https://immobilien.derstandard.at/',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+        };
+
+        const res = await proxyRequest(url, this.sessionCookies, { headers });
+        const html = res.data as string;
+        const detailUrls = this.extractDerStandardUrls(html);
+
+        this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] page ${page}: ${detailUrls.length} listings`);
+
+        for (const detailUrl of detailUrls) {
+          if (!this.isRunning) return;
+
+          const listingId = detailUrl.match(/\/detail\/(\d+)/)?.[1];
+
+          // Store first ID on page 1
+          if (page === 1 && !this.currentFirstListingIds[key] && listingId) {
+            this.currentFirstListingIds[key] = listingId;
+          }
+
+          try {
+            const detail = await this.fetchDerStandardDetail(detailUrl);
+            const { listing, reason } = this.parseDerStandardDetail(detail, detailUrl, key);
+
+            if (listing) {
+              try {
+                if (this.onListingFound) {
+                  await this.onListingFound({ ...listing, source: 'derstandard' });
+                }
+              } catch (e) {
+                // Already exists
+              }
+            }
+
+            await sleep(withJitter(60, 60));
+          } catch (error: any) {
+            // Skip failed detail pages
+          }
+        }
+
+        await sleep(withJitter(200, 100));
+      } catch (error: any) {
+        this.onLog?.(`[MULTI-NEWEST] [DerStandard] [${label}] ❌ Error page ${page}: ${error?.message}`);
       }
     }
   }
@@ -569,6 +918,35 @@ export class MultiNewestScraperService {
         const category = categoryKey.includes('haus') ? 'haus' : 'eigentumswohnung';
         const eur_per_m2 = (price && area) ? (price / area).toFixed(2) : null;
 
+        // ✅ Geographic filter - check if location is in acquisition area
+        const geoCheck = isInAkquiseGebiet(location, region);
+        if (!geoCheck.allowed) {
+          // Save to geo_blocked_listings table (async, don't wait)
+          const { plz, ort } = extractPlzAndOrt(location);
+          storage.saveGeoBlockedListing({
+            title,
+            price,
+            location,
+            area: area ? String(area) : null,
+            eur_per_m2,
+            description: null,
+            phone_number: null,
+            images: [],
+            url,
+            category,
+            region,
+            source: 'derstandard',
+            original_scraped_at: new Date(),
+            original_published_at: new Date(),
+            original_last_changed_at: null,
+            block_reason: geoCheck.reason,
+            plz,
+            ort,
+          }).catch(err => console.log(`[SCRAPER] Geo-blocked save error (ignoring): ${err.message}`));
+
+          return { listing: null, reason: `Außerhalb Akquise-Gebiet: ${geoCheck.reason} (${location})` };
+        }
+
         const listing = {
           source: 'derstandard',
           title,
@@ -582,10 +960,24 @@ export class MultiNewestScraperService {
           category,
           region,
           eur_per_m2,
-          rawData: props
+          rawData: props,
+          // Don't set last_changed_at for new listings - will be set on first real change
+          last_changed_at: undefined,
+          published_at: new Date()
         };
 
-        return { listing, reason: 'Private person (no company)' };
+        // Calculate quality score
+        const qualityResult = calculateQualityScore(listing);
+
+        return {
+          listing: {
+            ...listing,
+            quality_score: qualityResult.total,
+            quality_tier: qualityResult.tier,
+            is_gold_find: qualityResult.isGoldFind,
+          },
+          reason: 'Private person (no company)'
+        };
       }
 
       // Block all other types
@@ -638,46 +1030,169 @@ export class MultiNewestScraperService {
   // IMMOSCOUT SCRAPING
   // ============================================
 
-  private async scrapeImmoScout(maxPages: number, label: string): Promise<void> {
+  private async scrapeImmoScout(maxPagesOrSmart: number, label: string): Promise<void> {
+    const isQuickCheck = maxPagesOrSmart === 1;
+    const MAX_SAFETY_PAGES = 20;
+
     for (const [key, baseUrl] of Object.entries(this.immoScoutUrls)) {
       if (!this.isRunning) return;
 
       this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] 🔍 ${key}`);
 
-      for (let page = 1; page <= maxPages; page++) {
-        if (!this.isRunning) return;
+      const categoryLastFirstId = this.lastFirstListingIds[key];
+      const hasState = categoryLastFirstId !== null && categoryLastFirstId !== undefined;
 
-        const url = page === 1 ? baseUrl : `${baseUrl}&pagenumber=${page}`;
+      // Quick Check: Only page 1
+      if (isQuickCheck) {
+        await this.scrapeImmoScoutPages(key, baseUrl, 1, 1, label);
+        continue;
+      }
 
-        try {
-          const headers = {
-            'User-Agent': rotateUserAgent(),
-            'Referer': 'https://www.immobilienscout24.at/',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
-          };
+      // Full Scrape: Use smart pagination if we have state
+      if (hasState) {
+        this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] 📌 Smart pagination for ${key} - searching for ID: ${categoryLastFirstId}`);
 
-          const res = await proxyRequest(url, this.sessionCookies, { headers });
-          const html = res.data as string;
+        let foundPreviousFirstId = false;
+        let pageNumber = 1;
 
-          // Extract search results from __INITIAL_STATE__
-          const hits = this.extractImmoScoutHits(html);
-          this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] page ${page}: ${hits.length} listings`);
+        while (!foundPreviousFirstId && pageNumber <= MAX_SAFETY_PAGES) {
+          if (!this.isRunning) return;
 
-          // Process each hit
-          for (const hit of hits) {
-            if (!this.isRunning) return;
+          const url = pageNumber === 1 ? baseUrl : `${baseUrl}&pagenumber=${pageNumber}`;
 
-            try {
-              const detailUrl = hit.links?.absoluteURL;
-              if (!detailUrl) continue;
+          try {
+            const headers = {
+              'User-Agent': rotateUserAgent(),
+              'Referer': 'https://www.immobilienscout24.at/',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+            };
 
-              const detail = await this.fetchImmoScoutDetail(detailUrl);
-              const productData = this.extractImmoScoutProduct(detail);
+            const res = await proxyRequest(url, this.sessionCookies, { headers });
+            const html = res.data as string;
+            const hits = this.extractImmoScoutHits(html);
 
-              if (!productData) continue;
+            this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] page ${pageNumber}: ${hits.length} listings`);
 
-              const listing = this.buildImmoScoutListing(hit, productData, detailUrl, key);
+            for (const hit of hits) {
+              if (!this.isRunning) return;
 
+              const listingId = hit.exposeId?.toString();
+
+              // Store first ID on page 1
+              if (pageNumber === 1 && !this.currentFirstListingIds[key] && listingId) {
+                this.currentFirstListingIds[key] = listingId;
+              }
+
+              // Check if we've reached previous first ID
+              // Convert both to strings to handle type mismatch
+              const listingIdStr = listingId?.toString();
+              const savedIdStr = categoryLastFirstId?.toString();
+              if (categoryLastFirstId && listingIdStr === savedIdStr) {
+                foundPreviousFirstId = true;
+                this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] ✅ Reached previous first ID for ${key}: ${listingIdStr} - Stopping`);
+                break;
+              }
+
+              try {
+                const detailUrl = hit.links?.absoluteURL;
+                if (!detailUrl) continue;
+
+                const detail = await this.fetchImmoScoutDetail(detailUrl);
+                const productData = this.extractImmoScoutProduct(detail);
+
+                if (!productData) continue;
+
+                const { listing, reason } = this.buildImmoScoutListing(hit, productData, detailUrl, key);
+
+                if (listing) {
+                  try {
+                    if (this.onListingFound) {
+                      await this.onListingFound(listing);
+                    }
+                  } catch (e) {
+                    // Already exists
+                  }
+                }
+
+                await sleep(withJitter(60, 60));
+              } catch (error: any) {
+                // Skip failed detail pages
+              }
+            }
+
+            if (foundPreviousFirstId) break;
+
+          } catch (e: any) {
+            this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] ⚠️ error page ${pageNumber}: ${e?.message || e}`);
+          }
+
+          pageNumber++;
+          await sleep(withJitter(120, 80));
+        }
+
+        // Persist state
+        const currentId = this.currentFirstListingIds[key];
+        if (currentId) {
+          await this.persistState(key, currentId);
+          this.lastFirstListingIds[key] = currentId;
+          this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] 💾 Saved state for ${key}: ${currentId}`);
+        }
+      } else {
+        // First run - establish baseline
+        this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] First run for ${key} - establishing baseline (fixed 3 pages)`);
+        await this.scrapeImmoScoutPages(key, baseUrl, 1, 3, label);
+
+        const currentId = this.currentFirstListingIds[key];
+        if (currentId) {
+          await this.persistState(key, currentId);
+          this.lastFirstListingIds[key] = currentId;
+          this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] 💾 Saved initial state for ${key}: ${currentId}`);
+        }
+      }
+    }
+  }
+
+  private async scrapeImmoScoutPages(key: string, baseUrl: string, startPage: number, endPage: number, label: string): Promise<void> {
+    for (let page = startPage; page <= endPage; page++) {
+      if (!this.isRunning) return;
+
+      const url = page === 1 ? baseUrl : `${baseUrl}&pagenumber=${page}`;
+
+      try {
+        const headers = {
+          'User-Agent': rotateUserAgent(),
+          'Referer': 'https://www.immobilienscout24.at/',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+        };
+
+        const res = await proxyRequest(url, this.sessionCookies, { headers });
+        const html = res.data as string;
+        const hits = this.extractImmoScoutHits(html);
+
+        this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] page ${page}: ${hits.length} listings`);
+
+        for (const hit of hits) {
+          if (!this.isRunning) return;
+
+          const listingId = hit.exposeId?.toString();
+
+          // Store first ID on page 1
+          if (page === 1 && !this.currentFirstListingIds[key] && listingId) {
+            this.currentFirstListingIds[key] = listingId;
+          }
+
+          try {
+            const detailUrl = hit.links?.absoluteURL;
+            if (!detailUrl) continue;
+
+            const detail = await this.fetchImmoScoutDetail(detailUrl);
+            const productData = this.extractImmoScoutProduct(detail);
+
+            if (!productData) continue;
+
+            const { listing, reason } = this.buildImmoScoutListing(hit, productData, detailUrl, key);
+
+            if (listing) {
               try {
                 if (this.onListingFound) {
                   await this.onListingFound(listing);
@@ -685,17 +1200,17 @@ export class MultiNewestScraperService {
               } catch (e) {
                 // Already exists
               }
-
-              await sleep(withJitter(60, 60));
-            } catch (error: any) {
-              // Skip failed detail pages
             }
-          }
 
-          await sleep(withJitter(200, 100));
-        } catch (error: any) {
-          this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] ❌ Error page ${page}: ${error?.message}`);
+            await sleep(withJitter(60, 60));
+          } catch (error: any) {
+            // Skip failed detail pages
+          }
         }
+
+        await sleep(withJitter(200, 100));
+      } catch (error: any) {
+        this.onLog?.(`[MULTI-NEWEST] [ImmoScout] [${label}] ❌ Error page ${page}: ${error?.message}`);
       }
     }
   }
@@ -810,7 +1325,7 @@ export class MultiNewestScraperService {
     }
   }
 
-  private buildImmoScoutListing(hit: any, product: any, url: string, categoryKey: string): any {
+  private buildImmoScoutListing(hit: any, product: any, url: string, categoryKey: string): { listing: any | null; reason: string } {
     // Extract region and category from categoryKey
     // wien-wohnung, noe-wohnung, noe-haus
     const region = categoryKey.startsWith('wien') ? 'wien' : 'niederoesterreich';
@@ -821,14 +1336,46 @@ export class MultiNewestScraperService {
     const area = hit.primaryArea;
     const eur_per_m2 = (price && area) ? (price / area).toFixed(2) : null;
 
-    return {
+    const location = hit.addressString || '';
+    const title = product.title || hit.headline;
+
+    // ✅ Geographic filter - check if location is in acquisition area
+    const geoCheck = isInAkquiseGebiet(location, region);
+    if (!geoCheck.allowed) {
+      // Save to geo_blocked_listings table (async, don't wait)
+      const { plz, ort } = extractPlzAndOrt(location);
+      storage.saveGeoBlockedListing({
+        title,
+        price,
+        location,
+        area: area ? String(area) : null,
+        eur_per_m2,
+        description: product.description || null,
+        phone_number: null,
+        images: product.images || [],
+        url,
+        category,
+        region,
+        source: 'immoscout',
+        original_scraped_at: new Date(),
+        original_published_at: product.datePosted ? new Date(product.datePosted) : new Date(),
+        original_last_changed_at: null,
+        block_reason: geoCheck.reason,
+        plz,
+        ort,
+      }).catch(err => console.log(`[SCRAPER] Geo-blocked save error (ignoring): ${err.message}`));
+
+      return { listing: null, reason: `Außerhalb Akquise-Gebiet: ${geoCheck.reason} (${location})` };
+    }
+
+    const listing = {
       source: 'immoscout',
-      title: product.title || hit.headline,
+      title,
       description: product.description || null,
       price,
       area,
       rooms: hit.numberOfRooms,
-      location: hit.addressString,
+      location,
       url,
       images: product.images,
       phone_number: null,
@@ -839,7 +1386,23 @@ export class MultiNewestScraperService {
         exposeId: hit.exposeId,
         badges: hit.badges || [],
         datePosted: product.datePosted,
-      }
+      },
+      // Don't set last_changed_at for new listings - will be set on first real change
+      last_changed_at: undefined,
+      published_at: product.datePosted ? new Date(product.datePosted) : new Date()
+    };
+
+    // Calculate quality score
+    const qualityResult = calculateQualityScore(listing);
+
+    return {
+      listing: {
+        ...listing,
+        quality_score: qualityResult.total,
+        quality_tier: qualityResult.tier,
+        is_gold_find: qualityResult.isGoldFind,
+      },
+      reason: 'ok'
     };
   }
 

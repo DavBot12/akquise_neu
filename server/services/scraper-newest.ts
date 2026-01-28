@@ -17,6 +17,9 @@ import {
   extractDetailUrlsWithISPRIVATE,
   extractListingIdFromUrl,
 } from './scraper-utils';
+import { storage } from '../storage';
+import { isInAkquiseGebiet, extractPlzAndOrt } from './geo-filter';
+import { calculateQualityScore } from './quality-scorer';
 
 /**
  * NEWEST SCRAPER SERVICE
@@ -397,6 +400,7 @@ export class NewestScraperService {
             }
 
             // Check if we've reached THIS CATEGORY's previous scrape's first ID
+            onLog?.(`[NEWEST] [${label}] 🔍 Checking ID: ${listingId} vs saved: ${categoryLastFirstId} (match: ${listingId === categoryLastFirstId})`);
             if (categoryLastFirstId && listingId === categoryLastFirstId) {
               foundPreviousFirstId = true;
               onLog?.(`[NEWEST] [${label}] ✅ Reached previous first ID for ${key}: ${listingId} - Stopping pagination`);
@@ -564,26 +568,67 @@ export class NewestScraperService {
 
     const locJson = extractLocationFromJson(html);
     const location = locJson || extractLocationFromDom($, url) || (key.includes('wien') ? 'Wien' : 'Niederösterreich');
+
     const phoneDirect = extractPhoneFromHtml(html, $);
     const lastChangedAt = extractLastChanged($, html);
     const publishedAt = extractPublishedDate(html);
 
-    return {
-      listing: {
+    // ✅ Geographic filter - check if location is in acquisition area
+    const geoCheck = isInAkquiseGebiet(location, region);
+    if (!geoCheck.allowed) {
+      // Save to geo_blocked_listings table (async, don't wait)
+      const { plz, ort } = extractPlzAndOrt(location);
+      storage.saveGeoBlockedListing({
         title,
         price,
-        area: areaStr || null,
         location,
-        url,
-        images,
+        area: areaStr || null,
+        eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
         description,
         phone_number: phoneDirect || null,
+        images,
+        url,
         category,
         region,
-        eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
-        akquise_erledigt: false,
-        last_changed_at: lastChangedAt,
-        published_at: publishedAt,
+        source: 'willhaben',
+        original_scraped_at: new Date(),
+        original_published_at: publishedAt,
+        original_last_changed_at: lastChangedAt,
+        block_reason: geoCheck.reason,
+        plz,
+        ort,
+      }).catch(err => console.log(`[SCRAPER] Geo-blocked save error (ignoring): ${err.message}`));
+
+      return { listing: null, reason: `Außerhalb Akquise-Gebiet: ${geoCheck.reason} (${location})` };
+    }
+
+    // Build listing object for quality scoring (phoneDirect, lastChangedAt, publishedAt already extracted above)
+    const listing = {
+      title,
+      price,
+      area: areaStr || null,
+      location,
+      url,
+      images,
+      description,
+      phone_number: phoneDirect || null,
+      category,
+      region,
+      eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
+      akquise_erledigt: false,
+      last_changed_at: lastChangedAt,
+      published_at: publishedAt,
+    };
+
+    // Calculate quality score
+    const qualityResult = calculateQualityScore(listing);
+
+    return {
+      listing: {
+        ...listing,
+        quality_score: qualityResult.total,
+        quality_tier: qualityResult.tier,
+        is_gold_find: qualityResult.isGoldFind,
       },
       reason: 'ok',
     };

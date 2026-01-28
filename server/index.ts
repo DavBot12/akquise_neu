@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { QualityScoreUpdater } from "./services/quality-score-updater";
+import { fixLastChangedAt } from "./migrations/fix-last-changed-at";
 // import { PriceMirrorScraperService } from "./services/price-mirror-scraper"; // DISABLED: Focus on scraper first
 
 // Simple log function (extracted from vite.ts to avoid import issues in production)
@@ -49,6 +51,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // 🔧 RUN ONE-TIME MIGRATION: Fix last_changed_at for existing listings
+  try {
+    await fixLastChangedAt();
+  } catch (error) {
+    log('Warning: Migration failed (this is OK if already run)', 'migration');
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -84,6 +93,10 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
+
+    // Start quality score updater (daily at 3:00 AM)
+    const qualityUpdater = new QualityScoreUpdater();
+    qualityUpdater.startDailySchedule();
 
     // DISABLED: Price mirror - will be improved later with per-district pricing
     // const priceMirrorService = new PriceMirrorScraperService();

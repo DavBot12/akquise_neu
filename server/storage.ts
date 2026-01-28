@@ -9,6 +9,9 @@ import {
   price_mirror_listings,
   discovered_links,
   scraper_state,
+  price_history,
+  scraper_stats,
+  geo_blocked_listings,
   type Listing,
   type Contact,
   type ListingContact,
@@ -20,6 +23,12 @@ import {
   type DiscoveredLink,
   type ScraperState,
   type InsertScraperState,
+  type PriceHistory,
+  type InsertPriceHistory,
+  type ScraperStats,
+  type InsertScraperStats,
+  type GeoBlockedListing,
+  type InsertGeoBlockedListing,
   type InsertListing,
   type InsertContact,
   type InsertListingContact,
@@ -52,7 +61,26 @@ export interface IStorage {
     min_price?: number;
     max_price?: number;
     source?: string;
+    // Pagination
+    limit?: number;
+    offset?: number;
+    sortBy?: 'scraped_at' | 'quality_score' | 'first_seen_at' | 'price' | 'last_changed_at';
+    // Filter for price drops
+    has_price_drop?: boolean;
   }): Promise<Listing[]>;
+  getListingsCount(filters?: {
+    akquise_erledigt?: boolean;
+    region?: string;
+    district?: string;
+    price_evaluation?: string;
+    is_deleted?: boolean;
+    category?: string;
+    has_phone?: boolean;
+    min_price?: number;
+    max_price?: number;
+    source?: string;
+    has_price_drop?: boolean;
+  }): Promise<number>;
   getListingById(id: number): Promise<Listing | undefined>;
   getListingByUrl(url: string): Promise<Listing | undefined>;
   createListing(listing: InsertListing): Promise<Listing>;
@@ -63,6 +91,11 @@ export interface IStorage {
     images?: string[];
   }): Promise<void>;
   updateListingAkquiseStatus(id: number, akquise_erledigt: boolean): Promise<void>;
+  updateListingQualityScore(id: number, updates: {
+    quality_score: number;
+    quality_tier: 'excellent' | 'good' | 'medium' | 'low';
+    is_gold_find: boolean;
+  }): Promise<void>;
   markListingAsDeleted(id: number, userId: number, reason?: string): Promise<void>;
   getDeletedAndUnsuccessful(): Promise<any[]>;
   getSuccessfulAcquisitions(userId?: number): Promise<any[]>;
@@ -162,10 +195,37 @@ export interface IStorage {
   // Activity scraper methods
   updateListingLastSeen(id: number): Promise<void>;
 
-  // Scraper state (page counters)
-  getAllScraperState(): Promise<Record<string, number>>;
-  getScraperNextPage(stateKey: string, fallback?: number): Promise<number>;
-  setScraperNextPage(stateKey: string, nextPage: number): Promise<void>;
+  // Scraper state (page counters / listing IDs)
+  getAllScraperState(): Promise<Record<string, string>>;
+  getScraperNextPage(stateKey: string, fallback?: string | number): Promise<string | number>;
+  setScraperNextPage(stateKey: string, nextPage: string | number): Promise<void>;
+
+  // Price history & tracking
+  createPriceHistory(priceHistory: InsertPriceHistory): Promise<PriceHistory>;
+  getPriceHistory(listingId: number): Promise<PriceHistory[]>;
+  getPriceDropCount(listingId: number): Promise<number>;
+  updateListingPriceDropInfo(listingId: number, updates: {
+    last_price_drop: number;
+    last_price_drop_percentage: string;
+    last_price_drop_date: Date;
+    total_price_drops: number;
+  }): Promise<void>;
+  getListingsWithRecentPriceDrops(days: number): Promise<Listing[]>;
+
+  // Scraper statistics
+  createScraperStats(stats: InsertScraperStats): Promise<ScraperStats>;
+  getScraperStats(filters?: {
+    scraper_name?: string;
+    platform?: string;
+    days?: number;
+  }): Promise<ScraperStats[]>;
+  getScraperStatsSummary(): Promise<Array<{
+    scraper_name: string;
+    platform: string;
+    total_listings: number;
+    avg_quality_score: number;
+    total_pages: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -206,9 +266,67 @@ export class DatabaseStorage implements IStorage {
     min_price?: number;
     max_price?: number;
     source?: string;
+    limit?: number;
+    offset?: number;
+    sortBy?: 'scraped_at' | 'quality_score' | 'first_seen_at' | 'price' | 'last_changed_at';
+    has_price_drop?: boolean;
   }): Promise<Listing[]> {
     let query = db.select().from(listings);
 
+    const conditions = this.buildListingConditions(filters);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    // Sorting
+    const sortColumn = filters?.sortBy || 'last_changed_at';
+    switch (sortColumn) {
+      case 'quality_score':
+        query = query.orderBy(desc(listings.quality_score)) as any;
+        break;
+      case 'first_seen_at':
+        query = query.orderBy(desc(listings.first_seen_at)) as any;
+        break;
+      case 'price':
+        query = query.orderBy(listings.price) as any;
+        break;
+      case 'scraped_at':
+        query = query.orderBy(desc(listings.scraped_at)) as any;
+        break;
+      case 'last_changed_at':
+      default:
+        query = query.orderBy(desc(listings.last_changed_at)) as any;
+    }
+
+    // Pagination: default limit 150, can be overridden
+    const limit = filters?.limit ?? 150;
+    const offset = filters?.offset ?? 0;
+
+    if (limit > 0) {
+      query = query.limit(limit) as any;
+    }
+    if (offset > 0) {
+      query = query.offset(offset) as any;
+    }
+
+    return await query;
+  }
+
+  // Helper to build filter conditions (reusable for count query)
+  private buildListingConditions(filters?: {
+    akquise_erledigt?: boolean;
+    region?: string;
+    district?: string;
+    price_evaluation?: string;
+    is_deleted?: boolean;
+    category?: string;
+    has_phone?: boolean;
+    min_price?: number;
+    max_price?: number;
+    source?: string;
+    has_price_drop?: boolean;
+  }): any[] {
     const conditions = [];
 
     // Standardmäßig nur nicht-gelöschte Listings anzeigen (außer explizit angefordert)
@@ -256,13 +374,38 @@ export class DatabaseStorage implements IStorage {
       if (filters.source) {
         conditions.push(eq(listings.source, filters.source));
       }
+      // NEW: Filter for listings with price drops
+      if (filters.has_price_drop === true) {
+        conditions.push(sql`${listings.last_price_drop} IS NOT NULL AND ${listings.last_price_drop} < 0`);
+      }
     }
+
+    return conditions;
+  }
+
+  async getListingsCount(filters?: {
+    akquise_erledigt?: boolean;
+    region?: string;
+    district?: string;
+    price_evaluation?: string;
+    is_deleted?: boolean;
+    category?: string;
+    has_phone?: boolean;
+    min_price?: number;
+    max_price?: number;
+    source?: string;
+    has_price_drop?: boolean;
+  }): Promise<number> {
+    const conditions = this.buildListingConditions(filters);
+
+    let query = db.select({ count: sql<number>`count(*)` }).from(listings);
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as any;
     }
 
-    return await query.orderBy(desc(listings.scraped_at));
+    const result = await query;
+    return Number(result[0]?.count || 0);
   }
 
   async getListingById(id: number): Promise<Listing | undefined> {
@@ -276,9 +419,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createListing(listing: InsertListing): Promise<Listing> {
+    // ✅ FIX: Set last_changed_at = first_seen_at for new listings from DerStandard/ImmoScout
+    // Willhaben provides last_changed_at from the platform, but DerStandard/ImmoScout don't
+    const insertData: any = { ...listing };
+
+    // If last_changed_at is undefined/null, set it to first_seen_at (or current time if first_seen_at also missing)
+    if (insertData.last_changed_at === undefined || insertData.last_changed_at === null) {
+      insertData.last_changed_at = insertData.first_seen_at || new Date();
+    }
+
     const [newListing] = await db
       .insert(listings)
-      .values(listing as any)
+      .values(insertData)
       .returning();
     return newListing;
   }
@@ -291,12 +443,19 @@ export class DatabaseStorage implements IStorage {
   }): Promise<void> {
     const updateData: any = {};
 
+    // Always update scraped_at to show when we last checked this listing
     if (updates.scraped_at !== undefined) {
       updateData.scraped_at = updates.scraped_at;
     }
-    if (updates.last_changed_at !== undefined) {
+
+    // ✅ FIX: Only update last_changed_at if it's explicitly provided (from Willhaben)
+    // For DerStandard/ImmoScout (where last_changed_at comes as undefined):
+    // - Don't set it to null (keep existing value)
+    // - Let routes.ts handle detecting actual changes and updating last_changed_at only then
+    if (updates.last_changed_at !== undefined && updates.last_changed_at !== null) {
       updateData.last_changed_at = updates.last_changed_at;
     }
+
     if (updates.price !== undefined) {
       updateData.price = updates.price;
     }
@@ -314,6 +473,17 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(listings)
       .set({ akquise_erledigt })
+      .where(eq(listings.id, id));
+  }
+
+  async updateListingQualityScore(id: number, updates: {
+    quality_score: number;
+    quality_tier: 'excellent' | 'good' | 'medium' | 'low';
+    is_gold_find: boolean;
+  }): Promise<void> {
+    await db
+      .update(listings)
+      .set(updates)
       .where(eq(listings.id, id));
   }
 
@@ -444,10 +614,11 @@ export class DatabaseStorage implements IStorage {
     completedListings: number;
     lastScrape: string | null;
   }> {
+    // Active listings: not completed AND not deleted (geo-blocked)
     const [activeCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(listings)
-      .where(eq(listings.akquise_erledigt, false));
+      .where(and(eq(listings.akquise_erledigt, false), eq(listings.is_deleted, false)));
 
     const [completedCount] = await db
       .select({ count: sql<number>`count(*)` })
@@ -1022,29 +1193,37 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async getAllScraperState(): Promise<Record<string, number>> {
+  async getAllScraperState(): Promise<Record<string, string>> {
     const rows = await db.select().from(scraper_state);
-    const map: Record<string, number> = {};
+    const map: Record<string, string> = {};
     for (const r of rows as ScraperState[]) {
-      map[r.state_key] = r.next_page ?? 1;
+      map[r.state_key] = r.next_page ?? '1';
     }
     return map;
   }
 
-  async getScraperNextPage(stateKey: string, fallback = 1): Promise<number> {
+  async getScraperNextPage(stateKey: string, fallback: string | number = '1'): Promise<string | number> {
     const [row] = await db.select().from(scraper_state).where(eq(scraper_state.state_key, stateKey));
     if (!row) return fallback;
     const s = row as ScraperState;
-    return s.next_page ?? fallback;
+    const value = s.next_page ?? fallback.toString();
+
+    // If fallback was a number, try to parse the stored value as number (for backward compatibility)
+    if (typeof fallback === 'number') {
+      const parsed = parseInt(value, 10);
+      return isNaN(parsed) ? value : parsed; // Return string if not parseable as number
+    }
+
+    return value;
   }
 
-  async setScraperNextPage(stateKey: string, nextPage: number): Promise<void> {
+  async setScraperNextPage(stateKey: string, nextPage: string | number): Promise<void> {
     await db
       .insert(scraper_state)
-      .values({ state_key: stateKey, next_page: nextPage } as InsertScraperState)
+      .values({ state_key: stateKey, next_page: nextPage.toString() } as InsertScraperState)
       .onConflictDoUpdate({
         target: scraper_state.state_key,
-        set: { next_page: nextPage, updated_at: new Date() }
+        set: { next_page: nextPage.toString(), updated_at: new Date() }
       });
   }
 
@@ -1216,6 +1395,232 @@ export class DatabaseStorage implements IStorage {
       max_price: Math.round(r.max_price || 0),
       count: r.count || 0
     }));
+  }
+
+  // ============================================
+  // PRICE HISTORY & TRACKING
+  // ============================================
+
+  async createPriceHistory(priceHistory: InsertPriceHistory): Promise<PriceHistory> {
+    const [created] = await db.insert(price_history).values(priceHistory).returning();
+    return created;
+  }
+
+  async getPriceHistory(listingId: number): Promise<PriceHistory[]> {
+    return db
+      .select()
+      .from(price_history)
+      .where(eq(price_history.listing_id, listingId))
+      .orderBy(desc(price_history.detected_at));
+  }
+
+  async getPriceDropCount(listingId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(price_history)
+      .where(and(
+        eq(price_history.listing_id, listingId),
+        sql`${price_history.price_change} < 0` // Only count price drops (negative)
+      ));
+
+    return result[0]?.count || 0;
+  }
+
+  async updateListingPriceDropInfo(listingId: number, updates: {
+    last_price_drop: number;
+    last_price_drop_percentage: string;
+    last_price_drop_date: Date;
+    total_price_drops: number;
+  }): Promise<void> {
+    await db
+      .update(listings)
+      .set({
+        last_price_drop: updates.last_price_drop,
+        last_price_drop_percentage: updates.last_price_drop_percentage,
+        last_price_drop_date: updates.last_price_drop_date,
+        total_price_drops: updates.total_price_drops,
+      })
+      .where(eq(listings.id, listingId));
+  }
+
+  async getListingsWithRecentPriceDrops(days: number = 7): Promise<Listing[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    return db
+      .select()
+      .from(listings)
+      .where(and(
+        eq(listings.is_deleted, false),
+        sql`${listings.last_price_drop_date} >= ${cutoffDate}`,
+        sql`${listings.last_price_drop} < 0` // Only price drops
+      ))
+      .orderBy(desc(listings.last_price_drop_date));
+  }
+
+  // ============================================
+  // SCRAPER STATISTICS
+  // ============================================
+
+  async createScraperStats(stats: InsertScraperStats): Promise<ScraperStats> {
+    const [created] = await db.insert(scraper_stats).values(stats).returning();
+    return created;
+  }
+
+  async getScraperStats(filters?: {
+    scraper_name?: string;
+    platform?: string;
+    days?: number;
+  }): Promise<ScraperStats[]> {
+    const conditions = [];
+
+    if (filters?.scraper_name) {
+      conditions.push(eq(scraper_stats.scraper_name, filters.scraper_name));
+    }
+    if (filters?.platform) {
+      conditions.push(eq(scraper_stats.platform, filters.platform));
+    }
+    if (filters?.days) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - filters.days);
+      conditions.push(sql`${scraper_stats.scraped_at} >= ${cutoffDate}`);
+    }
+
+    return db
+      .select()
+      .from(scraper_stats)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(scraper_stats.scraped_at));
+  }
+
+  async getScraperStatsSummary(): Promise<Array<{
+    scraper_name: string;
+    platform: string;
+    total_listings: number;
+    avg_quality_score: number;
+    total_pages: number;
+  }>> {
+    const results = await db
+      .select({
+        scraper_name: scraper_stats.scraper_name,
+        platform: scraper_stats.platform,
+        total_listings: sql<number>`SUM(${scraper_stats.listings_new})::int`,
+        avg_quality_score: sql<number>`AVG(${scraper_stats.average_quality_score})::int`,
+        total_pages: sql<number>`SUM(${scraper_stats.pages_scraped})::int`,
+      })
+      .from(scraper_stats)
+      .groupBy(scraper_stats.scraper_name, scraper_stats.platform)
+      .orderBy(scraper_stats.scraper_name, scraper_stats.platform);
+
+    return results.map(r => ({
+      scraper_name: r.scraper_name,
+      platform: r.platform,
+      total_listings: r.total_listings || 0,
+      avg_quality_score: r.avg_quality_score || 0,
+      total_pages: r.total_pages || 0,
+    }));
+  }
+
+  // ==========================================
+  // GEO-BLOCKED LISTINGS
+  // ==========================================
+
+  /**
+   * Save a listing that was blocked by the geo-filter
+   * Returns the created record or null if URL already exists
+   */
+  async saveGeoBlockedListing(data: InsertGeoBlockedListing): Promise<GeoBlockedListing | null> {
+    try {
+      // Check if already exists (by URL)
+      const existing = await db
+        .select()
+        .from(geo_blocked_listings)
+        .where(eq(geo_blocked_listings.url, data.url))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return null; // Already exists
+      }
+
+      const [result] = await db
+        .insert(geo_blocked_listings)
+        .values(data)
+        .returning();
+
+      return result;
+    } catch (error) {
+      console.error('[STORAGE] Error saving geo-blocked listing:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all geo-blocked listings with optional filters
+   */
+  async getGeoBlockedListings(filters?: {
+    region?: string;
+    source?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<GeoBlockedListing[]> {
+    let query = db.select().from(geo_blocked_listings);
+
+    // TODO: Add filters if needed
+
+    const results = await query
+      .orderBy(desc(geo_blocked_listings.blocked_at))
+      .limit(filters?.limit || 100)
+      .offset(filters?.offset || 0);
+
+    return results;
+  }
+
+  /**
+   * Get geo-blocked listings statistics
+   */
+  async getGeoBlockedStats(): Promise<{
+    total: number;
+    by_reason: Record<string, number>;
+    by_region: Record<string, number>;
+    by_source: Record<string, number>;
+  }> {
+    const all = await db.select().from(geo_blocked_listings);
+
+    const by_reason: Record<string, number> = {};
+    const by_region: Record<string, number> = {};
+    const by_source: Record<string, number> = {};
+
+    for (const listing of all) {
+      // Group by reason
+      const reason = listing.block_reason || 'unknown';
+      by_reason[reason] = (by_reason[reason] || 0) + 1;
+
+      // Group by region
+      by_region[listing.region] = (by_region[listing.region] || 0) + 1;
+
+      // Group by source
+      by_source[listing.source] = (by_source[listing.source] || 0) + 1;
+    }
+
+    return {
+      total: all.length,
+      by_reason,
+      by_region,
+      by_source,
+    };
+  }
+
+  /**
+   * Check if a URL is already in geo_blocked_listings
+   */
+  async isUrlGeoBlocked(url: string): Promise<boolean> {
+    const existing = await db
+      .select({ id: geo_blocked_listings.id })
+      .from(geo_blocked_listings)
+      .where(eq(geo_blocked_listings.url, url))
+      .limit(1);
+
+    return existing.length > 0;
   }
 }
 

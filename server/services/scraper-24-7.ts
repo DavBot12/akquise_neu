@@ -16,6 +16,8 @@ import {
   extractPhoneFromHtml,
   extractDetailUrlsWithISPRIVATE,
 } from './scraper-utils';
+import { isInAkquiseGebiet, extractPlzAndOrt } from './geo-filter';
+import { calculateQualityScore } from './quality-scorer';
 
 interface ContinuousScrapingOptions {
   onProgress: (message: string) => void;
@@ -259,9 +261,39 @@ export class ContinuousScraper247Service {
           ? 'haus'
           : 'grundstueck';
       if (price <= 0) return null;
+
       const eurPerM2 = area > 0 ? Math.round(price / area) : 0;
 
-      return {
+      // ✅ Geographic filter - check if location is in acquisition area
+      const geoCheck = isInAkquiseGebiet(location || '', region);
+      if (!geoCheck.allowed) {
+        // Save to geo_blocked_listings table (async, don't wait)
+        const { plz, ort } = extractPlzAndOrt(location || '');
+        storage.saveGeoBlockedListing({
+          title,
+          price,
+          location: location || '',
+          area: areaStr || null,
+          eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
+          description,
+          phone_number: phoneNumber || null,
+          images,
+          url,
+          category: listingCategory,
+          region,
+          source: 'willhaben',
+          original_scraped_at: new Date(),
+          original_published_at: null,
+          original_last_changed_at: lastChangedAt,
+          block_reason: geoCheck.reason,
+          plz,
+          ort,
+        }).catch(err => console.log(`[SCRAPER] Geo-blocked save error (ignoring): ${err.message}`));
+
+        return null; // Filter out listings outside acquisition area
+      }
+
+      const listing = {
         title,
         price,
         area: areaStr || null,
@@ -274,6 +306,16 @@ export class ContinuousScraper247Service {
         region,
         eur_per_m2: eurPerM2 ? String(eurPerM2) : null,
         last_changed_at: lastChangedAt
+      };
+
+      // Calculate quality score
+      const qualityResult = calculateQualityScore(listing);
+
+      return {
+        ...listing,
+        quality_score: qualityResult.total,
+        quality_tier: qualityResult.tier,
+        is_gold_find: qualityResult.isGoldFind,
       };
 
     } catch (error) {

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 interface LoginPageProps {
-  onLogin: (user: { id: number; username: string; is_admin?: boolean }) => void;
+  onLogin: (user: { id: number; username: string; is_admin?: boolean }, sessionId: number) => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
@@ -39,12 +39,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           });
           setIsLogin(true);
           setPassword("");
-        } else if (data.user) {
+        } else if (data.user && data.sessionId) {
           toast({
             title: isLogin ? "Anmeldung erfolgreich" : "Registrierung erfolgreich",
             description: `Willkommen, ${data.user.username}`,
           });
-          onLogin(data.user);
+          onLogin(data.user, data.sessionId);
         } else {
           throw new Error("Unerwartete Server-Antwort");
         }

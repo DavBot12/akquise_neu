@@ -1,26 +1,31 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AkquiseModal } from "@/components/akquise-modal";
 import { ListingDetailModal } from "@/components/listing-detail-modal";
-import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2, Eye } from "lucide-react";
+import { QualityBadge } from "@/components/quality-badge";
+import { QualityScoreFeedbackModal } from "@/components/quality-score-feedback-modal";
+import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2, Eye, Settings, TrendingDown, AlertTriangle, Ban, ShoppingCart, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import type { Listing } from "@shared/schema";
 
 interface ListingCardProps {
   listing: Listing;
-  onMarkCompleted: (id: number) => void;
+  onMarkCompleted: (id: number, isSuccess?: boolean) => void;
   isMarkingCompleted: boolean;
-  onDelete?: (id: number, reason?: string) => void;
+  onDelete?: (id: number, reason?: string, deleteType?: string) => void;
   user?: { id: number; username: string };
 }
 
-export default function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, user }: ListingCardProps) {
+function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, user }: ListingCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAkquiseModal, setShowAkquiseModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { toast } = useToast();
   
   const hasImages = listing.images && listing.images.length > 0;
@@ -135,7 +140,26 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
           src={images[currentImageIndex]}
           alt={listing.title}
           className="w-full h-48 object-cover"
+          loading="lazy"
+          decoding="async"
         />
+        {/* Quality Badge - Top Left */}
+        <div className="absolute top-3 left-3 flex gap-1">
+          <QualityBadge
+            score={listing.quality_score ?? 0}
+            tier={listing.quality_tier}
+            isGoldFind={listing.is_gold_find ?? false}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 bg-white/90 hover:bg-white shadow-sm"
+            onClick={() => setShowFeedbackModal(true)}
+            title="Quality Score anpassen"
+          >
+            <Settings className="h-3 w-3 text-gray-600" />
+          </Button>
+        </div>
         {images.length > 1 && (
           <>
             <div className="absolute top-3 right-3">
@@ -169,8 +193,19 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
         </h3>
 
         <div className="flex items-center justify-between mb-4">
-          <div className="text-2xl font-semibold text-sira-navy">
-            {formatPrice(listing.price)}
+          <div className="flex items-center gap-2">
+            <div className="text-2xl font-semibold text-sira-navy">
+              {formatPrice(listing.price)}
+            </div>
+            {listing.last_price_drop && listing.last_price_drop < 0 && (
+              <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5 flex items-center gap-1">
+                <TrendingDown className="h-3 w-3" />
+                {Math.abs(Number(listing.last_price_drop_percentage || 0)).toFixed(0)}%
+                {listing.total_price_drops && listing.total_price_drops > 1 && (
+                  <span className="text-red-200">({listing.total_price_drops}x)</span>
+                )}
+              </Badge>
+            )}
           </div>
           <div className="text-right">
             <div className="text-xs text-sira-medium-gray">{listing.area ? `${listing.area} m²` : "N/A"}</div>
@@ -212,9 +247,26 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
         <div className="flex flex-col gap-2 text-sm text-sira-medium-gray mb-4">
           <div className="flex items-center justify-between">
             <span className="text-xs">Gescraped: {formatScrapedAt(listing.scraped_at)}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-sira-navy">Privat</span>
-              {listing.source === 'derstandard' ? (
+              {/* Multi-Source Badges for duplicates */}
+              {listing.duplicate_sources && listing.duplicate_sources.length > 1 ? (
+                listing.duplicate_sources.map((src: string) => (
+                  <Badge
+                    key={src}
+                    variant="outline"
+                    className={`text-xs px-1.5 py-0.5 ${
+                      src === 'derstandard'
+                        ? 'border-sira-info text-sira-info'
+                        : src === 'immoscout'
+                        ? 'border-sira-warning text-sira-warning'
+                        : 'border-sira-success text-sira-success'
+                    }`}
+                  >
+                    {src === 'derstandard' ? 'DS' : src === 'immoscout' ? 'IS' : 'WH'}
+                  </Badge>
+                ))
+              ) : listing.source === 'derstandard' ? (
                 <Badge variant="outline" className="text-xs px-2 py-0.5 border-sira-info text-sira-info">
                   derStandard
                 </Badge>
@@ -276,16 +328,8 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (window.confirm("Dieses Inserat als unattraktiv markieren und ausblenden?")) {
-                  onDelete(listing.id, "Unattraktiv");
-                  toast({
-                    title: "Inserat versteckt",
-                    description: "Das Inserat wurde als unattraktiv markiert",
-                  });
-                }
-              }}
-              title="Als unattraktiv markieren"
+              onClick={() => setShowDeleteModal(true)}
+              title="Inserat entfernen"
               className="border-sira-light-gray hover:bg-red-50 hover:text-sira-danger transition-smooth"
             >
               <Trash2 className="h-4 w-4" />
@@ -346,6 +390,92 @@ export default function ListingCard({ listing, onMarkCompleted, isMarkingComplet
         }}
         listingTitle={listing.title}
       />
+
+      <QualityScoreFeedbackModal
+        listing={listing}
+        open={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+      />
+
+      {/* Delete Modal with ML Feedback Options */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Inserat entfernen</DialogTitle>
+            <DialogDescription>
+              Warum möchtest du dieses Inserat entfernen? Diese Info hilft dem System zu lernen.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            <Button
+              variant="outline"
+              className="justify-start h-auto py-3 px-4 hover:bg-red-50 hover:border-red-200"
+              onClick={() => {
+                onDelete?.(listing.id, "Spam/Fake Inserat", "spam");
+                setShowDeleteModal(false);
+                toast({ title: "Entfernt", description: "Als Spam markiert - KI lernt!" });
+              }}
+            >
+              <AlertTriangle className="h-5 w-5 mr-3 text-red-500" />
+              <div className="text-left">
+                <div className="font-medium">Spam / Fake</div>
+                <div className="text-xs text-muted-foreground">Kein echtes Inserat, Duplikat, oder betrügerisch</div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="justify-start h-auto py-3 px-4 hover:bg-orange-50 hover:border-orange-200"
+              onClick={() => {
+                onDelete?.(listing.id, "Nicht interessant", "not_relevant");
+                setShowDeleteModal(false);
+                toast({ title: "Entfernt", description: "Als uninteressant markiert - KI lernt!" });
+              }}
+            >
+              <Ban className="h-5 w-5 mr-3 text-orange-500" />
+              <div className="text-left">
+                <div className="font-medium">Nicht interessant</div>
+                <div className="text-xs text-muted-foreground">Passt nicht zu unseren Kriterien</div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="justify-start h-auto py-3 px-4 hover:bg-blue-50 hover:border-blue-200"
+              onClick={() => {
+                onDelete?.(listing.id, "Bereits verkauft", "sold");
+                setShowDeleteModal(false);
+                toast({ title: "Entfernt", description: "Als verkauft markiert" });
+              }}
+            >
+              <ShoppingCart className="h-5 w-5 mr-3 text-blue-500" />
+              <div className="text-left">
+                <div className="font-medium">Bereits verkauft</div>
+                <div className="text-xs text-muted-foreground">Objekt ist nicht mehr verfügbar</div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="justify-start h-auto py-3 px-4 hover:bg-gray-50"
+              onClick={() => {
+                onDelete?.(listing.id, "Sonstiges", "other");
+                setShowDeleteModal(false);
+                toast({ title: "Entfernt", description: "Inserat wurde entfernt" });
+              }}
+            >
+              <HelpCircle className="h-5 w-5 mr-3 text-gray-500" />
+              <div className="text-left">
+                <div className="font-medium">Sonstiges</div>
+                <div className="text-xs text-muted-foreground">Anderer Grund</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default memo(ListingCard);

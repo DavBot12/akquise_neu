@@ -14,8 +14,15 @@ import { ScraperV3Service } from "./services/scraper-v3";
 import { MultiNewestScraperService } from "./services/scraper-newest-multi";
 import { DerStandardScraperService } from "./services/scraper-derstandard";
 import { ImmoScout24ScraperService } from "./services/scraper-immoscout-v2";
+import { registerMLRoutes } from "./routes-ml";
+import { trackPriceChange, detectPriceChange } from "./services/price-tracker";
+import { extractFeatures } from "./services/ml-feature-extractor";
+import { createOutcomeFeedback, getScoreAdjustment } from "./storage-ml";
+import { isInAkquiseGebiet } from "./services/geo-filter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register ML routes
+  registerMLRoutes(app);
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
@@ -46,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Listings routes
   app.get("/api/listings", async (req, res) => {
     try {
-      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price, source } = req.query;
+      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price, source, limit, offset, sortBy, has_price_drop } = req.query;
       const filters: any = {};
 
       if (region && region !== "Alle Regionen") filters.region = region;
@@ -66,11 +73,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (min_price) filters.min_price = parseInt(min_price as string);
       if (max_price) filters.max_price = parseInt(max_price as string);
       if (source && source !== "Alle Plattformen") filters.source = source;
+      // NEW: Pagination and sorting
+      if (limit) filters.limit = parseInt(limit as string);
+      if (offset) filters.offset = parseInt(offset as string);
+      if (sortBy) filters.sortBy = sortBy as string;
+      if (has_price_drop !== undefined) filters.has_price_drop = has_price_drop === "true";
 
       const listings = await storage.getListings(filters);
       res.json(listings);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch listings" });
+    } catch (error: any) {
+      console.error('[LISTINGS-API] Error fetching listings:', error);
+      res.status(500).json({ message: "Failed to fetch listings", error: error?.message || String(error) });
+    }
+  });
+
+  // All listings with pagination (for /all-listings page)
+  app.get("/api/listings/all", async (req, res) => {
+    try {
+      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price, source, page, per_page, sortBy, has_price_drop } = req.query;
+      const filters: any = {};
+
+      if (region && region !== "Alle Regionen") filters.region = region;
+      if (district && district !== "Alle Bezirke") filters.district = district;
+      if (price_evaluation && price_evaluation !== "Alle Preise") {
+        const mapping: { [key: string]: string } = {
+          "Unter dem Schnitt": "unter_schnitt",
+          "Im Schnitt": "im_schnitt",
+          "Über dem Schnitt": "ueber_schnitt"
+        };
+        filters.price_evaluation = mapping[price_evaluation as string];
+      }
+      if (akquise_erledigt !== undefined) filters.akquise_erledigt = akquise_erledigt === "true";
+      if (is_deleted !== undefined) filters.is_deleted = is_deleted === "true";
+      if (category && category !== "Alle Kategorien") filters.category = category;
+      if (has_phone !== undefined) filters.has_phone = has_phone === "true";
+      if (min_price) filters.min_price = parseInt(min_price as string);
+      if (max_price) filters.max_price = parseInt(max_price as string);
+      if (source && source !== "Alle Plattformen") filters.source = source;
+      if (sortBy) filters.sortBy = sortBy as string;
+      if (has_price_drop !== undefined) filters.has_price_drop = has_price_drop === "true";
+
+      // Pagination
+      const pageNum = parseInt(page as string) || 1;
+      const perPage = Math.min(parseInt(per_page as string) || 50, 200); // Max 200 per page
+      filters.limit = perPage;
+      filters.offset = (pageNum - 1) * perPage;
+
+      // Get total count and listings in parallel
+      const [listings, totalCount] = await Promise.all([
+        storage.getListings(filters),
+        storage.getListingsCount(filters)
+      ]);
+
+      res.json({
+        listings,
+        pagination: {
+          page: pageNum,
+          per_page: perPage,
+          total: totalCount,
+          total_pages: Math.ceil(totalCount / perPage)
+        }
+      });
+    } catch (error: any) {
+      console.error('[LISTINGS-ALL-API] Error:', error);
+      res.status(500).json({ message: "Failed to fetch all listings", error: error?.message || String(error) });
+    }
+  });
+
+  // Duplicate detection endpoints
+  app.post("/api/duplicates/scan", async (req, res) => {
+    try {
+      const { scanAllForDuplicates } = await import('./services/duplicate-detector');
+      const result = await scanAllForDuplicates();
+      res.json(result);
+    } catch (error: any) {
+      console.error('[DUPLICATES-API] Scan error:', error);
+      res.status(500).json({ message: "Failed to scan for duplicates", error: error?.message });
+    }
+  });
+
+  app.get("/api/duplicates/:listingId", async (req, res) => {
+    try {
+      const { findDuplicates, getDuplicateGroup } = await import('./services/duplicate-detector');
+      const listingId = parseInt(req.params.listingId);
+
+      // Get the listing first
+      const listing = await storage.getListingById(listingId);
+      if (!listing) {
+        return res.status(404).json({ message: "Listing not found" });
+      }
+
+      // If already in a group, return group members
+      if (listing.duplicate_group_id) {
+        const group = await getDuplicateGroup(listing.duplicate_group_id);
+        return res.json({ grouped: true, members: group });
+      }
+
+      // Otherwise, find potential duplicates
+      const candidates = await findDuplicates(listingId);
+      res.json({ grouped: false, candidates });
+    } catch (error: any) {
+      console.error('[DUPLICATES-API] Error:', error);
+      res.status(500).json({ message: "Failed to get duplicates", error: error?.message });
+    }
+  });
+
+  app.post("/api/duplicates/group", async (req, res) => {
+    try {
+      const { groupDuplicates } = await import('./services/duplicate-detector');
+      const { listingIds } = req.body;
+
+      if (!Array.isArray(listingIds) || listingIds.length < 2) {
+        return res.status(400).json({ message: "At least 2 listing IDs required" });
+      }
+
+      await groupDuplicates(listingIds);
+      res.json({ success: true, message: `Grouped ${listingIds.length} listings` });
+    } catch (error: any) {
+      console.error('[DUPLICATES-API] Group error:', error);
+      res.status(500).json({ message: "Failed to group listings", error: error?.message });
+    }
+  });
+
+  app.post("/api/duplicates/ungroup/:listingId", async (req, res) => {
+    try {
+      const { ungroupListing } = await import('./services/duplicate-detector');
+      const listingId = parseInt(req.params.listingId);
+
+      await ungroupListing(listingId);
+      res.json({ success: true, message: "Listing ungrouped" });
+    } catch (error: any) {
+      console.error('[DUPLICATES-API] Ungroup error:', error);
+      res.status(500).json({ message: "Failed to ungroup listing", error: error?.message });
     }
   });
 
@@ -94,11 +228,410 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Geo-Filter: Blockierte Orte aus aktueller DB abrufen
+  app.get("/api/geo-filter/blocked-locations", async (req, res) => {
+    try {
+      // Hole alle aktiven Listings
+      const allListings = await db.select().from(listings);
+      const activeListings = allListings.filter(l => !l.deleted_at);
+
+      interface BlockedLocation {
+        id: number;
+        title: string;
+        location: string;
+        region: string;
+        reason: string;
+        url: string;
+      }
+
+      const blocked: BlockedLocation[] = [];
+
+      for (const listing of activeListings) {
+        if (!listing.location || !listing.region) continue;
+
+        const result = isInAkquiseGebiet(listing.location, listing.region);
+
+        if (!result.allowed) {
+          blocked.push({
+            id: listing.id,
+            title: listing.title || 'Kein Titel',
+            location: listing.location,
+            region: listing.region,
+            reason: result.reason,
+            url: listing.url || '',
+          });
+        }
+      }
+
+      // Sortiere nach Ort
+      blocked.sort((a, b) => a.location.localeCompare(b.location));
+
+      // Für Download als TXT
+      const format = req.query.format;
+      if (format === 'txt') {
+        const lines = [
+          `Blockierte Orte im Geo-Filter`,
+          `Stand: ${new Date().toLocaleString('de-DE')}`,
+          `Gesamt: ${blocked.length} von ${activeListings.length} Listings blockiert`,
+          ``,
+          `-------------------------------------------`,
+          ``,
+        ];
+
+        // Gruppiere nach Grund
+        const byReason: Record<string, BlockedLocation[]> = {};
+        for (const b of blocked) {
+          if (!byReason[b.reason]) byReason[b.reason] = [];
+          byReason[b.reason].push(b);
+        }
+
+        for (const [reason, items] of Object.entries(byReason)) {
+          lines.push(`${reason} (${items.length} Listings):`);
+          lines.push(`-------------------------------------------`);
+          for (const item of items) {
+            lines.push(`  ${item.location}`);
+            lines.push(`    → ${item.title.substring(0, 60)}...`);
+            lines.push(`    → ${item.url}`);
+          }
+          lines.push(``);
+        }
+
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="blockierte-orte.txt"');
+        res.send(lines.join('\n'));
+      } else {
+        // JSON-Response
+        res.json({
+          total_active: activeListings.length,
+          total_blocked: blocked.length,
+          block_rate: `${((blocked.length / activeListings.length) * 100).toFixed(1)}%`,
+          blocked_locations: blocked,
+        });
+      }
+    } catch (error: any) {
+      console.error('[GEO-FILTER] Error:', error);
+      res.status(500).json({ message: "Failed to get blocked locations", error: error?.message });
+    }
+  });
+
+  // Geo-Blocked Listings aus der separaten Tabelle
+  app.get("/api/geo-blocked-listings", async (req, res) => {
+    try {
+      const { source, region, limit, offset } = req.query;
+      const filters: any = {};
+      if (source && source !== "all") filters.source = source;
+      if (region && region !== "all") filters.region = region;
+      if (limit) filters.limit = parseInt(limit as string);
+      if (offset) filters.offset = parseInt(offset as string);
+
+      const blockedListings = await storage.getGeoBlockedListings(filters);
+      res.json(blockedListings);
+    } catch (error: any) {
+      console.error('[GEO-BLOCKED] Error fetching blocked listings:', error);
+      res.status(500).json({ message: "Failed to fetch blocked listings", error: error?.message });
+    }
+  });
+
+  // Geo-Blocked Statistiken
+  app.get("/api/geo-blocked-stats", async (req, res) => {
+    try {
+      const stats = await storage.getGeoBlockedStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error('[GEO-BLOCKED] Error fetching stats:', error);
+      res.status(500).json({ message: "Failed to fetch stats", error: error?.message });
+    }
+  });
+
+  // Scraper Intake Statistiken (täglicher Eingang)
+  app.get("/api/scraper-intake-stats", async (req, res) => {
+    try {
+      // Hole Listings der letzten 7 Tage
+      const allListings = await db.select().from(listings);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      // Filter Listings der letzten 7 Tage (basierend auf first_seen_at)
+      const recentListings = allListings.filter(l => {
+        if (!l.first_seen_at) return false;
+        const seenDate = new Date(l.first_seen_at);
+        return seenDate >= sevenDaysAgo;
+      });
+
+      // Heute
+      const todayListings = recentListings.filter(l => {
+        const seenDate = new Date(l.first_seen_at!);
+        return seenDate >= today;
+      });
+
+      // By Hour (today)
+      const byHour: Record<string, number> = {};
+      for (const l of todayListings) {
+        const hour = new Date(l.first_seen_at!).getHours();
+        byHour[hour.toString()] = (byHour[hour.toString()] || 0) + 1;
+      }
+
+      // By Source (today)
+      const todayBySource: Record<string, number> = {};
+      for (const l of todayListings) {
+        const source = l.source || 'unknown';
+        todayBySource[source] = (todayBySource[source] || 0) + 1;
+      }
+
+      // Avg Quality Score (today)
+      const todayScores = todayListings
+        .filter(l => l.quality_score !== null && l.quality_score !== undefined)
+        .map(l => l.quality_score!);
+      const avgQualityScore = todayScores.length > 0
+        ? Math.round(todayScores.reduce((a, b) => a + b, 0) / todayScores.length)
+        : 0;
+
+      // By Day (last 7 days)
+      const byDay: Record<string, number> = {};
+      for (const l of recentListings) {
+        const day = new Date(l.first_seen_at!).toISOString().split('T')[0];
+        byDay[day] = (byDay[day] || 0) + 1;
+      }
+
+      // By Source (last 7 days)
+      const weekBySource: Record<string, number> = {};
+      for (const l of recentListings) {
+        const source = l.source || 'unknown';
+        weekBySource[source] = (weekBySource[source] || 0) + 1;
+      }
+
+      res.json({
+        today: {
+          total: todayListings.length,
+          by_source: todayBySource,
+          by_hour: byHour,
+          avg_quality_score: avgQualityScore,
+        },
+        last_7_days: {
+          total: recentListings.length,
+          by_day: byDay,
+          by_source: weekBySource,
+        },
+      });
+    } catch (error: any) {
+      console.error('[SCRAPER-STATS] Error:', error);
+      res.status(500).json({ message: "Failed to fetch scraper stats", error: error?.message });
+    }
+  });
+
+  // Scraper Analytics Stats (extended with 30 days + ML insights)
+  app.get("/api/scraper-analytics-stats", async (req, res) => {
+    try {
+      const allListings = await db.select().from(listings);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Helper: Get date to use for filtering (first_seen_at or created_at as fallback)
+      const getListingDate = (l: typeof allListings[0]): Date | null => {
+        if (l.first_seen_at) return new Date(l.first_seen_at);
+        if (l.created_at) return new Date(l.created_at);
+        return null;
+      };
+
+      console.log(`[SCRAPER-ANALYTICS] Total listings: ${allListings.length}`);
+
+      // Filter by time periods - use first_seen_at OR created_at
+      const last30DaysListings = allListings.filter(l => {
+        const date = getListingDate(l);
+        if (!date) return false;
+        return date >= thirtyDaysAgo;
+      });
+
+      console.log(`[SCRAPER-ANALYTICS] Last 30 days: ${last30DaysListings.length}`);
+
+      const last7DaysListings = last30DaysListings.filter(l => {
+        const date = getListingDate(l)!;
+        return date >= sevenDaysAgo;
+      });
+
+      const todayListings = last7DaysListings.filter(l => {
+        const date = getListingDate(l)!;
+        return date >= today;
+      });
+
+      console.log(`[SCRAPER-ANALYTICS] Last 7 days: ${last7DaysListings.length}, Today: ${todayListings.length}`);
+
+      // === TODAY STATS ===
+      const todayByHour: Record<string, number> = {};
+      const todayBySource: Record<string, number> = {};
+      for (const l of todayListings) {
+        const date = getListingDate(l)!;
+        const hour = date.getHours();
+        todayByHour[hour.toString()] = (todayByHour[hour.toString()] || 0) + 1;
+        const source = l.source || 'unknown';
+        todayBySource[source] = (todayBySource[source] || 0) + 1;
+      }
+      const todayScores = todayListings.filter(l => l.quality_score).map(l => l.quality_score!);
+      const avgQualityScore = todayScores.length > 0
+        ? Math.round(todayScores.reduce((a, b) => a + b, 0) / todayScores.length)
+        : 0;
+
+      // === 7 DAYS STATS ===
+      const week7ByDay: Record<string, number> = {};
+      const week7BySource: Record<string, number> = {};
+      for (const l of last7DaysListings) {
+        const date = getListingDate(l)!;
+        const day = date.toISOString().split('T')[0];
+        week7ByDay[day] = (week7ByDay[day] || 0) + 1;
+        const source = l.source || 'unknown';
+        week7BySource[source] = (week7BySource[source] || 0) + 1;
+      }
+
+      // === 30 DAYS STATS ===
+      const month30ByDay: Record<string, number> = {};
+      const month30BySource: Record<string, number> = {};
+      for (const l of last30DaysListings) {
+        const date = getListingDate(l)!;
+        const day = date.toISOString().split('T')[0];
+        month30ByDay[day] = (month30ByDay[day] || 0) + 1;
+        const source = l.source || 'unknown';
+        month30BySource[source] = (month30BySource[source] || 0) + 1;
+      }
+
+      // === ML INSIGHTS ===
+      // Calculate average listings per hour (over 30 days)
+      const hourlyTotals: Record<number, number[]> = {};
+      for (let i = 0; i < 24; i++) hourlyTotals[i] = [];
+
+      // Group by date and hour
+      const dateHourCounts: Record<string, Record<number, number>> = {};
+      for (const l of last30DaysListings) {
+        const listingDate = getListingDate(l)!;
+        const dateStr = listingDate.toISOString().split('T')[0];
+        const hour = listingDate.getHours();
+        if (!dateHourCounts[dateStr]) dateHourCounts[dateStr] = {};
+        dateHourCounts[dateStr][hour] = (dateHourCounts[dateStr][hour] || 0) + 1;
+      }
+
+      // Calculate average per hour
+      const daysWithData = Object.keys(dateHourCounts).length || 1;
+      const hourlyAvg: Record<number, number> = {};
+      for (let h = 0; h < 24; h++) {
+        let total = 0;
+        for (const date of Object.keys(dateHourCounts)) {
+          total += dateHourCounts[date][h] || 0;
+        }
+        hourlyAvg[h] = Math.round(total / daysWithData * 10) / 10;
+      }
+
+      // Find peak and quiet hours
+      const hourEntries = Object.entries(hourlyAvg).map(([h, avg]) => ({ hour: parseInt(h), avg }));
+      hourEntries.sort((a, b) => b.avg - a.avg);
+      const peakHours = hourEntries.slice(0, 4).map(e => e.hour).sort((a, b) => a - b);
+      const quietHours = hourEntries.slice(-4).map(e => e.hour).sort((a, b) => a - b);
+      const bestHour = hourEntries[0];
+      const worstHour = hourEntries[hourEntries.length - 1];
+
+      // Calculate best day of week
+      const dayOfWeekTotals: Record<string, number[]> = {
+        'Mo': [], 'Di': [], 'Mi': [], 'Do': [], 'Fr': [], 'Sa': [], 'So': []
+      };
+      const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+      for (const [date, count] of Object.entries(month30ByDay)) {
+        const dayOfWeek = dayNames[new Date(date).getDay()];
+        dayOfWeekTotals[dayOfWeek].push(count);
+      }
+      const dayOfWeekAvg: Record<string, number> = {};
+      for (const [day, counts] of Object.entries(dayOfWeekTotals)) {
+        dayOfWeekAvg[day] = counts.length > 0
+          ? Math.round(counts.reduce((a, b) => a + b, 0) / counts.length)
+          : 0;
+      }
+      const bestDayEntry = Object.entries(dayOfWeekAvg).sort((a, b) => b[1] - a[1])[0];
+
+      // Calculate trend (this week vs last week)
+      const thisWeekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const lastWeekStart = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
+      const thisWeekListings = last30DaysListings.filter(l => getListingDate(l)! >= thisWeekStart);
+      const lastWeekListings = last30DaysListings.filter(l => {
+        const d = getListingDate(l)!;
+        return d >= lastWeekStart && d < thisWeekStart;
+      });
+      const thisWeekCount = thisWeekListings.length;
+      const lastWeekCount = lastWeekListings.length || 1;
+      const trendPercentage = Math.round(((thisWeekCount - lastWeekCount) / lastWeekCount) * 100);
+      let trend: 'up' | 'down' | 'stable' = 'stable';
+      if (trendPercentage > 5) trend = 'up';
+      else if (trendPercentage < -5) trend = 'down';
+
+      res.json({
+        today: {
+          total: todayListings.length,
+          by_source: todayBySource,
+          by_hour: todayByHour,
+          avg_quality_score: avgQualityScore,
+        },
+        last_7_days: {
+          total: last7DaysListings.length,
+          by_day: week7ByDay,
+          by_source: week7BySource,
+        },
+        last_30_days: {
+          total: last30DaysListings.length,
+          by_day: month30ByDay,
+          by_source: month30BySource,
+          avg_per_day: Math.round(last30DaysListings.length / 30),
+        },
+        insights: {
+          best_hour: bestHour?.hour ?? 12,
+          best_hour_avg: bestHour?.avg ?? 0,
+          worst_hour: worstHour?.hour ?? 3,
+          worst_hour_avg: worstHour?.avg ?? 0,
+          best_day_of_week: bestDayEntry?.[0] ?? 'Mo',
+          best_day_avg: bestDayEntry?.[1] ?? 0,
+          trend,
+          trend_percentage: trendPercentage,
+          peak_hours: peakHours,
+          quiet_hours: quietHours,
+        },
+      });
+    } catch (error: any) {
+      console.error('[SCRAPER-ANALYTICS] Error:', error);
+      res.status(500).json({ message: "Failed to fetch scraper analytics", error: error?.message });
+    }
+  });
+
   app.patch("/api/listings/:id/akquise", async (req, res) => {
     try {
       const { id } = req.params;
-      const { akquise_erledigt } = req.body;
-      await storage.updateListingAkquiseStatus(parseInt(id), akquise_erledigt);
+      const { akquise_erledigt, is_success, userId } = req.body;
+      const listingId = parseInt(id);
+
+      await storage.updateListingAkquiseStatus(listingId, akquise_erledigt);
+
+      // Create ML outcome feedback when marking as completed
+      if (akquise_erledigt) {
+        try {
+          const listing = await storage.getListingById(listingId);
+          if (listing) {
+            const outcomeType = is_success ? 'akquise_success' : 'akquise_completed';
+            const features = extractFeatures(listing);
+
+            await createOutcomeFeedback({
+              listing_id: listingId,
+              user_id: userId || null,
+              outcome_type: outcomeType,
+              score_adjustment: getScoreAdjustment(outcomeType),
+              features,
+              original_score: listing.quality_score || 0,
+              notes: is_success ? 'Erfolgreiche Akquise' : 'Akquise erledigt',
+            });
+            console.log(`[ML-OUTCOME] Created outcome feedback: ${outcomeType} for listing ${listingId}`);
+          }
+        } catch (mlError) {
+          console.error('[ML-OUTCOME] Failed to create outcome feedback:', mlError);
+          // Don't fail the main operation if ML feedback fails
+        }
+      }
+
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to update listing status" });
@@ -108,8 +641,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/listings/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { reason, userId } = req.body;
-      await storage.markListingAsDeleted(parseInt(id), userId, reason);
+      const { reason, userId, deleteType } = req.body;
+      const listingId = parseInt(id);
+
+      // Get listing before deletion for ML feedback
+      const listing = await storage.getListingById(listingId);
+
+      await storage.markListingAsDeleted(listingId, userId, reason);
+
+      // Create ML outcome feedback based on deletion type
+      if (listing) {
+        try {
+          // Map deleteType to outcome_type
+          let outcomeType: 'deleted_spam' | 'deleted_not_relevant' | 'deleted_sold' | 'deleted_other' = 'deleted_other';
+
+          if (deleteType === 'spam') outcomeType = 'deleted_spam';
+          else if (deleteType === 'not_relevant') outcomeType = 'deleted_not_relevant';
+          else if (deleteType === 'sold') outcomeType = 'deleted_sold';
+          else if (reason?.toLowerCase().includes('spam') || reason?.toLowerCase().includes('fake')) outcomeType = 'deleted_spam';
+          else if (reason?.toLowerCase().includes('verkauft') || reason?.toLowerCase().includes('sold')) outcomeType = 'deleted_sold';
+
+          const features = extractFeatures(listing);
+
+          await createOutcomeFeedback({
+            listing_id: listingId,
+            user_id: userId || null,
+            outcome_type: outcomeType,
+            score_adjustment: getScoreAdjustment(outcomeType),
+            features,
+            original_score: listing.quality_score || 0,
+            notes: reason || `Deleted: ${outcomeType}`,
+          });
+          console.log(`[ML-OUTCOME] Created outcome feedback: ${outcomeType} for listing ${listingId}`);
+        } catch (mlError) {
+          console.error('[ML-OUTCOME] Failed to create outcome feedback:', mlError);
+          // Don't fail the main operation if ML feedback fails
+        }
+      }
+
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete listing" });
@@ -415,6 +984,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   price: safe.price
                 });
 
+                // Track price changes for price drop detection
+                if (existing.price !== safe.price) {
+                  await trackPriceChange(existing.id,
+                    { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
+                    { price: safe.price, area: safe.area, eur_per_m2: safe.eur_per_m2 }
+                  );
+                }
+
                 console.log('[V3-DB] ✓ Aktualisiert:', existing.id);
                 return;
               }
@@ -489,6 +1066,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 last_changed_at: listingData.last_changed_at,
                 price: listingData.price
               });
+
+              // Track price changes for price drop detection
+              if (existing.price !== listingData.price) {
+                await trackPriceChange(existing.id,
+                  { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
+                  { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
+                );
+              }
 
               console.log('[24/7-DB] ✓ Aktualisiert:', existing.id);
               return;
@@ -587,6 +1172,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 last_changed_at: listingData.last_changed_at,
                 price: listingData.price
               });
+
+              // Track price changes for price drop detection
+              if (existing.price !== listingData.price) {
+                await trackPriceChange(existing.id,
+                  { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
+                  { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
+                );
+              }
 
               if (isDebug) {
                 console.log('[NEWEST-DB] ✅ UPDATE COMPLETE - scraped_at aktualisiert!');
@@ -834,14 +1427,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (existing) {
               console.log('[DERSTANDARD-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
 
-              // Update scraped_at and price
+              // Check if anything actually changed (price, area, description)
+              const hasChanges =
+                existing.price !== listingData.price ||
+                existing.area !== listingData.area ||
+                existing.description !== listingData.description;
+
+              // Update scraped_at, price, and last_changed_at ONLY if something changed
               await storage.updateListingOnRescrape(listingData.url, {
                 scraped_at: new Date(),
-                last_changed_at: listingData.last_changed_at,
+                last_changed_at: hasChanges ? new Date() : undefined, // Only update if changed
                 price: listingData.price
               });
 
-              console.log('[DERSTANDARD-DB] ✓ Aktualisiert:', existing.id);
+              // Track price changes for price drop detection
+              if (existing.price !== listingData.price) {
+                await trackPriceChange(existing.id,
+                  { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
+                  { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
+                );
+              }
+
+              console.log('[DERSTANDARD-DB] ✓ Aktualisiert:', existing.id, hasChanges ? '(Änderungen erkannt)' : '(keine Änderungen)');
               return;
             }
 
@@ -938,15 +1545,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (existing) {
               console.log('[IMMOSCOUT-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
 
-              // Update scraped_at, last_changed_at, price and images
+              // Check if anything actually changed (price, area, description)
+              const hasChanges =
+                existing.price !== listingData.price ||
+                existing.area !== listingData.area ||
+                existing.description !== listingData.description;
+
+              // Update scraped_at, price, images, and last_changed_at ONLY if something changed
               await storage.updateListingOnRescrape(listingData.url, {
                 scraped_at: new Date(),
-                last_changed_at: listingData.last_changed_at,
+                last_changed_at: hasChanges ? new Date() : undefined, // Only update if changed
                 price: listingData.price,
                 images: listingData.images || []
               });
 
-              console.log('[IMMOSCOUT-DB] ✓ Aktualisiert:', existing.id);
+              // Track price changes for price drop detection
+              if (existing.price !== listingData.price) {
+                await trackPriceChange(existing.id,
+                  { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
+                  { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
+                );
+              }
+
+              console.log('[IMMOSCOUT-DB] ✓ Aktualisiert:', existing.id, hasChanges ? '(Änderungen erkannt)' : '(keine Änderungen)');
               return;
             }
 

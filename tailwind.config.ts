@@ -13,33 +13,43 @@ export default {
       letterSpacing: {
         'meta': '0.05em',
       },
+      gridTemplateColumns: {
+        '24': 'repeat(24, minmax(0, 1fr))',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        // SIRA Group CI
+        // SIRA Group CI (Official Brand Colors)
         navy: {
-          DEFAULT: '#0A1128',
-          50: '#F8F9FA',
-          100: '#E5E7EB',
-          200: '#9CA3AF',
-          300: '#4B5563',
-          400: '#374151',
-          500: '#0A1128',
+          DEFAULT: '#000324', // SIRA Blue (Hauptfarbe)
+          hover: '#001a4d',  // Hover-Zustand für Buttons
+          50: '#ffffff',     // Weiß
+          100: '#f5f5f5',    // Hellgrau (Hintergründe)
+          200: '#e0e0e0',    // Grau (Borders)
+          300: '#6c757d',    // Grau (Sekundärtext)
+          400: '#dee2e6',    // Hellgrau (Trennlinien)
+          500: '#000324',    // SIRA Blue
         },
         sira: {
-          navy: '#0A1128',
-          background: '#F8F9FA',
-          'light-gray': '#E5E7EB',
-          'medium-gray': '#9CA3AF',
-          'dark-gray': '#4B5563',
-          'text-gray': '#374151',
-          success: '#065F46',
-          danger: '#991B1B',
-          warning: '#92400E',
-          info: '#1E40AF',
+          navy: '#000324',           // SIRA Blue (Hauptfarbe)
+          'navy-hover': '#001a4d',   // Hover-Zustand
+          background: '#ffffff',     // Weiß (Hauptinhalt)
+          'background-alt': '#f5f5f5', // Hellgrau (Hintergründe, Image-Container)
+          'light-gray': '#e0e0e0',   // Grau (Borders, Trennlinien)
+          'input-gray': '#e6e6e6',   // Input-Backgrounds
+          'map-gray': '#e5e3df',     // Map-Background
+          'medium-gray': '#6c757d',  // Grau (Sekundärtext, Kleingedrucktes)
+          'divider-gray': '#dee2e6', // Hellgrau (Trennlinien in Listen)
+          'text-gray': '#6c757d',    // Sekundärtext
+          success: '#065F46',        // Grün (Erfolg)
+          danger: '#991B1B',         // Rot (Fehler)
+          warning: '#856404',        // Dunkler Gelbton (Warning-Text)
+          'warning-bg': '#fff3cd',   // Gelber Hintergrund (Warnungen)
+          'warning-border': '#ffc107', // Gelber Border (Warnungen)
+          info: '#003b8a',           // Blau (Info) - Legacy
         },
         background: "var(--background)",
         foreground: "var(--foreground)",

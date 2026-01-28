@@ -5,70 +5,76 @@
 @tailwind utilities;
 
 :root {
-  /* SIRA Group CI Colors */
-  --sira-navy: #0A1128;
-  --sira-background: #F8F9FA;
-  --sira-light-gray: #E5E7EB;
-  --sira-medium-gray: #9CA3AF;
-  --sira-dark-gray: #4B5563;
-  --sira-text-gray: #374151;
+  /* SIRA Group CI Colors (Official Brand Colors) */
+  --sira-navy: #000324; /* SIRA Blue (Hauptfarbe) */
+  --sira-navy-hover: #001a4d; /* Hover-Zustand für Buttons */
+  --sira-background: #ffffff; /* Weiß (Hauptinhalt, Boxen) */
+  --sira-background-alt: #f5f5f5; /* Hellgrau (Hintergründe, Image-Container) */
+  --sira-light-gray: #e0e0e0; /* Grau (Borders, Trennlinien) */
+  --sira-input-gray: #e6e6e6; /* Kontaktformular Input-Backgrounds */
+  --sira-map-gray: #e5e3df; /* Map-Background */
+  --sira-medium-gray: #6c757d; /* Grau (Sekundärtext, Kleingedrucktes) */
+  --sira-divider-gray: #dee2e6; /* Hellgrau (Trennlinien in Listen) */
+  --sira-text-gray: #6c757d; /* Sekundärtext */
 
-  /* Status Colors (dezent) */
-  --sira-success: #065F46;
-  --sira-danger: #991B1B;
-  --sira-warning: #92400E;
-  --sira-info: #1E40AF;
+  /* Status Colors */
+  --sira-success: #065F46; /* Grün (Erfolg) */
+  --sira-danger: #991B1B; /* Rot (Fehler) */
+  --sira-warning: #856404; /* Dunkler Gelbton (Warning-Text) */
+  --sira-warning-bg: #fff3cd; /* Gelber Hintergrund (Warnungen) */
+  --sira-warning-border: #ffc107; /* Gelber Border (Warnungen) */
+  --sira-info: #003b8a; /* Blau (Info) - Legacy */
 
   /* shadcn/ui Variables mapped to SIRA CI */
-  --background: #F8F9FA;
-  --foreground: #0A1128;
-  --muted: #E5E7EB;
-  --muted-foreground: #4B5563;
+  --background: #ffffff;
+  --foreground: #000324;
+  --muted: #f5f5f5;
+  --muted-foreground: #6c757d;
   --popover: #FFFFFF;
-  --popover-foreground: #0A1128;
+  --popover-foreground: #000324;
   --card: #FFFFFF;
-  --card-foreground: #0A1128;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --primary: #0A1128;
+  --card-foreground: #000324;
+  --border: #e0e0e0;
+  --input: #e6e6e6;
+  --primary: #000324;
   --primary-foreground: #FFFFFF;
-  --secondary: #F8F9FA;
-  --secondary-foreground: #0A1128;
-  --accent: #E5E7EB;
-  --accent-foreground: #0A1128;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #000324;
+  --accent: #e0e0e0;
+  --accent-foreground: #000324;
   --destructive: #991B1B;
   --destructive-foreground: #FFFFFF;
-  --ring: #0A1128;
+  --ring: #000324;
   --radius: 0.375rem;
 
   /* Chart colors (minimal, professional) */
-  --chart-1: #0A1128;
-  --chart-2: #4B5563;
-  --chart-3: #9CA3AF;
-  --chart-4: #E5E7EB;
+  --chart-1: #000324;
+  --chart-2: #6c757d;
+  --chart-3: #dee2e6;
+  --chart-4: #f5f5f5;
   --chart-5: #065F46;
 }
 
 .dark {
-  --background: #0A1128;
-  --foreground: #F8F9FA;
-  --muted: #1a2744;
-  --muted-foreground: #9CA3AF;
-  --popover: #1a2744;
-  --popover-foreground: #F8F9FA;
-  --card: #1a2744;
-  --card-foreground: #F8F9FA;
-  --border: #374151;
-  --input: #374151;
-  --primary: #F8F9FA;
-  --primary-foreground: #0A1128;
-  --secondary: #1a2744;
-  --secondary-foreground: #F8F9FA;
-  --accent: #374151;
-  --accent-foreground: #F8F9FA;
+  --background: #000324;
+  --foreground: #ffffff;
+  --muted: #001a4d;
+  --muted-foreground: #6c757d;
+  --popover: #001a4d;
+  --popover-foreground: #ffffff;
+  --card: #001a4d;
+  --card-foreground: #ffffff;
+  --border: #6c757d;
+  --input: #6c757d;
+  --primary: #ffffff;
+  --primary-foreground: #000324;
+  --secondary: #001a4d;
+  --secondary-foreground: #ffffff;
+  --accent: #6c757d;
+  --accent-foreground: #ffffff;
   --destructive: #991B1B;
-  --destructive-foreground: #F8F9FA;
-  --ring: #4B5563;
+  --destructive-foreground: #ffffff;
+  --ring: #6c757d;
 }
 
 @layer base {

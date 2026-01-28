@@ -50,6 +50,12 @@ export default function AppLayout({ user, onLogout, children }: AppLayoutProps) 
       adminOnly: true,
     },
     {
+      path: "/analytics/scraper",
+      label: "Scraper Analytics",
+      icon: ChartLine,
+      adminOnly: true,
+    },
+    {
       path: "/admin/users",
       label: "Benutzerverwaltung",
       icon: UserCog,

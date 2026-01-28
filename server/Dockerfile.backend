@@ -21,15 +21,19 @@ FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Kopiere nur die Backend-Dependencies und den Build-Output
+# Kopiere alles vom Builder (inkl. node_modules mit drizzle-kit)
 COPY --from=backend-builder /app/package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Kopiere nur dist/index.js (NICHT vite.js - nur für development)
+COPY --from=backend-builder /app/node_modules ./node_modules
 COPY --from=backend-builder /app/dist/index.js ./dist/
+COPY --from=backend-builder /app/drizzle.config.ts ./
+COPY --from=backend-builder /app/shared ./shared
+COPY --from=backend-builder /app/server ./server
+COPY --from=backend-builder /app/cleanup-geo.ts ./
 
 # Exponiere den Port 5000 für das Backend
 EXPOSE 5000
 
-# Startbefehl für den Backend-Server
-CMD ["node", "dist/index.js"]
+# Run DB migrations, geo cleanup, then start server
+# Geo cleanup is idempotent - safe to run on every restart
+# If cleanup fails, server still starts (|| true)
+CMD ["sh", "-c", "npx drizzle-kit push && (echo '🧹 Running geo cleanup...' && npx tsx cleanup-geo.ts || echo '⚠️ Geo cleanup skipped/failed') && node dist/index.js"]
