@@ -7,7 +7,7 @@ import { Resend } from "resend";
 import { storage } from "./storage";
 import { insertListingSchema, insertContactSchema, insertListingContactSchema, listings, discovered_links, users, user_sessions } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 import { PriceEvaluator } from "./services/priceEvaluator";
 import { ScraperV3Service } from "./services/scraper-v3";
@@ -19,6 +19,52 @@ import { trackPriceChange, detectPriceChange } from "./services/price-tracker";
 import { extractFeatures } from "./services/ml-feature-extractor";
 import { createOutcomeFeedback, getScoreAdjustment } from "./storage-ml";
 import { isInAkquiseGebiet } from "./services/geo-filter";
+import { detectChangeType } from "./services/scraper-utils";
+import { emailService } from "./services/email-service";
+import { newsletterScheduler } from "./services/newsletter-scheduler";
+
+/**
+ * Check and send email alerts for listings
+ * - Gold Find: Old listing (>30 days) with fresh update (<3 days)
+ * - Price Drop: >10% price reduction
+ * - Top Listing: Quality score >= 90
+ */
+async function checkAndSendAlerts(
+  listing: any,
+  alertType: 'new' | 'update',
+  oldPrice?: number
+): Promise<void> {
+  try {
+    // Skip if email service is not configured
+    if (!emailService.isConfigured()) {
+      return;
+    }
+
+    // Check for Gold Find (new listings only - old listing with fresh update)
+    if (alertType === 'new' && listing.is_gold_find) {
+      console.log('[EMAIL-ALERT] 🏆 Gold Find detected:', listing.title?.substring(0, 50));
+      await emailService.sendGoldFindAlert(listing);
+    }
+
+    // Check for Price Drop (update only)
+    if (alertType === 'update' && oldPrice && listing.price < oldPrice) {
+      const dropPercentage = ((oldPrice - listing.price) / oldPrice) * 100;
+      if (dropPercentage >= 10) {
+        console.log(`[EMAIL-ALERT] 📉 Price Drop ${dropPercentage.toFixed(1)}%:`, listing.title?.substring(0, 50));
+        await emailService.sendPriceDropAlert(listing, oldPrice, dropPercentage);
+      }
+    }
+
+    // Check for Top Listing (new listings only - quality score >= 90)
+    if (alertType === 'new' && listing.quality_score && listing.quality_score >= 90) {
+      console.log('[EMAIL-ALERT] ⭐ Top Listing detected:', listing.title?.substring(0, 50), `(Score: ${listing.quality_score})`);
+      await emailService.sendTopListingAlert(listing);
+    }
+  } catch (error) {
+    console.error('[EMAIL-ALERT] Error sending alert:', error);
+    // Don't throw - email failures shouldn't break scraping
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register ML routes
@@ -705,6 +751,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single listing by ID (for email deep-links)
+  // IMPORTANT: Must be AFTER all specific /api/listings/xxx routes
+  app.get("/api/listings/by-id/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid listing ID" });
+      }
+
+      const [listing] = await db
+        .select()
+        .from(listings)
+        .where(eq(listings.id, id))
+        .limit(1);
+
+      if (!listing) {
+        return res.status(404).json({ error: "Listing not found" });
+      }
+
+      res.json(listing);
+    } catch (error: any) {
+      console.error('[LISTINGS-API] Error fetching single listing:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Contacts routes
   app.get("/api/contacts", async (req, res) => {
     try {
@@ -975,13 +1047,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Check if listing already exists
               const existing = await storage.getListingByUrl(safe.url);
               if (existing) {
-                console.log('[V3-DB] Update (bereits vorhanden):', safe.title?.substring(0, 50));
+                // Detect what changed
+                const changeType = detectChangeType(
+                  { price: existing.price, title: existing.title, description: existing.description, area: existing.area, images: existing.images },
+                  { price: safe.price, title: safe.title, description: safe.description, area: safe.area, images: safe.images }
+                );
 
-                // Update scraped_at, last_changed_at und price
+                console.log('[V3-DB] Update (bereits vorhanden):', safe.title?.substring(0, 50), changeType ? `(${changeType})` : '');
+
+                // Update scraped_at, last_changed_at, price, and change type
                 await storage.updateListingOnRescrape(safe.url, {
                   scraped_at: new Date(),
                   last_changed_at: safe.last_changed_at,
-                  price: safe.price
+                  last_change_type: changeType || undefined,
+                  price: safe.price,
+                  title: safe.title,
+                  description: safe.description,
+                  area: safe.area,
+                  images: safe.images
                 });
 
                 // Track price changes for price drop detection
@@ -990,6 +1073,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
                     { price: safe.price, area: safe.area, eur_per_m2: safe.eur_per_m2 }
                   );
+
+                  // Check for price drop email alert
+                  await checkAndSendAlerts({ ...existing, price: safe.price }, 'update', existing.price);
                 }
 
                 console.log('[V3-DB] ✓ Aktualisiert:', existing.id);
@@ -1004,6 +1090,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ...safe,
                 price_evaluation: priceEvaluation,
               });
+
+              // Send email alerts for new listings (Gold Find, Top Listing)
+              await checkAndSendAlerts(listing, 'new');
+
               wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                   client.send(JSON.stringify({ type: 'newListing', listing }));
@@ -1058,13 +1148,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Check ob bereits in DB
             const existing = await storage.getListingByUrl(listingData.url);
             if (existing) {
-              console.log('[24/7-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
+              // Detect what changed
+              const changeType = detectChangeType(
+                { price: existing.price, title: existing.title, description: existing.description, area: existing.area, images: existing.images },
+                { price: listingData.price, title: listingData.title, description: listingData.description, area: listingData.area, images: listingData.images }
+              );
 
-              // Update scraped_at, last_changed_at und price
+              console.log('[24/7-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50), changeType ? `(${changeType})` : '');
+
+              // Update scraped_at, last_changed_at, price, and change type
               await storage.updateListingOnRescrape(listingData.url, {
                 scraped_at: new Date(),
                 last_changed_at: listingData.last_changed_at,
-                price: listingData.price
+                last_change_type: changeType || undefined,
+                price: listingData.price,
+                title: listingData.title,
+                description: listingData.description,
+                area: listingData.area,
+                images: listingData.images
               });
 
               // Track price changes for price drop detection
@@ -1073,6 +1174,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
                   { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
                 );
+
+                // Check for price drop email alert
+                await checkAndSendAlerts({ ...existing, price: listingData.price }, 'update', existing.price);
               }
 
               console.log('[24/7-DB] ✓ Aktualisiert:', existing.id);
@@ -1094,6 +1198,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             console.log('[24/7-DB] ✓ Gespeichert in DB:', listing.id);
+
+            // Send email alerts for new listings (Gold Find, Top Listing)
+            await checkAndSendAlerts(listing, 'new');
 
             // Broadcast new listing
             wss.clients.forEach(client => {
@@ -1166,11 +1273,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log('[NEWEST-DB]    Old scraped_at:', existing.scraped_at);
               }
 
-              // Update scraped_at, last_changed_at und price
+              // Detect what changed
+              const changeType = detectChangeType(
+                { price: existing.price, title: existing.title, description: existing.description, area: existing.area, images: existing.images },
+                { price: listingData.price, title: listingData.title, description: listingData.description, area: listingData.area, images: listingData.images }
+              );
+
+              // Update scraped_at, last_changed_at, price, and change type
               await storage.updateListingOnRescrape(listingData.url, {
                 scraped_at: new Date(),
                 last_changed_at: listingData.last_changed_at,
-                price: listingData.price
+                last_change_type: changeType || undefined,
+                price: listingData.price,
+                title: listingData.title,
+                description: listingData.description,
+                area: listingData.area,
+                images: listingData.images
               });
 
               // Track price changes for price drop detection
@@ -1179,10 +1297,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
                   { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
                 );
+
+                // Check for price drop email alert
+                await checkAndSendAlerts({ ...existing, price: listingData.price }, 'update', existing.price);
               }
 
               if (isDebug) {
-                console.log('[NEWEST-DB] ✅ UPDATE COMPLETE - scraped_at aktualisiert!');
+                console.log('[NEWEST-DB] ✅ UPDATE COMPLETE - scraped_at aktualisiert!', changeType ? `(${changeType})` : '');
                 console.log('[NEWEST-DB] ✓ Aktualisiert:', existing.id);
               }
               return;
@@ -1214,6 +1335,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (isDebug) {
               console.log('[NEWEST-DB] ✅ NEW LISTING SAVED - ID:', listing.id);
             }
+
+            // Send email alerts for new listings (Gold Find, Top Listing)
+            await checkAndSendAlerts(listing, 'new');
 
             // Broadcast new listing
             wss.clients.forEach(client => {
@@ -1425,19 +1549,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Check if listing already exists
             const existing = await storage.getListingByUrl(listingData.url);
             if (existing) {
-              console.log('[DERSTANDARD-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
+              // Detect what changed
+              const changeType = detectChangeType(
+                { price: existing.price, title: existing.title, description: existing.description, area: existing.area, images: existing.images },
+                { price: listingData.price, title: listingData.title, description: listingData.description, area: listingData.area, images: listingData.images }
+              );
 
-              // Check if anything actually changed (price, area, description)
-              const hasChanges =
-                existing.price !== listingData.price ||
-                existing.area !== listingData.area ||
-                existing.description !== listingData.description;
+              console.log('[DERSTANDARD-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50), changeType ? `(${changeType})` : '');
 
               // Update scraped_at, price, and last_changed_at ONLY if something changed
               await storage.updateListingOnRescrape(listingData.url, {
                 scraped_at: new Date(),
-                last_changed_at: hasChanges ? new Date() : undefined, // Only update if changed
-                price: listingData.price
+                last_changed_at: changeType ? new Date() : undefined, // Only update if changed
+                last_change_type: changeType || undefined,
+                price: listingData.price,
+                title: listingData.title,
+                description: listingData.description,
+                area: listingData.area,
+                images: listingData.images
               });
 
               // Track price changes for price drop detection
@@ -1446,9 +1575,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
                   { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
                 );
+
+                // Check for price drop email alert
+                await checkAndSendAlerts({ ...existing, price: listingData.price }, 'update', existing.price);
               }
 
-              console.log('[DERSTANDARD-DB] ✓ Aktualisiert:', existing.id, hasChanges ? '(Änderungen erkannt)' : '(keine Änderungen)');
+              console.log('[DERSTANDARD-DB] ✓ Aktualisiert:', existing.id, changeType ? `(${changeType})` : '(keine Änderungen)');
               return;
             }
 
@@ -1466,6 +1598,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             console.log('[DERSTANDARD-DB] ✓ Neues Listing gespeichert:', listing.id);
+
+            // Send email alerts for new listings (Gold Find, Top Listing)
+            await checkAndSendAlerts(listing, 'new');
 
             // Broadcast new listing
             wss.clients.forEach(client => {
@@ -1543,19 +1678,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Check if listing already exists
             const existing = await storage.getListingByUrl(listingData.url);
             if (existing) {
-              console.log('[IMMOSCOUT-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50));
+              // Detect what changed
+              const changeType = detectChangeType(
+                { price: existing.price, title: existing.title, description: existing.description, area: existing.area, images: existing.images },
+                { price: listingData.price, title: listingData.title, description: listingData.description, area: listingData.area, images: listingData.images }
+              );
 
-              // Check if anything actually changed (price, area, description)
-              const hasChanges =
-                existing.price !== listingData.price ||
-                existing.area !== listingData.area ||
-                existing.description !== listingData.description;
+              console.log('[IMMOSCOUT-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50), changeType ? `(${changeType})` : '');
 
               // Update scraped_at, price, images, and last_changed_at ONLY if something changed
               await storage.updateListingOnRescrape(listingData.url, {
                 scraped_at: new Date(),
-                last_changed_at: hasChanges ? new Date() : undefined, // Only update if changed
+                last_changed_at: changeType ? new Date() : undefined, // Only update if changed
+                last_change_type: changeType || undefined,
                 price: listingData.price,
+                title: listingData.title,
+                description: listingData.description,
+                area: listingData.area,
                 images: listingData.images || []
               });
 
@@ -1565,9 +1704,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
                   { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
                 );
+
+                // Check for price drop email alert
+                await checkAndSendAlerts({ ...existing, price: listingData.price }, 'update', existing.price);
               }
 
-              console.log('[IMMOSCOUT-DB] ✓ Aktualisiert:', existing.id, hasChanges ? '(Änderungen erkannt)' : '(keine Änderungen)');
+              console.log('[IMMOSCOUT-DB] ✓ Aktualisiert:', existing.id, changeType ? `(${changeType})` : '(keine Änderungen)');
               return;
             }
 
@@ -1585,6 +1727,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             console.log('[IMMOSCOUT-DB] ✓ Neues Listing gespeichert:', listing.id);
+
+            // Send email alerts for new listings (Gold Find, Top Listing)
+            await checkAndSendAlerts(listing, 'new');
 
             // Broadcast new listing
             wss.clients.forEach(client => {
@@ -1971,6 +2116,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // REMOVED: Scraper V2 endpoint - use V3 at /api/scraper/start instead
+
+  // ============== EMAIL SERVICE ENDPOINTS ==============
+
+  // Check email service configuration status
+  app.get("/api/email/status", async (req, res) => {
+    try {
+      const isConfigured = emailService.isConfigured();
+      res.json({
+        configured: isConfigured,
+        sender: process.env.MS_GRAPH_SENDER_EMAIL ? '✓ Set' : '✗ Missing',
+        recipients: process.env.ALERT_RECIPIENT_EMAILS ? '✓ Set' : '✗ Missing',
+        tenantId: process.env.MS_GRAPH_TENANT_ID ? '✓ Set' : '✗ Missing',
+        clientId: process.env.MS_GRAPH_CLIENT_ID ? '✓ Set' : '✗ Missing',
+        clientSecret: process.env.MS_GRAPH_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Send test email with real listing from database
+  app.post("/api/email/test", async (req, res) => {
+    try {
+      if (!emailService.isConfigured()) {
+        return res.status(400).json({
+          success: false,
+          error: "Email service not configured. Check environment variables.",
+        });
+      }
+
+      // Get newest listing from database for testing
+      const [newestListing] = await db
+        .select()
+        .from(listings)
+        .where(sql`is_deleted = false`)
+        .orderBy(desc(listings.first_seen_at))
+        .limit(1);
+
+      if (!newestListing) {
+        return res.status(404).json({
+          success: false,
+          error: "Keine Listings in der Datenbank gefunden.",
+        });
+      }
+
+      const { alertType = "gold_find" } = req.body;
+
+      if (alertType === "gold_find") {
+        await emailService.sendGoldFindAlert(newestListing);
+      } else if (alertType === "price_drop") {
+        // Simulate 15% price drop for testing
+        const oldPrice = Math.round(newestListing.price * 1.15);
+        await emailService.sendPriceDropAlert(newestListing, oldPrice, 15);
+      } else if (alertType === "top_listing") {
+        await emailService.sendTopListingAlert(newestListing);
+      } else if (alertType === "newsletter") {
+        // Send newsletter with top 5 listings
+        const topListings = await newsletterScheduler.getTopListingsForNewsletter();
+        if (topListings.length === 0) {
+          return res.json({
+            success: false,
+            message: "Keine Listings für Newsletter gefunden.",
+          });
+        }
+        await emailService.sendWeeklyNewsletter(topListings);
+      }
+
+      res.json({
+        success: true,
+        message: `Test-Email (${alertType}) wurde gesendet an ${process.env.ALERT_RECIPIENT_EMAILS}`,
+        listing: {
+          id: newestListing.id,
+          title: newestListing.title?.substring(0, 50),
+          price: newestListing.price,
+          quality_score: newestListing.quality_score,
+        },
+      });
+    } catch (error: any) {
+      console.error("[EMAIL-TEST] Error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // ============== NEWSLETTER ENDPOINTS ==============
+
+  // Get newsletter scheduler status
+  app.get("/api/newsletter/status", async (req, res) => {
+    try {
+      const status = newsletterScheduler.getStatus();
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Manually trigger newsletter (for testing)
+  app.post("/api/newsletter/send", async (req, res) => {
+    try {
+      if (!emailService.isConfigured()) {
+        return res.status(400).json({
+          success: false,
+          error: "Email service not configured.",
+        });
+      }
+
+      const topListings = await newsletterScheduler.getTopListingsForNewsletter();
+
+      if (topListings.length === 0) {
+        return res.json({
+          success: false,
+          message: "Keine Listings für Newsletter gefunden (letzte 7 Tage).",
+        });
+      }
+
+      await emailService.sendWeeklyNewsletter(topListings);
+
+      res.json({
+        success: true,
+        message: `Newsletter mit ${topListings.length} Top-Objekten gesendet an ${process.env.ALERT_RECIPIENT_EMAILS}`,
+        listings: topListings.map(l => ({
+          id: l.id,
+          title: l.title?.substring(0, 50),
+          quality_score: l.quality_score,
+        })),
+      });
+    } catch (error: any) {
+      console.error("[NEWSLETTER] Manual send error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  // Start the newsletter scheduler
+  newsletterScheduler.start();
 
   return httpServer;
 }

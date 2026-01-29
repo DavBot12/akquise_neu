@@ -526,11 +526,87 @@ export function extractDetailUrlsWithISPRIVATE(html: string): ExtractedListingAt
 }
 
 // ============================================
-// LISTING ID EXTRACTION
+// LISTING ID EXTRACTION & URL NORMALIZATION
 // ============================================
 
 export function extractListingIdFromUrl(url: string): string | null {
   // Match patterns like: /eigentumswohnung/...-1234567/ or /immobilie/1234567
   const match = url.match(/[-\/](\d{7,12})\/?(?:\?|$)/);
   return match ? match[1] : null;
+}
+
+/**
+ * Detect what changed between old and new listing data
+ * Returns a human-readable string like "Preis gesenkt", "Titel", "Beschreibung", etc.
+ */
+export function detectChangeType(
+  existing: { price?: number; title?: string; description?: string | null; area?: string | null; images?: string[] | null },
+  newData: { price?: number; title?: string; description?: string | null; area?: string | null; images?: string[] | null }
+): string | null {
+  const changes: string[] = [];
+
+  // Price change (most important)
+  if (existing.price !== newData.price) {
+    const oldPrice = existing.price || 0;
+    const newPrice = newData.price || 0;
+    if (newPrice < oldPrice) {
+      changes.push('Preis gesenkt');
+    } else {
+      changes.push('Preis geändert');
+    }
+  }
+
+  // Title change
+  if (existing.title && newData.title && existing.title !== newData.title) {
+    changes.push('Titel');
+  }
+
+  // Description change (compare trimmed to avoid whitespace-only changes)
+  const oldDesc = (existing.description || '').trim();
+  const newDesc = (newData.description || '').trim();
+  if (oldDesc !== newDesc && newDesc.length > 0) {
+    changes.push('Beschreibung');
+  }
+
+  // Area change
+  if (existing.area !== newData.area) {
+    changes.push('Fläche');
+  }
+
+  // Images change
+  const oldImages = existing.images?.length || 0;
+  const newImages = newData.images?.length || 0;
+  if (oldImages !== newImages) {
+    changes.push('Bilder');
+  }
+
+  if (changes.length === 0) {
+    return null;
+  }
+
+  return changes.join(', ');
+}
+
+/**
+ * Normalize Willhaben URL to prevent duplicates
+ * - Removes query parameters
+ * - Removes trailing slashes
+ * - Ensures consistent format: https://www.willhaben.at/iad/.../<ID>
+ */
+export function normalizeWillhabenUrl(url: string): string {
+  // Remove query parameters
+  let normalized = url.split('?')[0];
+
+  // Remove trailing slash
+  normalized = normalized.replace(/\/+$/, '');
+
+  // Ensure https://www.willhaben.at prefix
+  if (normalized.startsWith('//')) {
+    normalized = 'https:' + normalized;
+  }
+  if (!normalized.startsWith('http')) {
+    normalized = 'https://www.willhaben.at' + normalized;
+  }
+
+  return normalized;
 }

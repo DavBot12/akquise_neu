@@ -249,6 +249,24 @@ export function ListingDetailModal({ listing, isOpen, onClose }: ListingDetailMo
               </a>
             </Button>
           </div>
+
+          {/* Last Changed Info */}
+          {listing.last_changed_at && (
+            <div className="mt-4 pt-4 border-t text-center text-sm text-gray-500">
+              <span>Zuletzt geändert am: {new Date(listing.last_changed_at).toLocaleDateString('de-AT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</span>
+              {listing.last_change_type && (
+                <span className="ml-2 text-primary font-medium">
+                  ({listing.last_change_type})
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

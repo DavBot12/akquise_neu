@@ -40,8 +40,9 @@ import {
   type InsertDiscoveredLink
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
+import { normalizeWillhabenUrl } from "./services/scraper-utils";
 
 export interface IStorage {
   // User methods (existing)
@@ -414,7 +415,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getListingByUrl(url: string): Promise<Listing | undefined> {
-    const [listing] = await db.select().from(listings).where(eq(listings.url, url));
+    // Normalize the URL to handle duplicates with query params, trailing slashes, etc.
+    const normalizedUrl = url.includes('willhaben') ? normalizeWillhabenUrl(url) : url;
+
+    // For Willhaben: Also extract the ID and check by ID pattern
+    // This catches duplicates even when the URL path changes (e.g., title change)
+    const willhabenIdMatch = url.match(/[-\/](\d{8,12})\/?(?:\?|$)/);
+    const willhabenId = willhabenIdMatch ? willhabenIdMatch[1] : null;
+
+    if (willhabenId && url.includes('willhaben')) {
+      // Check by Willhaben ID pattern in URL - this catches title changes
+      const [listing] = await db
+        .select()
+        .from(listings)
+        .where(sql`url LIKE ${'%' + willhabenId + '%'} AND url LIKE '%willhaben%'`);
+      if (listing) return listing;
+    }
+
+    // Fallback: Check both normalized and original URL
+    const [listing] = await db
+      .select()
+      .from(listings)
+      .where(or(eq(listings.url, normalizedUrl), eq(listings.url, url)));
     return listing || undefined;
   }
 
@@ -422,6 +444,11 @@ export class DatabaseStorage implements IStorage {
     // ✅ FIX: Set last_changed_at = first_seen_at for new listings from DerStandard/ImmoScout
     // Willhaben provides last_changed_at from the platform, but DerStandard/ImmoScout don't
     const insertData: any = { ...listing };
+
+    // Normalize Willhaben URLs to prevent duplicates
+    if (insertData.url && insertData.url.includes('willhaben')) {
+      insertData.url = normalizeWillhabenUrl(insertData.url);
+    }
 
     // If last_changed_at is undefined/null, set it to first_seen_at (or current time if first_seen_at also missing)
     if (insertData.last_changed_at === undefined || insertData.last_changed_at === null) {
@@ -438,8 +465,12 @@ export class DatabaseStorage implements IStorage {
   async updateListingOnRescrape(url: string, updates: {
     scraped_at?: Date;
     last_changed_at?: Date | null;
+    last_change_type?: string;
     price?: number;
     images?: string[];
+    title?: string;
+    description?: string;
+    area?: string;
   }): Promise<void> {
     const updateData: any = {};
 
@@ -456,11 +487,25 @@ export class DatabaseStorage implements IStorage {
       updateData.last_changed_at = updates.last_changed_at;
     }
 
+    // Track what changed
+    if (updates.last_change_type !== undefined) {
+      updateData.last_change_type = updates.last_change_type;
+    }
+
     if (updates.price !== undefined) {
       updateData.price = updates.price;
     }
     if (updates.images !== undefined) {
       updateData.images = updates.images;
+    }
+    if (updates.title !== undefined) {
+      updateData.title = updates.title;
+    }
+    if (updates.description !== undefined) {
+      updateData.description = updates.description;
+    }
+    if (updates.area !== undefined) {
+      updateData.area = updates.area;
     }
 
     await db

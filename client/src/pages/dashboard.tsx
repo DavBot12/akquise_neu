@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building, TrendingUp, ChartLine, TrendingDown, ChevronLeft, ChevronRight, MapPin, Home, Globe, Phone, Euro, ArrowUpDown, LayoutGrid, X, Filter } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ListingCard from "@/components/listing-card";
+import { ListingDetailModal } from "@/components/listing-detail-modal";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Listing } from "@shared/schema";
 
@@ -36,6 +37,10 @@ export default function Dashboard({ user }: DashboardProps) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
 
+  // URL parameter support for deep-linking to specific listings (e.g., from email alerts)
+  const [urlListingId, setUrlListingId] = useState<number | null>(null);
+  const [showUrlListingModal, setShowUrlListingModal] = useState(false);
+
   const queryClient = useQueryClient();
 
   // WebSocket connection for real-time updates
@@ -59,6 +64,32 @@ export default function Dashboard({ user }: DashboardProps) {
   useEffect(() => {
     setPage(1);
   }, [regionFilter, bezirkFilter, categoryFilter, sourceFilter, phoneFilter, priceDropFilter, priceRange, sortBy, perPage]);
+
+  // Handle URL parameter for deep-linking to specific listings (e.g., from email alerts)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const listingParam = params.get('listing');
+    if (listingParam) {
+      const id = parseInt(listingParam, 10);
+      if (!isNaN(id)) {
+        setUrlListingId(id);
+        setShowUrlListingModal(true);
+        // Remove the param from URL after reading it
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, []);
+
+  // Fetch specific listing from URL parameter
+  const { data: urlListing } = useQuery<Listing>({
+    queryKey: ["/api/listings/by-id", urlListingId],
+    queryFn: async () => {
+      const response = await fetch(`/api/listings/by-id/${urlListingId}`);
+      if (!response.ok) throw new Error('Failed to fetch listing');
+      return response.json();
+    },
+    enabled: !!urlListingId,
+  });
 
   // Fetch paginated listings
   const { data, isLoading: listingsLoading } = useQuery<PaginatedResponse>({
@@ -469,6 +500,18 @@ export default function Dashboard({ user }: DashboardProps) {
           </div>
         )}
       </div>
+
+      {/* Modal for URL-linked listing (from email alerts) */}
+      {urlListing && (
+        <ListingDetailModal
+          listing={urlListing}
+          isOpen={showUrlListingModal}
+          onClose={() => {
+            setShowUrlListingModal(false);
+            setUrlListingId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

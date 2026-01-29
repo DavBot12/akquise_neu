@@ -29,11 +29,15 @@ COPY --from=backend-builder /app/drizzle.config.ts ./
 COPY --from=backend-builder /app/shared ./shared
 COPY --from=backend-builder /app/server ./server
 COPY --from=backend-builder /app/cleanup-geo.ts ./
+COPY --from=backend-builder /app/server/startup-production.ts ./server/
 
 # Exponiere den Port 5000 für das Backend
 EXPOSE 5000
 
-# Run DB migrations, geo cleanup, then start server
-# Geo cleanup is idempotent - safe to run on every restart
-# If cleanup fails, server still starts (|| true)
-CMD ["sh", "-c", "npx drizzle-kit push && (echo '🧹 Running geo cleanup...' && npx tsx cleanup-geo.ts || echo '⚠️ Geo cleanup skipped/failed') && node dist/index.js"]
+# Run on startup:
+# 1. Drizzle schema push (creates tables)
+# 2. Production startup (migrations + duplicate cleanup)
+# 3. Geo cleanup (filter blocked locations)
+# 4. Start server
+# Each step is wrapped with || true so server starts even if cleanup fails
+CMD ["sh", "-c", "npx drizzle-kit push && (echo '🚀 Running production startup...' && npx tsx server/startup-production.ts || echo '⚠️ Startup script failed') && (echo '🧹 Running geo cleanup...' && npx tsx cleanup-geo.ts || echo '⚠️ Geo cleanup skipped') && node dist/index.js"]

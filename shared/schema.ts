@@ -17,6 +17,7 @@ export const listings = pgTable("listings", {
   scraped_at: timestamp("scraped_at").defaultNow().notNull(),
   first_seen_at: timestamp("first_seen_at").defaultNow().notNull(), // Wann das System das Inserat erstmals sah
   last_changed_at: timestamp("last_changed_at"), // "Zuletzt geändert" Datum von Willhaben
+  last_change_type: text("last_change_type"), // Was hat sich geändert? "Preis", "Titel", "Beschreibung", etc.
   published_at: timestamp("published_at"), // "Veröffentlicht am" Datum (nur Willhaben)
   akquise_erledigt: boolean("akquise_erledigt").default(false).notNull(),
   is_deleted: boolean("is_deleted").default(false).notNull(),
