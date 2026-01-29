@@ -9,6 +9,7 @@ import { useAutoLogout } from "@/hooks/use-auto-logout";
 import Dashboard from "@/pages/dashboard";
 import AllListings from "@/pages/all-listings";
 import ListingsSuccessful from "@/pages/listings-successful";
+import ListingsContacted from "@/pages/listings-contacted";
 import ListingsArchived from "@/pages/listings-archived";
 import ScraperDual from "@/pages/scraper-dual";
 import AnalyticsPreisspiegel from "@/pages/analytics-preisspiegel";
@@ -32,6 +33,7 @@ function Router({ user, onLogout }: { user: { id: number; username: string; is_a
         <Route path="/dashboard" component={() => <Dashboard user={user} />} />
         <Route path="/all-listings" component={() => <AllListings user={user} />} />
         <Route path="/listings/successful" component={() => <ListingsSuccessful user={user} />} />
+        <Route path="/listings/contacted" component={() => <ListingsContacted user={user} />} />
         <Route path="/listings/archived" component={() => <ListingsArchived user={user} />} />
         <Route path="/scraper/dual" component={() => <ScraperDual user={user} />} />
         <Route path="/analytics/preisspiegel" component={() => <AnalyticsPreisspiegel user={user} />} />

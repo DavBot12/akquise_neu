@@ -7,8 +7,10 @@ import { AkquiseModal } from "@/components/akquise-modal";
 import { ListingDetailModal } from "@/components/listing-detail-modal";
 import { QualityBadge } from "@/components/quality-badge";
 import { QualityScoreFeedbackModal } from "@/components/quality-score-feedback-modal";
-import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2, Eye, Settings, TrendingDown, AlertTriangle, Ban, ShoppingCart, HelpCircle } from "lucide-react";
+import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2, Eye, Settings, TrendingDown, AlertTriangle, Ban, ShoppingCart, HelpCircle, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 import type { Listing } from "@shared/schema";
 
@@ -27,6 +29,29 @@ function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, u
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const markContactedMutation = useMutation({
+    mutationFn: async (angeschrieben: boolean) => {
+      const res = await apiRequest("PATCH", `/api/listings/${listing.id}/angeschrieben`, { angeschrieben });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/listings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/listings/all"] });
+      toast({
+        title: "Erfolg",
+        description: "Inserat als angeschrieben markiert",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Fehler",
+        description: "Konnte nicht als angeschrieben markieren",
+        variant: "destructive",
+      });
+    },
+  });
   
   const hasImages = listing.images && listing.images.length > 0;
   const images = hasImages ? listing.images! : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300"];
@@ -305,6 +330,19 @@ function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, u
             disabled={isMarkingCompleted}
           >
             {listing.akquise_erledigt ? "Erledigt" : "Akquise erledigt"}
+          </Button>
+          <Button
+            variant={listing.angeschrieben ? "default" : "outline"}
+            size="sm"
+            onClick={() => markContactedMutation.mutate(!listing.angeschrieben)}
+            disabled={markContactedMutation.isPending}
+            title={listing.angeschrieben ? "Als nicht angeschrieben markieren" : "Als angeschrieben markieren"}
+            className={listing.angeschrieben
+              ? "bg-blue-500 hover:bg-blue-600 text-white"
+              : "border-sira-light-gray hover:bg-blue-50 hover:text-blue-600 transition-smooth"
+            }
+          >
+            <Mail className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"

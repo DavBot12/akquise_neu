@@ -100,6 +100,8 @@ export interface IStorage {
   markListingAsDeleted(id: number, userId: number, reason?: string): Promise<void>;
   getDeletedAndUnsuccessful(): Promise<any[]>;
   getSuccessfulAcquisitions(userId?: number): Promise<any[]>;
+  getContactedListings(userId?: number): Promise<any[]>;
+  markAsContacted(id: number, angeschrieben: boolean): Promise<void>;
   getListingStats(): Promise<{
     activeListings: number;
     completedListings: number;
@@ -340,6 +342,9 @@ export class DatabaseStorage implements IStorage {
     if (filters) {
       if (filters.akquise_erledigt !== undefined) {
         conditions.push(eq(listings.akquise_erledigt, filters.akquise_erledigt));
+      }
+      if ((filters as any).angeschrieben !== undefined) {
+        conditions.push(eq(listings.angeschrieben, (filters as any).angeschrieben));
       }
       if (filters.region) {
         conditions.push(eq(listings.region, filters.region));
@@ -652,6 +657,28 @@ export class DatabaseStorage implements IStorage {
       .where(and(...whereConditions));
 
     return await query.orderBy(desc(acquisitions.contacted_at));
+  }
+
+  async getContactedListings(userId?: number): Promise<any[]> {
+    const whereConditions = [
+      eq(listings.angeschrieben, true),
+      eq(listings.akquise_erledigt, false),
+      eq(listings.is_deleted, false)
+    ];
+
+    const query = db
+      .select()
+      .from(listings)
+      .where(and(...whereConditions));
+
+    return await query.orderBy(desc(listings.scraped_at));
+  }
+
+  async markAsContacted(id: number, angeschrieben: boolean): Promise<void> {
+    await db
+      .update(listings)
+      .set({ angeschrieben })
+      .where(eq(listings.id, id));
   }
 
   async getListingStats(): Promise<{

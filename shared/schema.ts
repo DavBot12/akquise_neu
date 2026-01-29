@@ -19,6 +19,7 @@ export const listings = pgTable("listings", {
   last_changed_at: timestamp("last_changed_at"), // "Zuletzt geändert" Datum von Willhaben
   last_change_type: text("last_change_type"), // Was hat sich geändert? "Preis", "Titel", "Beschreibung", etc.
   published_at: timestamp("published_at"), // "Veröffentlicht am" Datum (nur Willhaben)
+  angeschrieben: boolean("angeschrieben").default(false).notNull(), // Wurde bereits kontaktiert/angeschrieben
   akquise_erledigt: boolean("akquise_erledigt").default(false).notNull(),
   is_deleted: boolean("is_deleted").default(false).notNull(),
   deletion_reason: text("deletion_reason"),

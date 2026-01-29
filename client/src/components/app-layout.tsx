@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Building, ChartLine, TrendingUp, LogOut, User, Users, ListChecks, Archive, Activity, BarChart3, UserCog, Settings } from "lucide-react";
+import { Building, ChartLine, TrendingUp, LogOut, User, Users, ListChecks, Archive, Activity, BarChart3, UserCog, Settings, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
@@ -23,6 +23,12 @@ export default function AppLayout({ user, onLogout, children }: AppLayoutProps) 
       path: "/listings/successful",
       label: "Erfolgreiche Akquisen",
       icon: ListChecks,
+      adminOnly: false,
+    },
+    {
+      path: "/listings/contacted",
+      label: "Angeschriebene Inserate",
+      icon: Mail,
       adminOnly: false,
     },
     {

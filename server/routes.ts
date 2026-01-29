@@ -99,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Listings routes
   app.get("/api/listings", async (req, res) => {
     try {
-      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price, source, limit, offset, sortBy, has_price_drop } = req.query;
+      const { region, district, price_evaluation, akquise_erledigt, angeschrieben, is_deleted, category, has_phone, min_price, max_price, source, limit, offset, sortBy, has_price_drop } = req.query;
       const filters: any = {};
 
       if (region && region !== "Alle Regionen") filters.region = region;
@@ -113,6 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filters.price_evaluation = mapping[price_evaluation as string];
       }
       if (akquise_erledigt !== undefined) filters.akquise_erledigt = akquise_erledigt === "true";
+      if (angeschrieben !== undefined) filters.angeschrieben = angeschrieben === "true";
       if (is_deleted !== undefined) filters.is_deleted = is_deleted === "true";
       if (category && category !== "Alle Kategorien") filters.category = category;
       if (has_phone !== undefined) filters.has_phone = has_phone === "true";
@@ -136,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // All listings with pagination (for /all-listings page)
   app.get("/api/listings/all", async (req, res) => {
     try {
-      const { region, district, price_evaluation, akquise_erledigt, is_deleted, category, has_phone, min_price, max_price, source, page, per_page, sortBy, has_price_drop } = req.query;
+      const { region, district, price_evaluation, akquise_erledigt, angeschrieben, is_deleted, category, has_phone, min_price, max_price, source, page, per_page, sortBy, has_price_drop } = req.query;
       const filters: any = {};
 
       if (region && region !== "Alle Regionen") filters.region = region;
@@ -150,6 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filters.price_evaluation = mapping[price_evaluation as string];
       }
       if (akquise_erledigt !== undefined) filters.akquise_erledigt = akquise_erledigt === "true";
+      if (angeschrieben !== undefined) filters.angeschrieben = angeschrieben === "true";
       if (is_deleted !== undefined) filters.is_deleted = is_deleted === "true";
       if (category && category !== "Alle Kategorien") filters.category = category;
       if (has_phone !== undefined) filters.has_phone = has_phone === "true";
@@ -748,6 +750,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(results);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch successful acquisitions" });
+    }
+  });
+
+  app.get("/api/listings/contacted", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const results = await storage.getContactedListings(userId ? parseInt(userId as string) : undefined);
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contacted listings" });
+    }
+  });
+
+  app.patch("/api/listings/:id/angeschrieben", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { angeschrieben } = req.body;
+      await storage.markAsContacted(id, angeschrieben);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark listing as contacted" });
     }
   });
 

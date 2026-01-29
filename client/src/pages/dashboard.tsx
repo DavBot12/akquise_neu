@@ -43,6 +43,11 @@ export default function Dashboard({ user }: DashboardProps) {
 
   const queryClient = useQueryClient();
 
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
+
   // WebSocket connection for real-time updates
   useWebSocket("/ws", {
     onMessage: (data) => {
@@ -100,6 +105,7 @@ export default function Dashboard({ user }: DashboardProps) {
       params.append("per_page", perPage.toString());
       params.append("sortBy", sortBy);
       params.append("akquise_erledigt", "false");
+      params.append("angeschrieben", "false");
 
       if (regionFilter !== "Alle Regionen") params.append("region", regionFilter);
       if (bezirkFilter !== "Alle Bezirke") params.append("district", bezirkFilter);
