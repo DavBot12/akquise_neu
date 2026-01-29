@@ -130,7 +130,7 @@ export function extractPhoneFromHtml(html: string, $: any): string | null {
   const directNums: string[] = [];
 
   // PRIORITY 1: JSON patterns (most reliable)
-  const contactPhonePattern = /\{"name":"CONTACT\/PHONE","values":\["([^"]+)"\]\}/g;
+  const contactPhonePattern = /\{"name":"CONTACT\/PHONE2?","values":\["([^"]+)"\]\}/g;
   const phoneNoPattern = /\{"id":"phoneNo"[^}]*"value":"([^"]+)"\}/g;
   const phoneNumberPattern = /\{"name":"PHONE_NUMBER","values":\["([^"]+)"\]\}/g;
 
