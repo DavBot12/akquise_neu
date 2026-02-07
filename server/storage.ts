@@ -244,8 +244,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    // Hash password before storing
-    const hashedPassword = await bcrypt.hash(insertUser.password, 10);
+    // Hash password before storing (12 rounds for security)
+    const hashedPassword = await bcrypt.hash(insertUser.password, 12);
 
     const [user] = await db
       .insert(users)
@@ -1155,16 +1155,26 @@ export class DatabaseStorage implements IStorage {
 
   // Create user session
   async createUserSession(userId: number, ipAddress?: string, userAgent?: string): Promise<UserSession> {
-    const [session] = await db
-      .insert(user_sessions)
-      .values({
-        user_id: userId,
-        ip_address: ipAddress,
-        user_agent: userAgent
-      })
-      .returning();
+    const result = await db.execute(sql`
+      INSERT INTO auth.user_sessions (user_id, ip_address, user_agent, login_time)
+      VALUES (${userId}, ${ipAddress || null}, ${userAgent || null}, NOW())
+      RETURNING id, user_id, login_time, logout_time, session_duration, ip_address, user_agent
+    `);
 
-    return session;
+    const session = result.rows?.[0] as any;
+    if (!session) {
+      throw new Error("Failed to create user session - no row returned");
+    }
+
+    return {
+      id: session.id,
+      user_id: session.user_id,
+      login_time: session.login_time,
+      logout_time: session.logout_time,
+      session_duration: session.session_duration,
+      ip_address: session.ip_address,
+      user_agent: session.user_agent
+    };
   }
 
   // End user session

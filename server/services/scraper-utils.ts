@@ -229,9 +229,19 @@ export function extractPrice($: any, bodyText: string): number {
 // ============================================
 
 export function extractArea($: any, bodyText: string): string {
+  // PRIORITY 1: JSON ESTATE_SIZE/LIVING_AREA attribute (most reliable)
+  const jsonArea = bodyText.match(/"ESTATE_SIZE\/LIVING_AREA","values":\["(\d+)"\]/);
+  if (jsonArea) {
+    const v = parseInt(jsonArea[1]);
+    if (v > 0 && v <= 10000) return jsonArea[1]; // Return as string for consistency
+  }
+
+  // PRIORITY 2: DOM selectors with m² (supports up to 4 digits)
   const m1 = $('span:contains("m²"), div:contains("Wohnfläche")').text().match(/(\d{1,4})\s*m²/i);
   if (m1) return m1[1];
-  const m2 = bodyText.match(/(\d{1,3})\s*m²/i);
+
+  // PRIORITY 3: Regex fallback in bodyText (supports up to 4 digits)
+  const m2 = bodyText.match(/(\d{1,4})\s*m²/i);
   return m2?.[1] || '';
 }
 
@@ -239,7 +249,17 @@ export function extractArea($: any, bodyText: string): string {
 // TITLE EXTRACTION
 // ============================================
 
-export function extractTitle($: any): string {
+export function extractTitle($: any, bodyText?: string): string {
+  // PRIORITY 1: JSON advertDetails.description (most reliable for Willhaben)
+  // Note: In Willhaben JSON, "advertDetails.description" is actually the TITLE
+  if (bodyText) {
+    const jsonTitle = bodyText.match(/"advertDetails":\{[^}]*"description"\s*:\s*"([^"]+)"/);
+    if (jsonTitle && jsonTitle[1] && jsonTitle[1].length > 3) {
+      return jsonTitle[1].trim();
+    }
+  }
+
+  // PRIORITY 2: DOM selectors (fallback for other platforms)
   const selectors = ['[data-testid="ad-detail-ad-title"] h1', 'h1'];
   for (const s of selectors) {
     const el = $(s);
@@ -252,12 +272,34 @@ export function extractTitle($: any): string {
 // DESCRIPTION EXTRACTION
 // ============================================
 
-export function extractDescription($: any): string {
-  // Strategy 1: data-testid attributes (most reliable)
+export function extractDescription($: any, bodyText?: string): string {
+  // PRIORITY 1: JSON DESCRIPTION attribute (most reliable for Willhaben)
+  if (bodyText) {
+    const jsonDesc = bodyText.match(/"DESCRIPTION","values":\["([^"]+(?:\\.[^"]+)*)"\]/);
+    if (jsonDesc) {
+      try {
+        // Decode JSON string and HTML entities
+        let desc = jsonDesc[1]
+          .replace(/\\u003c/g, '<')
+          .replace(/\\u003e/g, '>')
+          .replace(/\\"/g, '"')
+          .replace(/\\n/g, '\n');
+
+        // Strip HTML tags
+        desc = desc.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+        if (desc.length > 10) return cleanDescription(desc);
+      } catch (e) {
+        // Fall through to DOM extraction
+      }
+    }
+  }
+
+  // PRIORITY 2: data-testid attributes (DOM fallback)
   const t = $('[data-testid="ad-detail-ad-description"], [data-testid="object-description-text"]').text().trim();
   if (t && t.length > 10 && !t.includes('{"props"')) return cleanDescription(t);
 
-  // Strategy 2: Common description selectors
+  // PRIORITY 3: Common description selectors
   const commonSelectors = [
     '.description-text',
     '.ad-description',
@@ -275,7 +317,7 @@ export function extractDescription($: any): string {
     }
   }
 
-  // Strategy 3: Find description headers and extract following content
+  // PRIORITY 4: Find description headers and extract following content
   const headers = $('h2, h3, h4').filter((_: number, el: any) => {
     const text = $(el).text().toLowerCase();
     return text.includes('beschreibung') || text.includes('objektbeschreibung');
@@ -298,7 +340,7 @@ export function extractDescription($: any): string {
     }
   }
 
-  // Strategy 4: Regex fallback (lower minimum to catch short descriptions)
+  // PRIORITY 5: Regex fallback
   const all = $('body').text();
   const patterns = [
     /Objektbeschreibung[\s:]*\n?\s*([\s\S]{10,5000}?)(?=\n\s*(?:Kontakt|Ausstattung|Lage|€|Weitere|Services|Rechtlicher|Anbieter))/i,
@@ -387,14 +429,34 @@ export function extractLocationFromDom($: any, url: string): string {
 
 export function extractImages($: any, html: string): string[] {
   const images: string[] = [];
+
+  // Helper function to filter out non-listing images
+  const isValidListingImage = (url: string): boolean => {
+    if (!url) return false;
+
+    // Exclude thumbnails
+    if (url.includes('_thumb')) return false;
+
+    // Exclude user profile pictures (pattern: /userProfile/{id}_{hash}.jpg)
+    if (url.includes('/userProfile/')) return false;
+
+    // Exclude common ad/logo paths
+    if (url.includes('/logo/') || url.includes('/ads/') || url.includes('/banner/')) return false;
+
+    return true;
+  };
+
   $('img[src*="cache.willhaben.at"]').each((_: number, el: any) => {
     const src = $(el).attr('src');
-    if (src && !src.includes('_thumb')) images.push(src);
+    if (isValidListingImage(src)) images.push(src);
   });
+
   (html.match(/https:\/\/cache\.willhaben\.at\/mmo\/[^"'\s]+\.jpg/gi) || []).forEach(u => {
-    if (!u.includes('_thumb')) images.push(u);
+    if (isValidListingImage(u)) images.push(u);
   });
-  return Array.from(new Set(images)).slice(0, 10);
+
+  // Return ALL valid listing images (deduplicated)
+  return Array.from(new Set(images));
 }
 
 // ============================================

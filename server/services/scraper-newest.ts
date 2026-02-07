@@ -400,7 +400,6 @@ export class NewestScraperService {
             }
 
             // Check if we've reached THIS CATEGORY's previous scrape's first ID
-            onLog?.(`[NEWEST] [${label}] 🔍 Checking ID: ${listingId} vs saved: ${categoryLastFirstId} (match: ${listingId === categoryLastFirstId})`);
             if (categoryLastFirstId && listingId === categoryLastFirstId) {
               foundPreviousFirstId = true;
               onLog?.(`[NEWEST] [${label}] ✅ Reached previous first ID for ${key}: ${listingId} - Stopping pagination`);
@@ -541,8 +540,8 @@ export class NewestScraperService {
     }
 
     // Check for deleted/404 listings
-    const description = extractDescription($);
-    const title = extractTitle($);
+    const description = extractDescription($, bodyText);
+    const title = extractTitle($, bodyText);
 
     if (title && (title.includes('Die Seite wurde nicht gefunden') || title.includes('nicht gefunden'))) {
       return { listing: null, reason: 'listing deleted/not found' };
