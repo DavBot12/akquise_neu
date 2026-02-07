@@ -946,8 +946,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Hash new password
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      // Hash new password (12 rounds for security)
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
 
       // Update password
       await db.update(users)
@@ -2095,7 +2095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
 
       await db.update(users)
         .set({ password: hashedPassword })

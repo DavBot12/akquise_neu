@@ -1,9 +1,15 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgSchema, text, serial, integer, boolean, timestamp, decimal, json, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const listings = pgTable("listings", {
+// Define the akquise schema
+export const akquiseSchema = pgSchema('akquise');
+
+// Define the auth schema (for users and authentication)
+export const authSchema = pgSchema('auth');
+
+export const listings = akquiseSchema.table("listings", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   price: integer("price").notNull(),
@@ -43,7 +49,7 @@ export const listings = pgTable("listings", {
   duplicate_sources: json("duplicate_sources").$type<string[]>(), // All sources for this property: ["willhaben", "derstandard"]
 });
 
-export const contacts = pgTable("contacts", {
+export const contacts = akquiseSchema.table("contacts", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   company: text("company"),
@@ -53,7 +59,7 @@ export const contacts = pgTable("contacts", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const listing_contacts = pgTable("listing_contacts", {
+export const listing_contacts = akquiseSchema.table("listing_contacts", {
   id: serial("id").primaryKey(),
   listing_id: integer("listing_id").notNull().references(() => listings.id, { onDelete: "cascade" }),
   contact_id: integer("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
@@ -101,8 +107,8 @@ export type Contact = typeof contacts.$inferSelect;
 export type InsertListingContact = z.infer<typeof insertListingContactSchema>;
 export type ListingContact = typeof listing_contacts.$inferSelect;
 
-// Users table (keeping existing structure)
-export const users = pgTable("users", {
+// Users table (in auth schema with bcrypt passwords)
+export const users = authSchema.table("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
@@ -115,7 +121,7 @@ export const users = pgTable("users", {
 });
 
 // User sessions tracking table for real statistics
-export const user_sessions = pgTable("user_sessions", {
+export const user_sessions = authSchema.table("user_sessions", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   login_time: timestamp("login_time").defaultNow().notNull(),
@@ -134,7 +140,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 // Acquisition tracking table for success/failure statistics
-export const acquisitions = pgTable("acquisitions", {
+export const acquisitions = akquiseSchema.table("acquisitions", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   listing_id: integer("listing_id").notNull().references(() => listings.id, { onDelete: "cascade" }),
@@ -187,7 +193,7 @@ export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
 export type UserSession = typeof user_sessions.$inferSelect;
 
 // Price mirror data table for daily market analysis
-export const price_mirror_data = pgTable("price_mirror_data", {
+export const price_mirror_data = akquiseSchema.table("price_mirror_data", {
   id: serial("id").primaryKey(),
   category: text("category").notNull(), // eigentumswohnung, haus, grundstuecke
   region: text("region").notNull(), // wien, niederoesterreich, etc.
@@ -209,7 +215,7 @@ export type InsertPriceMirrorData = z.infer<typeof insertPriceMirrorSchema>;
 export type PriceMirrorData = typeof price_mirror_data.$inferSelect;
 
 // Discovered links for Scraper V2 (immediate persistence of found URLs)
-export const discovered_links = pgTable("discovered_links", {
+export const discovered_links = akquiseSchema.table("discovered_links", {
   id: serial("id").primaryKey(),
   url: text("url").notNull().unique(),
   category: text("category"),
@@ -226,7 +232,7 @@ export const insertDiscoveredLinkSchema = createInsertSchema(discovered_links).o
 export type InsertDiscoveredLink = z.infer<typeof insertDiscoveredLinkSchema>;
 export type DiscoveredLink = typeof discovered_links.$inferSelect;
 
-export const scraper_state = pgTable("scraper_state", {
+export const scraper_state = akquiseSchema.table("scraper_state", {
   id: serial("id").primaryKey(),
   state_key: text("state_key").notNull().unique(),
   next_page: text("next_page").notNull(), // Changed from integer to text to support ImmoScout hex IDs
@@ -243,7 +249,7 @@ export type InsertScraperState = z.infer<typeof insertScraperStateSchema>;
 export type ScraperState = typeof scraper_state.$inferSelect;
 
 // Price mirror listings for detailed market data (Vienna only, all listings)
-export const price_mirror_listings = pgTable("price_mirror_listings", {
+export const price_mirror_listings = akquiseSchema.table("price_mirror_listings", {
   id: serial("id").primaryKey(),
   category: text("category").notNull(), // 'eigentumswohnung' | 'haus'
   bezirk_code: text("bezirk_code").notNull(), // "1010", "1020", etc.
@@ -269,7 +275,7 @@ export type InsertPriceMirrorListing = z.infer<typeof insertPriceMirrorListingSc
 export type PriceMirrorListing = typeof price_mirror_listings.$inferSelect;
 
 // Machine Learning - Quality Score Feedback (stores user corrections for training)
-export const quality_feedback = pgTable("quality_feedback", {
+export const quality_feedback = akquiseSchema.table("quality_feedback", {
   id: serial("id").primaryKey(),
   listing_id: integer("listing_id").notNull().references(() => listings.id, { onDelete: "cascade" }),
   user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -295,7 +301,7 @@ export const qualityFeedbackRelations = relations(quality_feedback, ({ one }) =>
 }));
 
 // Machine Learning - Model Weights (stores trained models)
-export const ml_model_weights = pgTable("ml_model_weights", {
+export const ml_model_weights = akquiseSchema.table("ml_model_weights", {
   id: serial("id").primaryKey(),
   model_version: text("model_version").notNull().unique(), // e.g., "v1.0", "v2.0"
   algorithm: text("algorithm").notNull(), // "weighted_avg", "linear_regression", "gradient_boosting"
@@ -325,7 +331,7 @@ export type InsertMlModelWeights = z.infer<typeof insertMlModelWeightsSchema>;
 export type MlModelWeights = typeof ml_model_weights.$inferSelect;
 
 // Price History - Track price changes over time (detects motivated sellers!)
-export const price_history = pgTable("price_history", {
+export const price_history = akquiseSchema.table("price_history", {
   id: serial("id").primaryKey(),
   listing_id: integer("listing_id").notNull().references(() => listings.id, { onDelete: "cascade" }),
   old_price: integer("old_price").notNull(),
@@ -355,7 +361,7 @@ export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
 export type PriceHistory = typeof price_history.$inferSelect;
 
 // Machine Learning - Outcome Feedback (learns from real acquisition results)
-export const outcome_feedback = pgTable("outcome_feedback", {
+export const outcome_feedback = akquiseSchema.table("outcome_feedback", {
   id: serial("id").primaryKey(),
   listing_id: integer("listing_id").notNull().references(() => listings.id, { onDelete: "cascade" }),
   user_id: integer("user_id").references(() => users.id, { onDelete: "set null" }), // User who performed action
@@ -405,7 +411,7 @@ export type InsertOutcomeFeedback = z.infer<typeof insertOutcomeFeedbackSchema>;
 export type OutcomeFeedback = typeof outcome_feedback.$inferSelect;
 
 // Scraper Statistics - Track scraper performance per platform
-export const scraper_stats = pgTable("scraper_stats", {
+export const scraper_stats = akquiseSchema.table("scraper_stats", {
   id: serial("id").primaryKey(),
   scraper_name: text("scraper_name").notNull(), // 'newest', 'multi-newest', 'v3', '24-7'
   platform: text("platform").notNull(), // 'willhaben', 'derstandard', 'immoscout'
@@ -432,7 +438,7 @@ export type ScraperStats = typeof scraper_stats.$inferSelect;
 
 // Geo-Blocked Listings - Listings die vom Geo-Filter blockiert wurden (außerhalb Akquise-Gebiet)
 // Daten werden nicht gelöscht sondern hier archiviert!
-export const geo_blocked_listings = pgTable("geo_blocked_listings", {
+export const geo_blocked_listings = akquiseSchema.table("geo_blocked_listings", {
   id: serial("id").primaryKey(),
 
   // Alle Original-Listing-Daten (Kopie, kein FK damit Daten erhalten bleiben)

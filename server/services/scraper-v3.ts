@@ -475,7 +475,7 @@ export class ScraperV3Service {
     }
 
     // Check if listing was deleted/not found
-    const title = extractTitle($);
+    const title = extractTitle($, bodyText);
     if (title && (title.includes('Die Seite wurde nicht gefunden') || title.includes('nicht gefunden'))) {
       return { listing: null, reason: 'listing deleted/not found' };
     }
@@ -485,7 +485,7 @@ export class ScraperV3Service {
       return { listing: null, reason: 'page not found (404)' };
     }
 
-    const description = extractDescription($);
+    const description = extractDescription($, bodyText);
 
     const price = extractPrice($, bodyText);
     if (price <= 0) return { listing: null, reason: 'no price' };

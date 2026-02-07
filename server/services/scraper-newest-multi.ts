@@ -349,7 +349,6 @@ export class MultiNewestScraperService {
               // Convert both to strings to handle type mismatch (extractListingIdFromUrl returns string, getScraperNextPage returns number)
               const listingIdStr = listingId?.toString();
               const savedIdStr = categoryLastFirstId?.toString();
-              this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] 🔍 Checking ID: ${listingIdStr} (${typeof listingId}) vs saved: ${savedIdStr} (${typeof categoryLastFirstId}) (match: ${listingIdStr === savedIdStr})`);
               if (categoryLastFirstId && listingIdStr === savedIdStr) {
                 foundPreviousFirstId = true;
                 this.onLog?.(`[MULTI-NEWEST] [Willhaben] [${label}] ✅ Reached previous first ID for ${key}: ${listingIdStr} - Stopping pagination`);
@@ -580,8 +579,8 @@ export class MultiNewestScraperService {
     }
 
     // Check for deleted/404 listings
-    const description = extractDescription($);
-    const title = extractTitle($);
+    const description = extractDescription($, bodyText);
+    const title = extractTitle($, bodyText);
 
     if (title && (title.includes('Die Seite wurde nicht gefunden') || title.includes('nicht gefunden'))) {
       return { listing: null, reason: 'listing deleted/not found' };

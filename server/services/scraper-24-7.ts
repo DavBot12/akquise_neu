@@ -243,7 +243,7 @@ export class ContinuousScraper247Service {
       if (!foundPrivate) return null; // Kein Private-Keyword → Skip!
 
       // Extrahiere Private Listings using shared utils
-      const title = extractTitle($);
+      const title = extractTitle($, html);
       const price = extractPrice($, bodyText);
       const areaStr = extractArea($, bodyText);
       const area = areaStr ? parseInt(areaStr) : 0;
@@ -252,7 +252,7 @@ export class ContinuousScraper247Service {
       const phoneNumber = extractPhoneFromHtml(html, $);
       const images = extractImages($, html);
       const lastChangedAt = extractLastChanged($, html);
-      const description = extractDescription($);
+      const description = extractDescription($, html);
 
       const region = category.includes('wien') ? 'wien' : 'niederoesterreich';
       const listingCategory = category.includes('eigentumswohnung')

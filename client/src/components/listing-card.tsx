@@ -7,10 +7,11 @@ import { AkquiseModal } from "@/components/akquise-modal";
 import { ListingDetailModal } from "@/components/listing-detail-modal";
 import { QualityBadge } from "@/components/quality-badge";
 import { QualityScoreFeedbackModal } from "@/components/quality-score-feedback-modal";
-import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2, Eye, Settings, TrendingDown, AlertTriangle, Ban, ShoppingCart, HelpCircle, Mail } from "lucide-react";
+import { MapPin, ExternalLink, Check, Clock, ChevronLeft, ChevronRight, Phone, Trash2, Eye, Settings, TrendingDown, AlertTriangle, Ban, ShoppingCart, HelpCircle, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { personalizeMessage } from "@/lib/message-template";
 
 import type { Listing } from "@shared/schema";
 
@@ -20,6 +21,22 @@ interface ListingCardProps {
   isMarkingCompleted: boolean;
   onDelete?: (id: number, reason?: string, deleteType?: string) => void;
   user?: { id: number; username: string };
+}
+
+const MESSAGE_TEMPLATE = `Guten Tag,
+wir haben kürzlich ein ähnliches Objekt im {{bezirk}} erfolgreich verkauft und mehrere Interessenten in unserer Datenbank, die nicht zum Zug gekommen sind.
+
+Wäre es möglich Ihre {{objekttyp}} diesen Interessenten anzubieten? Sie können mich gerne auch unter +43 6640 23 32 003 erreichen.
+
+Beste Grüße,
+Simon Jaros
+SIRA Real Estate GmbH
+Tel.: +43 660 23 32 003
+E-Mail: office@sira-group.at`;
+
+function getContactUrl(url: string, source: string): string {
+  // Return original URL - detail page already has contact form
+  return url;
 }
 
 function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, user }: ListingCardProps) {
@@ -52,7 +69,43 @@ function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, u
       });
     },
   });
-  
+
+  const handleAnschreiben = async () => {
+    try {
+      // 1. Personalize message
+      const personalizedMessage = personalizeMessage(MESSAGE_TEMPLATE, listing);
+
+      // 2. Copy to clipboard
+      await navigator.clipboard.writeText(personalizedMessage);
+
+      // 3. Open Willhaben contact page
+      const contactUrl = getContactUrl(listing.url, listing.source);
+      window.open(contactUrl, '_blank');
+
+      // 4. Mark as contacted
+      markContactedMutation.mutate(true);
+
+      // 5. Success notification
+      if (listing.source === 'willhaben') {
+        toast({
+          title: "Nachricht kopiert",
+          description: "Willhaben-Chat geöffnet. Füge die Nachricht mit Strg+V ein.",
+        });
+      } else {
+        toast({
+          title: "Nachricht kopiert",
+          description: `${listing.source} Inserat geöffnet. Kontaktformular manuell öffnen.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Kopieren fehlgeschlagen",
+        variant: "destructive",
+      });
+    }
+  };
+
   const hasImages = listing.images && listing.images.length > 0;
   const images = hasImages ? listing.images! : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=300"];
   
@@ -332,17 +385,13 @@ function ListingCard({ listing, onMarkCompleted, isMarkingCompleted, onDelete, u
             {listing.akquise_erledigt ? "Erledigt" : "Akquise erledigt"}
           </Button>
           <Button
-            variant={listing.angeschrieben ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            onClick={() => markContactedMutation.mutate(!listing.angeschrieben)}
-            disabled={markContactedMutation.isPending}
-            title={listing.angeschrieben ? "Als nicht angeschrieben markieren" : "Als angeschrieben markieren"}
-            className={listing.angeschrieben
-              ? "bg-blue-500 hover:bg-blue-600 text-white"
-              : "border-sira-light-gray hover:bg-blue-50 hover:text-blue-600 transition-smooth"
-            }
+            onClick={handleAnschreiben}
+            title="Nachricht kopieren und Chat öffnen"
+            className="border-sira-light-gray hover:bg-green-50 hover:text-green-600 transition-smooth"
           >
-            <Mail className="h-4 w-4" />
+            <MessageSquare className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"

@@ -32,7 +32,6 @@ const BLACKLISTED_LOCATIONS = new Set([
   'bad vöslau',
   'badener',
   'traiskirchen',
-  'pfaffstätten',
   'sooß',
   'kottingbrunn',
   'leobersdorf',
@@ -45,7 +44,6 @@ const BLACKLISTED_LOCATIONS = new Set([
   'heiligenkreuz',
   'mayerling',
   'gainfarn',
-  'tribuswinkel',
 
   // ============================================
   // SÜDEN - Wiener Neustadt & Umgebung (>35 min)
@@ -459,6 +457,15 @@ const WHITELISTED_LOCATIONS = new Set([
   'laab im walde',
 
   // ============================================
+  // ERWEITERTE SÜDZONE (neue Akquise-Gebiete)
+  // ============================================
+  'ebreichsdorf',
+  'unterwaltersdorf',
+  'pfaffstätten',
+  'tribuswinkel',
+  'oberwaltersdorf',
+
+  // ============================================
   // SCHWECHAT & UMGEBUNG (<20 min)
   // ============================================
   'schwechat',
@@ -536,6 +543,15 @@ const WHITELISTED_PLZ_PREFIXES = [
   '2325', // Himberg
   '2326', // Maria Lanzendorf
   '2327', // Lanzendorf
+
+  // ============================================
+  // ERWEITERTE SÜDZONE (neue Akquise-Gebiete)
+  // ============================================
+  '2442', // Unterwaltersdorf
+  '2483', // Ebreichsdorf
+  '2511', // Pfaffstätten
+  '2512', // Tribuswinkel
+  '2522', // Oberwaltersdorf
 
   // ============================================
   // GROß-ENZERSDORF/OSTEN NAH
