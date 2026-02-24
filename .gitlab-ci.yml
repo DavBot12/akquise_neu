@@ -1,0 +1,32 @@
+stages:
+  - build
+
+variables:
+  DOCKERHUB_USER: davdocker70807
+  FRONTEND_IMAGE: davdocker70807/akquise-frontend
+  BACKEND_IMAGE: davdocker70807/akquise-backend
+
+# Build & Push nur bei Push auf main
+.docker-build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
+  only:
+    - main
+
+build-frontend:
+  extends: .docker-build
+  script:
+    - docker build -t $FRONTEND_IMAGE:latest -t $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA -f client/Dockerfile .
+    - docker push $FRONTEND_IMAGE:latest
+    - docker push $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA
+
+build-backend:
+  extends: .docker-build
+  script:
+    - docker build -t $BACKEND_IMAGE:latest -t $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA -f server/Dockerfile.backend .
+    - docker push $BACKEND_IMAGE:latest
+    - docker push $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA

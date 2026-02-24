@@ -430,32 +430,33 @@ export function extractLocationFromDom($: any, url: string): string {
 export function extractImages($: any, html: string): string[] {
   const images: string[] = [];
 
-  // Helper function to filter out non-listing images
+  // Helper: check if URL is a valid listing photo
   const isValidListingImage = (url: string): boolean => {
     if (!url) return false;
-
-    // Exclude thumbnails
+    // Filter out ad/campaign banners (Möbel, Allianz, etc.)
+    if (url.includes('/campaigns/')) return false;
+    // Filter out thumbnails
     if (url.includes('_thumb')) return false;
-
-    // Exclude user profile pictures (pattern: /userProfile/{id}_{hash}.jpg)
+    // Filter out hover/preview duplicates
+    if (url.includes('_hoved')) return false;
+    // Filter out user profile pictures
     if (url.includes('/userProfile/')) return false;
-
-    // Exclude common ad/logo paths
+    // Filter out logos, ads, banners
     if (url.includes('/logo/') || url.includes('/ads/') || url.includes('/banner/')) return false;
-
     return true;
   };
 
+  // Source 1: img tags with cache.willhaben.at
   $('img[src*="cache.willhaben.at"]').each((_: number, el: any) => {
     const src = $(el).attr('src');
-    if (isValidListingImage(src)) images.push(src);
+    if (src && isValidListingImage(src)) images.push(src);
   });
 
+  // Source 2: Regex for /mmo/ image URLs in HTML
   (html.match(/https:\/\/cache\.willhaben\.at\/mmo\/[^"'\s]+\.jpg/gi) || []).forEach(u => {
     if (isValidListingImage(u)) images.push(u);
   });
 
-  // Return ALL valid listing images (deduplicated)
   return Array.from(new Set(images));
 }
 
