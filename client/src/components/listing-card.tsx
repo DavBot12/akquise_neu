@@ -26,7 +26,7 @@ interface ListingCardProps {
 const MESSAGE_TEMPLATE = `Guten Tag,
 wir haben kürzlich ein ähnliches Objekt im {{bezirk}} erfolgreich verkauft und mehrere Interessenten in unserer Datenbank, die nicht zum Zug gekommen sind.
 
-Wäre es möglich Ihre {{objekttyp}} diesen Interessenten anzubieten? Sie können mich gerne auch unter +43 6640 23 32 003 erreichen.
+Wäre es möglich Ihre {{objekttyp}} diesen Interessenten anzubieten? Sie können mich gerne auch unter +43 660 23 32 003 erreichen.
 
 Beste Grüße,
 Simon Jaros
