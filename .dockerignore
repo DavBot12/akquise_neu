@@ -29,5 +29,4 @@ Thumbs.db
 .env.*.local
 
 # Roadmap
-🚀 AKQUISE V2.docx
-
+*.docx
