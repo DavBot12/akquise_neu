@@ -443,6 +443,10 @@ export function extractImages($: any, html: string): string[] {
     if (url.includes('/userProfile/')) return false;
     // Filter out logos, ads, banners
     if (url.includes('/logo/') || url.includes('/ads/') || url.includes('/banner/')) return false;
+    // Filter out upselling icons (bump arrow, etc.)
+    if (url.includes('/upselling/') || url.includes('/img/')) return false;
+    // Only allow actual image files (no SVGs)
+    if (url.endsWith('.svg')) return false;
     return true;
   };
 
