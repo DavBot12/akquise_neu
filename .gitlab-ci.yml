@@ -5,6 +5,7 @@ variables:
   DOCKERHUB_USER: davdocker70807
   FRONTEND_IMAGE: davdocker70807/akquise-frontend
   BACKEND_IMAGE: davdocker70807/akquise-backend
+  DOCKER_BUILDKIT: "1"
 
 # Build & Push nur bei Push auf main
 .docker-build:
@@ -20,13 +21,15 @@ variables:
 build-frontend:
   extends: .docker-build
   script:
-    - docker build -t $FRONTEND_IMAGE:latest -t $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA -f client/Dockerfile .
+    - docker pull $FRONTEND_IMAGE:latest || true
+    - docker build --cache-from $FRONTEND_IMAGE:latest -t $FRONTEND_IMAGE:latest -t $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA -f client/Dockerfile .
     - docker push $FRONTEND_IMAGE:latest
     - docker push $FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA
 
 build-backend:
   extends: .docker-build
   script:
-    - docker build -t $BACKEND_IMAGE:latest -t $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA -f server/Dockerfile.backend .
+    - docker pull $BACKEND_IMAGE:latest || true
+    - docker build --cache-from $BACKEND_IMAGE:latest -t $BACKEND_IMAGE:latest -t $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA -f server/Dockerfile.backend .
     - docker push $BACKEND_IMAGE:latest
     - docker push $BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA
