@@ -1,10 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import { spawn, type ChildProcess } from "child_process";
+import path from "path";
 import axios from "axios";
 import bcrypt from "bcrypt";
 import { Resend } from "resend";
 import { storage } from "./storage";
+import { requireAdmin } from "./middleware/auth";
 import { insertListingSchema, insertContactSchema, insertListingContactSchema, listings, discovered_links, users, user_sessions } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -12,7 +15,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { PriceEvaluator } from "./services/priceEvaluator";
 import { ScraperV3Service } from "./services/scraper-v3";
 import { MultiNewestScraperService } from "./services/scraper-newest-multi";
-import { DerStandardScraperService } from "./services/scraper-derstandard";
+// DerStandard: Jetzt Python/Scrapy (scrapers/run_spider.py) statt TS
 import { ImmoScout24ScraperService } from "./services/scraper-immoscout-v2";
 import { registerMLRoutes } from "./routes-ml";
 import { trackPriceChange, detectPriceChange } from "./services/price-tracker";
@@ -93,7 +96,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { ContinuousScraper247Service } = await import('./services/scraper-24-7');
   const continuousScraper = new ContinuousScraper247Service();
   const newestScraper = new MultiNewestScraperService();
-  const derStandardScraper = new DerStandardScraperService();
+  // DerStandard: Python/Scrapy Prozess-Verwaltung
+  let derStandardProcess: ChildProcess | null = null;
+  let derStandardRunning = false;
   const immoScoutScraper = new ImmoScout24ScraperService();
 
   // Listings routes
@@ -930,19 +935,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User changes own password (no old password required)
+  // User changes own password (requires auth, can only change own password)
   app.post("/api/auth/change-password", async (req, res) => {
     try {
       const { userId, newPassword } = req.body;
 
-      if (!newPassword || newPassword.length < 4) {
-        res.status(400).json({ error: "Neues Passwort muss mindestens 4 Zeichen lang sein" });
+      // Verify user can only change their own password
+      if (!req.user || req.user.id !== userId) {
+        res.status(403).json({ error: "Keine Berechtigung" });
         return;
       }
 
-      const user = await storage.getUser(userId);
-      if (!user) {
-        res.status(404).json({ error: "Benutzer nicht gefunden" });
+      if (!newPassword || newPassword.length < 4) {
+        res.status(400).json({ error: "Neues Passwort muss mindestens 4 Zeichen lang sein" });
         return;
       }
 
@@ -954,7 +959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ password: hashedPassword })
         .where(eq(users.id, userId));
 
-      console.log(`[PASSWORD CHANGE] User ${user.username} changed their password`);
+      console.log(`[PASSWORD CHANGE] User ${req.user.username} changed their password`);
       res.json({ success: true });
     } catch (error) {
       console.error("Password change error:", error);
@@ -1546,132 +1551,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ============== DERSTANDARD SCRAPER ==============
+  // ============== DERSTANDARD SCRAPER (Python/Scrapy) ==============
 
   app.post("/api/derstandard-scraper/start", async (req, res) => {
     try {
-      const { intervalMinutes = 30, maxPages = 3, categories = [] } = req.body;
+      if (derStandardRunning) {
+        return res.json({ success: false, message: "DerStandard Scraper läuft bereits" });
+      }
 
-      // Filter baseUrls by selected categories if provided
-      let selectedCategories = categories.length > 0 ? categories : Object.keys(derStandardScraper['baseUrls']);
+      const { maxPages = 3, categories = [] } = req.body;
 
-      const scraperOptions = {
-        intervalMinutes,
-        maxPages,
-        categories: selectedCategories,
-        onLog: (message: string) => {
-          console.log('[DERSTANDARD-SCRAPER]', message);
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({ type: 'scraperUpdate', message }));
-            }
-          });
-        },
-        onListingFound: async (listingData: any) => {
-          try {
-            // Check if listing already exists
-            const existing = await storage.getListingByUrl(listingData.url);
-            if (existing) {
-              // Detect what changed
-              const changeType = detectChangeType(
-                { price: existing.price, title: existing.title, description: existing.description, area: existing.area, images: existing.images },
-                { price: listingData.price, title: listingData.title, description: listingData.description, area: listingData.area, images: listingData.images }
-              );
-
-              console.log('[DERSTANDARD-DB] Update (bereits vorhanden):', listingData.title.substring(0, 50), changeType ? `(${changeType})` : '');
-
-              // Update scraped_at, price, and last_changed_at ONLY if something changed
-              await storage.updateListingOnRescrape(listingData.url, {
-                scraped_at: new Date(),
-                last_changed_at: changeType ? new Date() : undefined, // Only update if changed
-                last_change_type: changeType || undefined,
-                price: listingData.price,
-                title: listingData.title,
-                description: listingData.description,
-                area: listingData.area,
-                images: listingData.images
-              });
-
-              // Track price changes for price drop detection
-              if (existing.price !== listingData.price) {
-                await trackPriceChange(existing.id,
-                  { price: existing.price, area: existing.area, eur_per_m2: existing.eur_per_m2 },
-                  { price: listingData.price, area: listingData.area, eur_per_m2: listingData.eur_per_m2 }
-                );
-
-                // Check for price drop email alert
-                await checkAndSendAlerts({ ...existing, price: listingData.price }, 'update', existing.price);
-              }
-
-              console.log('[DERSTANDARD-DB] ✓ Aktualisiert:', existing.id, changeType ? `(${changeType})` : '(keine Änderungen)');
-              return;
-            }
-
-            // Price evaluation
-            const priceEvaluation = await priceEvaluator.evaluateListing(
-              Number(listingData.eur_per_m2 || 0),
-              listingData.region
-            );
-
-            // Save to database
-            const listing = await storage.createListing({
-              ...listingData,
-              price_evaluation: priceEvaluation,
-              source: 'derstandard'
-            });
-
-            console.log('[DERSTANDARD-DB] ✓ Neues Listing gespeichert:', listing.id);
-
-            // Send email alerts for new listings (Gold Find, Top Listing)
-            await checkAndSendAlerts(listing, 'new');
-
-            // Broadcast new listing
-            wss.clients.forEach(client => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'newListing', listing }));
-              }
-            });
-          } catch (error) {
-            console.error('[DERSTANDARD-DB] ✗ Fehler beim Speichern:', error);
-          }
-        },
-        onPhoneFound: async ({ url, phone }: { url: string; phone: string }) => {
-          try {
-            const updated = await storage.updateDiscoveredLinkPhone(url, phone);
-            wss.clients.forEach(client => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'phoneFound', link: updated || { url, phone_number: phone } }));
-              }
-            });
-          } catch (e) {
-            console.error('updateDiscoveredLinkPhone error', e);
-          }
-        }
+      const scraperDir = path.resolve(__dirname, '..', 'scrapers');
+      const env = {
+        ...process.env,
+        DATABASE_URL: process.env.DATABASE_URL || '',
+        MAX_PAGES: String(maxPages),
+        CATEGORIES: categories.join(','),
+        LOG_LEVEL: 'INFO',
       };
 
-      await derStandardScraper.start(scraperOptions);
+      const broadcastLog = (message: string) => {
+        console.log('[DERSTANDARD-PY]', message);
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'scraperUpdate', message: `[DerStandard] ${message}` }));
+          }
+        });
+      };
 
-      res.json({ success: true, message: "derStandard Scraper gestartet" });
+      broadcastLog('🚀 Python Scrapy Spider wird gestartet...');
+
+      derStandardProcess = spawn('python', ['run_spider.py'], {
+        cwd: scraperDir,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      derStandardRunning = true;
+
+      // stdout: JSON-Events + Scrapy Logs
+      derStandardProcess.stdout?.on('data', (data: Buffer) => {
+        const lines = data.toString().split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          try {
+            const event = JSON.parse(line);
+            // JSON-Events von Python verarbeiten
+            if (event.event === 'new_listing') {
+              broadcastLog(`✅ NEU: ${event.title} | ${event.location} | €${event.price}`);
+              // Broadcast ans Frontend
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'newListing', listing: event }));
+                }
+              });
+            } else if (event.event === 'pipeline_stats') {
+              broadcastLog(`📊 Ergebnis: ${event.new_listings} neue, ${event.updated_listings} aktualisierte Listings`);
+            } else if (event.event === 'spider_finished') {
+              broadcastLog(`✅ Spider beendet: ${event.items_saved} gespeichert, ${event.items_dropped} gefiltert`);
+            } else if (event.event === 'error') {
+              broadcastLog(`❌ Fehler: ${event.message}`);
+            }
+          } catch {
+            // Normale Log-Zeile (kein JSON)
+            if (line.includes('ERROR') || line.includes('WARNING')) {
+              broadcastLog(line.trim());
+            }
+          }
+        }
+      });
+
+      // stderr: Scrapy Logs
+      derStandardProcess.stderr?.on('data', (data: Buffer) => {
+        const lines = data.toString().split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          if (line.includes('[derstandard]') || line.includes('ERROR') || line.includes('items')) {
+            broadcastLog(line.trim());
+          }
+        }
+      });
+
+      // Prozess beendet
+      derStandardProcess.on('close', async (code: number | null) => {
+        derStandardRunning = false;
+        derStandardProcess = null;
+
+        const exitMsg = code === 0
+          ? '✅ DerStandard Spider erfolgreich beendet'
+          : `⚠️ DerStandard Spider beendet (Exit Code: ${code})`;
+        broadcastLog(exitMsg);
+
+        // Post-Processing: Quality Score für neue DerStandard-Listings berechnen
+        if (code === 0) {
+          try {
+            broadcastLog('📊 Post-Processing: Quality Scores berechnen...');
+            const { calculateQualityScore } = await import('./services/quality-scorer');
+
+            // Alle DerStandard-Listings mit quality_score = 0 oder NULL
+            const newListings = await db.execute(sql`
+              SELECT * FROM akquise.listings
+              WHERE source = 'derstandard'
+                AND (quality_score IS NULL OR quality_score = 0)
+                AND is_deleted = false
+            `);
+
+            let updated = 0;
+            for (const listing of (newListings.rows || [])) {
+              const scoreResult = calculateQualityScore(listing as any);
+              await db.execute(sql`
+                UPDATE akquise.listings
+                SET quality_score = ${scoreResult.total},
+                    is_gold_find = ${scoreResult.isGoldFind}
+                WHERE id = ${(listing as any).id}
+              `);
+
+              // Email Alert für neue Top-Listings
+              if (scoreResult.total >= 90 || scoreResult.isGoldFind) {
+                await checkAndSendAlerts(listing as any, 'new');
+              }
+
+              updated++;
+            }
+
+            if (updated > 0) {
+              broadcastLog(`📊 ${updated} Listings mit Quality Score aktualisiert`);
+            }
+          } catch (err) {
+            console.error('[DERSTANDARD-POST] Quality Score Fehler:', err);
+          }
+        }
+      });
+
+      derStandardProcess.on('error', (err: Error) => {
+        derStandardRunning = false;
+        derStandardProcess = null;
+        broadcastLog(`❌ Prozess-Fehler: ${err.message}`);
+      });
+
+      res.json({ success: true, message: "DerStandard Scrapy Spider gestartet" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to start derStandard scraper" });
+      derStandardRunning = false;
+      res.status(500).json({ message: "Failed to start DerStandard scraper" });
     }
   });
 
   app.post("/api/derstandard-scraper/stop", async (req, res) => {
     try {
-      derStandardScraper.stop();
-      res.json({ success: true, message: "derStandard Scraper gestoppt" });
+      if (derStandardProcess) {
+        derStandardProcess.kill('SIGTERM');
+        // Fallback: Force-Kill nach 5s
+        setTimeout(() => {
+          if (derStandardProcess) {
+            derStandardProcess.kill('SIGKILL');
+          }
+        }, 5000);
+      }
+      derStandardRunning = false;
+      res.json({ success: true, message: "DerStandard Scraper gestoppt" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to stop derStandard scraper" });
+      res.status(500).json({ message: "Failed to stop DerStandard scraper" });
     }
   });
 
   app.get("/api/derstandard-scraper/status", async (req, res) => {
     try {
-      const status = derStandardScraper.getStatus();
-      res.json(status);
+      res.json({
+        isRunning: derStandardRunning,
+        pid: derStandardProcess?.pid || null,
+        type: 'python-scrapy',
+      });
     } catch (error) {
-      res.status(500).json({ message: "Failed to get derStandard scraper status" });
+      res.status(500).json({ message: "Failed to get DerStandard scraper status" });
     }
   });
 
@@ -1809,7 +1858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const status247 = continuousScraper.getStatus();
       const statusNewest = newestScraper.getStatus();
-      const statusDerStandard = derStandardScraper.getStatus();
+      const statusDerStandard = { isRunning: derStandardRunning, type: 'python-scrapy' };
       const statusImmoScout = immoScoutScraper.getStatus();
 
       res.json({
@@ -2048,8 +2097,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin routes
-  app.get("/api/admin/users-stats", async (req, res) => {
+  // Admin routes (all require admin privileges)
+  app.get("/api/admin/users-stats", requireAdmin, async (req, res) => {
     try {
       const stats = await storage.getAllUsersWithStats();
       res.json(stats);
@@ -2059,17 +2108,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/users", async (req, res) => {
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
     try {
       const allUsers = await db.select().from(users).orderBy(desc(users.created_at));
-      res.json(allUsers);
+      // Strip password hashes - NEVER expose over API
+      const safeUsers = allUsers.map(({ password, ...user }) => user);
+      res.json(safeUsers);
     } catch (error) {
       console.error("Error fetching all users:", error);
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
 
-  app.patch("/api/admin/users/:id/approve", async (req, res) => {
+  app.patch("/api/admin/users/:id/approve", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const { is_approved } = req.body;
@@ -2085,7 +2136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users/:id/reset-password", async (req, res) => {
+  app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const { newPassword } = req.body;
@@ -2109,7 +2160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/users/:id", async (req, res) => {
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       await db.delete(users).where(eq(users.id, parseInt(id)));
@@ -2120,7 +2171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/clear-listings", async (req, res) => {
+  app.post("/api/admin/clear-listings", requireAdmin, async (req, res) => {
     try {
       await db.delete(listings);
       res.json({ success: true });
@@ -2129,7 +2180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/clear-discovered-links", async (req, res) => {
+  app.post("/api/admin/clear-discovered-links", requireAdmin, async (req, res) => {
     try {
       await db.delete(discovered_links);
       res.json({ success: true });

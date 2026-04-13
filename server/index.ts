@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
+import { requireAuth } from "./middleware/auth";
 import { QualityScoreUpdater } from "./services/quality-score-updater";
 import { fixLastChangedAt } from "./migrations/fix-last-changed-at";
 // import { PriceMirrorScraperService } from "./services/price-mirror-scraper"; // DISABLED: Focus on scraper first
@@ -17,8 +20,45 @@ function log(message: string, source = "express") {
 }
 
 const app = express();
+
+// Security headers
+app.use(helmet());
+
+// Rate limiting for login endpoint (max 10 attempts per 15 min)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Zu viele Login-Versuche. Bitte in 15 Minuten erneut versuchen." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/auth/login", loginLimiter);
+
+// General API rate limiting (max 200 requests per minute)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  message: { error: "Zu viele Anfragen. Bitte warten." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/", apiLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Auth middleware for all API routes EXCEPT public auth endpoints
+app.use("/api/", (req, res, next) => {
+  const publicPaths = [
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/user",
+  ];
+  if (publicPaths.includes(req.path)) {
+    return next();
+  }
+  return requireAuth(req, res, next);
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
