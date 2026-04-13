@@ -36,8 +36,13 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const sessionId = localStorage.getItem('sessionId');
+    const headers: Record<string, string> = {};
+    if (sessionId) headers["x-session-id"] = sessionId;
+
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
