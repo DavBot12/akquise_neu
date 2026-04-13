@@ -1,5 +1,20 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Intercept all fetch calls to inject auth header automatically
+const originalFetch = window.fetch;
+window.fetch = function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const sessionId = localStorage.getItem('sessionId');
+  if (sessionId) {
+    init = init || {};
+    const headers = new Headers(init.headers);
+    if (!headers.has('x-session-id')) {
+      headers.set('x-session-id', sessionId);
+    }
+    init.headers = headers;
+  }
+  return originalFetch.call(this, input, init);
+};
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
