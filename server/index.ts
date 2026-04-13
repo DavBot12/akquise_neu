@@ -50,9 +50,9 @@ app.use(express.urlencoded({ extended: false }));
 // Auth middleware for all API routes EXCEPT public auth endpoints
 app.use("/api/", (req, res, next) => {
   const publicPaths = [
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/user",
+    "/auth/login",
+    "/auth/register",
+    "/auth/user",
   ];
   if (publicPaths.includes(req.path)) {
     return next();
